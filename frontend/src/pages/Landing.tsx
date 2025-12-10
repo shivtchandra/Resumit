@@ -15,7 +15,7 @@ const styles = {
     container: {
         maxWidth: '1240px',
         margin: '0 auto',
-        padding: '0 0.75rem',  // Reduced from 1.5rem to bring text closer to edge
+        padding: '0',  // Removed all padding - text now flush to edge
         position: 'relative' as const,
         zIndex: 10
     },
