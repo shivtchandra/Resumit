@@ -156,7 +156,7 @@ const styles = {
     },
     featuresContainer: {
         maxWidth: '1280px',
-        margin: '0 auto',
+        margin: '0',  // Changed from '0 auto' - left-aligned
         padding: '6rem 1.5rem'
     },
     featuresGrid: {

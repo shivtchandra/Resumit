@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 const styles = {
     container: {
         maxWidth: '1400px',
-        margin: '0 auto',
+        margin: '0',  // Changed from '0 auto' - left-aligned instead of centered
         padding: '3rem 1.5rem',
         background: 'linear-gradient(to bottom, #fafafa 0%, #ffffff 100%)',
         minHeight: '100vh'
