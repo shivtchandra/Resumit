@@ -82,15 +82,16 @@ const styles = {
         display: 'flex',
         alignItems: 'center',
         gap: '0.75rem',
-        padding: isMobile() ? '0.75rem 1rem' : '0.875rem 1rem',  // Smaller padding on mobile
-        borderRadius: 'var(--radius-sm)',
+        padding: isMobile() ? '1rem 1.5rem' : '0.875rem 1rem',  // More padding for touch targets
+        borderRadius: '0',  // No border radius for seamless dropdown
         background: '#ffffff',  // White background
-        border: '1px solid var(--border-subtle)'
+        border: 'none',  // No border
+        borderBottom: '1px solid var(--border-subtle)'  // Only bottom border
     },
     mobileNavLinkActive: {
         background: '#000000',  // Black when selected
         color: '#ffffff',  // White text when selected
-        border: '1px solid #000000',
+        borderBottom: '1px solid #000000',
         fontWeight: 600
     },
     ctaButton: {
@@ -126,13 +127,13 @@ const styles = {
         bottom: 0,
         background: 'rgba(255, 255, 255, 0.98)',  // Slightly transparent white
         backdropFilter: 'blur(8px)',  // Blur background content
-        padding: '2rem 1.5rem',
+        padding: '0',  // No padding for compact dropdown
         display: 'flex',
         flexDirection: 'column' as const,
-        gap: '1rem',
+        gap: '0',  // No gaps between items
         zIndex: 100,  // Higher z-index to overlay everything
         borderTop: '1px solid var(--border-subtle)'
-    }
+    },
 };
 
 export const Navbar = () => {
