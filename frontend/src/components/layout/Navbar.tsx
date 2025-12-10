@@ -13,8 +13,8 @@ const styles = {
     },
     container: {
         maxWidth: '1240px',
-        margin: '0 auto',
-        padding: '0 1.5rem',
+        margin: '0',  // Left-aligned to match page content
+        padding: '0 2.5rem 0 2rem',  // Match Landing page padding
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',

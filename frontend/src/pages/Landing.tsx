@@ -15,7 +15,7 @@ const styles = {
     container: {
         maxWidth: '1240px',
         margin: '0',
-        padding: '0 1.5rem 0 1rem',  // Small left gap (1rem) for breathing room
+        padding: '0 2.5rem 0 2rem',  // Small left gap (1rem) for breathing room
         position: 'relative' as const,
         zIndex: 10
     },
