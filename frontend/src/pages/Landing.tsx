@@ -14,7 +14,7 @@ const styles = {
     },
     container: {
         maxWidth: '1240px',
-        margin: '0 auto',
+        margin: '0',  // Changed from '0 auto' - no longer centered, starts from left
         padding: '0',  // Removed all padding - text now flush to edge
         position: 'relative' as const,
         zIndex: 10
