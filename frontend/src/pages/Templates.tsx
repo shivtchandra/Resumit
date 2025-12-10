@@ -158,6 +158,7 @@ export const Templates = () => {
     const [templates, setTemplates] = useState<ResumeTemplate[]>([]);
     const [previewTemplate, setPreviewTemplate] = useState<ResumeTemplate | null>(null);
     const [loading, setLoading] = useState(true);
+    const [showFilters, setShowFilters] = useState(!isMobile());  // Hidden on mobile by default
 
     useEffect(() => {
         // Load all 20 templates
@@ -204,131 +205,164 @@ export const Templates = () => {
             <div style={styles.container}>
                 {/* Sidebar Filter */}
                 <aside style={styles.sidebar}>
-                    <div style={styles.sidebarHeader}>
-                        <MaterialIcon icon="filter_list" size={20} style={{ color: 'var(--accent-primary)' }} />
-                        <h2 style={styles.sidebarTitle}>
-                            Filter Templates
-                        </h2>
-                    </div>
-
-                    {/* Role Filter */}
-                    <div style={styles.filterGroup}>
-                        <h3 style={styles.filterLabel}>
-                            Role
-                        </h3>
-                        <div style={styles.filterOptions}>
-                            {['Software Engineer', 'Product Manager', 'Data Scientist', 'Designer', 'Marketing'].map((role) => (
-                                <div
-                                    key={role}
-                                    style={styles.filterOption(selectedRole === role)}
-                                    onClick={() => setSelectedRole(selectedRole === role ? '' : role)}
-                                >
-                                    <div style={styles.checkbox(selectedRole === role)}>
-                                        {selectedRole === role && <MaterialIcon icon="check" size={12} style={{ color: '#ffffff' }} />}
-                                    </div>
-                                    <span>{role}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Experience Level Filter */}
-                    <div style={styles.filterGroup}>
-                        <h3 style={styles.filterLabel}>
-                            Experience Level
-                        </h3>
-                        <div style={styles.filterOptions}>
-                            {['Entry', 'Mid', 'Senior', 'Executive'].map((level) => (
-                                <div
-                                    key={level}
-                                    style={styles.filterOption(selectedLevel === level)}
-                                    onClick={() => setSelectedLevel(selectedLevel === level ? '' : level)}
-                                >
-                                    <div style={styles.checkbox(selectedLevel === level)}>
-                                        {selectedLevel === level && <MaterialIcon icon="check" size={12} style={{ color: '#ffffff' }} />}
-                                    </div>
-                                    <span>{level}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* ATS Compatibility Filter */}
-                    <div style={styles.filterGroup}>
-                        <h3 style={styles.filterLabel}>
-                            ATS System
-                        </h3>
-                        <div style={styles.filterOptions}>
-                            {['taleo', 'workday', 'greenhouse', 'icims'].map((ats) => (
-                                <div
-                                    key={ats}
-                                    style={styles.filterOption(selectedATS.includes(ats))}
-                                    onClick={() => handleATSToggle(ats)}
-                                >
-                                    <div style={styles.checkbox(selectedATS.includes(ats))}>
-                                        {selectedATS.includes(ats) && <MaterialIcon icon="check" size={12} style={{ color: '#ffffff' }} />}
-                                    </div>
-                                    <span style={{ textTransform: 'capitalize' }}>{ats}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </aside>
-
-                {/* Main Content */}
-                <main style={styles.main}>
-                    <div style={styles.header}>
-                        <h1 style={styles.title}>
-                            Resume Templates
-                        </h1>
-                        <p style={styles.subtitle}>
-                            {templates.length} production-ready, ATS-optimized templates
-                        </p>
-                    </div>
-
-                    {/* Search Bar */}
-                    <div style={styles.searchContainer}>
-                        <div style={styles.searchIcon}>
-                            <MaterialIcon icon="search" size={20} />
-                        </div>
-                        <input
-                            type="text"
-                            placeholder="Search by name, role, or keyword..."
-                            style={styles.searchInput}
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </div>
-
-                    {/* Results Count */}
-                    <div style={styles.resultsCount}>
-                        Showing {filteredTemplates.length} of {templates.length} templates
-                    </div>
-
-                    {loading ? (
-                        <div style={styles.loadingContainer}>
-                            <LoadingSpinner size="lg" message="Loading templates..." />
-                        </div>
-                    ) : (
-                        <div style={styles.grid}>
-                            {filteredTemplates.map((template) => (
-                                <TemplateCard
-                                    key={template.metadata.template_id}
-                                    template={{
-                                        template_id: template.metadata.template_id,
-                                        name: template.metadata.template_name,
-                                        role: template.metadata.role,
-                                        experience_level: template.metadata.experience_level,
-                                        ats_compatibility: template.metadata.ats_compatibility,
-                                        ats_success_rate: template.metadata.ats_success_rate,
-                                        description: template.metadata.description
-                                    }}
-                                    onPreview={() => handlePreview(template.metadata.template_id)}
-                                />
-                            ))}
-                        </div>
+                    {/* Filter Toggle Button (Mobile Only) */}
+                    {isMobile() && (
+                        <button
+                            onClick={() => setShowFilters(!showFilters)}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                width: '100%',
+                                padding: '0.75rem 1rem',
+                                background: '#000000',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: 'var(--radius-sm)',
+                                fontSize: '0.95rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                marginBottom: showFilters ? '1rem' : '0'
+                            }}
+                        >
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <MaterialIcon icon="filter_list" size={20} />
+                                Filters
+                            </span>
+                            <MaterialIcon icon={showFilters ? 'expand_less' : 'expand_more'} size={20} />
+                        </button>
                     )}
-                </main>
+
+                    {/* Filter Content - Hidden on mobile unless toggled */}
+                    {(showFilters || !isMobile()) && (
+                        <>
+                            {!isMobile() && (
+                                <div style={styles.sidebarHeader}>
+                                    <MaterialIcon icon="filter_list" size={20} style={{ color: 'var(--accent-primary)' }} />
+                                    <h2 style={styles.sidebarTitle}>
+                                        Filter Templates
+                                    </h2>
+                                </div>
+                            )}
+
+                            {/* Role Filter */}
+                            <div style={styles.filterGroup}>
+                                <h3 style={styles.filterLabel}>
+                                    Role
+                                </h3>
+                                <div style={styles.filterOptions}>
+                                    {['Software Engineer', 'Product Manager', 'Data Scientist', 'Designer', 'Marketing'].map((role) => (
+                                        <div
+                                            key={role}
+                                            style={styles.filterOption(selectedRole === role)}
+                                            onClick={() => setSelectedRole(selectedRole === role ? '' : role)}
+                                        >
+                                            <div style={styles.checkbox(selectedRole === role)}>
+                                                {selectedRole === role && <MaterialIcon icon="check" size={12} style={{ color: '#ffffff' }} />}
+                                            </div>
+                                            <span>{role}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Experience Level Filter */}
+                            <div style={styles.filterGroup}>
+                                <h3 style={styles.filterLabel}>
+                                    Experience Level
+                                </h3>
+                                <div style={styles.filterOptions}>
+                                    {['Entry', 'Mid', 'Senior', 'Executive'].map((level) => (
+                                        <div
+                                            key={level}
+                                            style={styles.filterOption(selectedLevel === level)}
+                                            onClick={() => setSelectedLevel(selectedLevel === level ? '' : level)}
+                                        >
+                                            <div style={styles.checkbox(selectedLevel === level)}>
+                                                {selectedLevel === level && <MaterialIcon icon="check" size={12} style={{ color: '#ffffff' }} />}
+                                            </div>
+                                            <span>{level}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* ATS Compatibility Filter */}
+                            <div style={styles.filterGroup}>
+                                <h3 style={styles.filterLabel}>
+                                    ATS System
+                                </h3>
+                                <div style={styles.filterOptions}>
+                                    {['taleo', 'workday', 'greenhouse', 'icims'].map((ats) => (
+                                        <div
+                                            key={ats}
+                                            style={styles.filterOption(selectedATS.includes(ats))}
+                                            onClick={() => handleATSToggle(ats)}
+                                        >
+                                            <div style={styles.checkbox(selectedATS.includes(ats))}>
+                                                {selectedATS.includes(ats) && <MaterialIcon icon="check" size={12} style={{ color: '#ffffff' }} />}
+                                            </div>
+                                            <span style={{ textTransform: 'capitalize' }}>{ats}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </aside>
+
+                    {/* Main Content */}
+                    <main style={styles.main}>
+                        <div style={styles.header}>
+                            <h1 style={styles.title}>
+                                Resume Templates
+                            </h1>
+                            <p style={styles.subtitle}>
+                                {templates.length} production-ready, ATS-optimized templates
+                            </p>
+                        </div>
+
+                        {/* Search Bar */}
+                        <div style={styles.searchContainer}>
+                            <div style={styles.searchIcon}>
+                                <MaterialIcon icon="search" size={20} />
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Search by name, role, or keyword..."
+                                style={styles.searchInput}
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Results Count */}
+                        <div style={styles.resultsCount}>
+                            Showing {filteredTemplates.length} of {templates.length} templates
+                        </div>
+
+                        {loading ? (
+                            <div style={styles.loadingContainer}>
+                                <LoadingSpinner size="lg" message="Loading templates..." />
+                            </div>
+                        ) : (
+                            <div style={styles.grid}>
+                                {filteredTemplates.map((template) => (
+                                    <TemplateCard
+                                        key={template.metadata.template_id}
+                                        template={{
+                                            template_id: template.metadata.template_id,
+                                            name: template.metadata.template_name,
+                                            role: template.metadata.role,
+                                            experience_level: template.metadata.experience_level,
+                                            ats_compatibility: template.metadata.ats_compatibility,
+                                            ats_success_rate: template.metadata.ats_success_rate,
+                                            description: template.metadata.description
+                                        }}
+                                        onPreview={() => handlePreview(template.metadata.template_id)}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </main>
             </div>
 
             {previewTemplate && (
