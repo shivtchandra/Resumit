@@ -1,0 +1,10 @@
+{
+  "score": 52.6,
+  "semantic_score": 38.4,
+  "keyword_score": 0.8,
+  "level": "MODERATE_MATCH",
+  "missing_keywords": [
+    "Angular",
+    "Azure"
+  ]
+}

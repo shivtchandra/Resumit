@@ -1,0 +1,16 @@
+{
+  "executive_summary": "This resume is structured as a Python Developer profile. It is well-optimized for ATS systems with a clean layout and standard sections. It aligns well with the target role but could benefit from more specific keywords.",
+  "strengths": [
+    "Clean, ATS-friendly layout with high parseability.",
+    "Contact information is clearly placed and detectable.",
+    "Strong technical vocabulary with 25 detected skills."
+  ],
+  "gaps": [
+    "Standard section headers (Experience, Education) were not clearly detected.",
+    "Low exact-match keyword density compared to the job description."
+  ],
+  "tactical_actions": [
+    "Fix Layout: Remove tables and columns to ensure text is parsed in the correct order.",
+    "Expand Content: Your resume is too brief. Elaborate on your projects and achievements."
+  ]
+}

@@ -1,0 +1,193 @@
+{
+  "features": {
+    "email_found": true,
+    "phone_found": true,
+    "section_count": 2,
+    "detected_sections": [
+      "technical skills",
+      "education"
+    ],
+    "z_order_score": 0.04524749468569689,
+    "floating_objects": 0,
+    "is_image_based": false,
+    "risk_flags": [
+      "POOR_SECTION_HEADERS"
+    ],
+    "word_count": 217,
+    "ner_skills": [
+      "",
+      "Microservices",
+      "Git",
+      "Jenkins",
+      "Kubernetes",
+      "JavaScript",
+      "Django",
+      "Jira",
+      "Reactes",
+      "React",
+      "QL",
+      "AWS",
+      "Terraform",
+      "SQL",
+      "PostgreSQL",
+      "JavaScript ( ES6",
+      "Docker",
+      "Node.js",
+      "Go",
+      "TypeScript",
+      "FastAPI",
+      "Python",
+      "CI/CD",
+      "Redis",
+      ")"
+    ],
+    "ner_entities": {
+      "skills": [
+        "",
+        "Microservices",
+        "Git",
+        "Jenkins",
+        "Kubernetes",
+        "JavaScript",
+        "Django",
+        "Jira",
+        "Reactes",
+        "React",
+        "QL",
+        "AWS",
+        "Terraform",
+        "SQL",
+        "PostgreSQL",
+        "JavaScript ( ES6",
+        "Docker",
+        "Node.js",
+        "Go",
+        "TypeScript",
+        "FastAPI",
+        "Python",
+        "CI/CD",
+        "Redis",
+        ")"
+      ],
+      "designation": [],
+      "company": [
+        "product"
+      ],
+      "degree": [
+        "managers to implement A / B testing frameworks",
+        "Science University of California",
+        "."
+      ],
+      "all_entities": [
+        {
+          "word": "david. chen @ email. com",
+          "label": "Email Address",
+          "score": 0.8351254463195801
+        },
+        {
+          "word": "( 415 ) 555 - 0192in. comvid",
+          "label": "Phone",
+          "score": 0.8083823323249817
+        },
+        {
+          "word": "product",
+          "label": "Companies worked at",
+          "score": 0.6517069935798645
+        },
+        {
+          "word": "managers to implement A / B testing frameworks",
+          "label": "Degree",
+          "score": 0.6901019215583801
+        },
+        {
+          "word": ".",
+          "label": "Degree",
+          "score": 0.5695545077323914
+        },
+        {
+          "word": "Science University of California",
+          "label": "Degree",
+          "score": 0.6167543530464172
+        },
+        {
+          "word": ", JavaScript ( ES6",
+          "label": "Skills",
+          "score": 0.5614093542098999
+        },
+        {
+          "word": "), TypeScript,QL",
+          "label": "Skills",
+          "score": 0.5606842041015625
+        },
+        {
+          "word": "Reactes",
+          "label": "Skills",
+          "score": 0.558586597442627
+        }
+      ]
+    },
+    "predicted_category": "Python Developer",
+    "category_confidence": 0.4,
+    "timeline": {
+      "gaps": [],
+      "total_experience_years": 7.9,
+      "has_gaps": false,
+      "timeline_score": 100.0,
+      "date_count": 5,
+      "jobs": [
+        {
+          "title": "Detected Role",
+          "company": "Unknown Company",
+          "start_date": "2018-01-01",
+          "end_date": "Present"
+        },
+        {
+          "title": "Detected Role",
+          "company": "Unknown Company",
+          "start_date": "2018-06-01",
+          "end_date": "Present"
+        },
+        {
+          "title": "Detected Role",
+          "company": "Unknown Company",
+          "start_date": "2020-12-01",
+          "end_date": "Present"
+        },
+        {
+          "title": "Detected Role",
+          "company": "Unknown Company",
+          "start_date": "2021-01-01",
+          "end_date": "Present"
+        },
+        {
+          "title": "Detected Role",
+          "company": "Unknown Company",
+          "start_date": "2025-12-01",
+          "end_date": "Present"
+        }
+      ]
+    },
+    "raw_text": "DAVID CHEN\n\ndavid.chen@email.com  |  (415) 555-0192  |  linkedin.com/in/davidchen-dev\n\nPROFESSIONAL SUMMARY\n\nFull Stack Engineer with 6 years of experience designing scalable microservices and real-time web applications.\nSpecialized  in  Python/Django  backends  and  React  frontends.  Successfully  migrated  legacy  systems  to  AWS,\nreducing infrastructure costs by 40% while improving uptime to 99.99%.\n\nPROFESSIONAL EXPERIENCE\n\nSenior Software Engineer\nNexus Fintech Solutions\n\nJan 2021 - Present\n\n• Architected a high-frequency trading dashboard using React and WebSocket, handling 5,000+ updates per\n\nsecond with <50ms latency.\n\n• Led the migration of a monolithic payment processing system to Kubernetes-based microservices, reducing\n\ndeployment time by 75%.\n\n• Mentored  4  junior  developers  and  introduced  automated  code  quality  checks  (SonarQube),  reducing\n\nproduction bugs by 30%.\n\nSoftware Engineer\nCloudScale Systems\n\nJun 2018 - Dec 2020\n\n• Developed  RESTful  APIs  for  a  SaaS  analytics  platform  serving  50k+  daily  active  users  using  Python\n\n(FastAPI) and PostgreSQL.\n\n• Optimized database queries and implemented Redis caching, improving API response times from 500ms to\n\n80ms.\n\n• Collaborated with product managers to implement A/B testing frameworks, leading to a 15% increase in user\n\nretention.\n\nEDUCATION\n\nB.S. Computer Science\nUniversity of California, Berkeley\n\nTECHNICAL SKILLS\n\nLanguages: Python, JavaScript (ES6+), TypeScript, SQL, Go\nFrameworks: React, Node.js, Django, FastAPI, Next.js\nInfrastructure: AWS (EC2, Lambda, S3), Docker, Kubernetes, Terraform\nTools: Git, CI/CD (Jenkins, GitHub Actions), Jira, Datadog\n\n2018\n\nPage 1\n\n\f"
+  },
+  "friendliness": {
+    "score": 90,
+    "risk_level": "ATS_FRIENDLY",
+    "issues": [
+      {
+        "type": "POOR_SECTION_HEADERS",
+        "penalty": 15,
+        "message": "Could not detect standard sections (Experience, Education). Use standard headers."
+      }
+    ],
+    "advice": [
+      "Could not detect standard sections (Experience, Education). Use standard headers."
+    ],
+    "model_type": "ML"
+  },
+  "relevance": {
+    "score": 68.5,
+    "semantic_score": 45.1,
+    "keyword_score": 29.4,
+    "level": "GOOD_MATCH"
+  }
+}

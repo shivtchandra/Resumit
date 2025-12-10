@@ -1,0 +1,9 @@
+{
+  "feature_cols": [
+    "tfidf_similarity",
+    "semantic_similarity",
+    "len_ratio"
+  ],
+  "semantic_model": "all-MiniLM-L6-v2",
+  "version": "1.0"
+}

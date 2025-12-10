@@ -1,0 +1,59 @@
+{
+  "feature_cols": [
+    "has_email",
+    "has_phone",
+    "has_contact_info",
+    "num_sections",
+    "z_order_score",
+    "floating_objects",
+    "is_image_based",
+    "word_count",
+    "word_count_log",
+    "num_risk_flags"
+  ],
+  "feature_importance": [
+    {
+      "feature": "num_risk_flags",
+      "importance": 0.6345613425171287
+    },
+    {
+      "feature": "num_sections",
+      "importance": 0.24679860121030636
+    },
+    {
+      "feature": "z_order_score",
+      "importance": 0.038054431460601695
+    },
+    {
+      "feature": "word_count_log",
+      "importance": 0.035986300722302626
+    },
+    {
+      "feature": "word_count",
+      "importance": 0.03279498630921953
+    },
+    {
+      "feature": "has_phone",
+      "importance": 0.0051804000646293
+    },
+    {
+      "feature": "has_contact_info",
+      "importance": 0.004539912437023883
+    },
+    {
+      "feature": "has_email",
+      "importance": 0.0020840252787878988
+    },
+    {
+      "feature": "floating_objects",
+      "importance": 0.0
+    },
+    {
+      "feature": "is_image_based",
+      "importance": 0.0
+    }
+  ],
+  "model_type": "RandomForest + GradientBoosting",
+  "training_samples": 200,
+  "version": "1.0"
+}
