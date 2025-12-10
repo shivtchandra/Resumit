@@ -9,8 +9,8 @@ import { useNavigate } from 'react-router-dom';
 const styles = {
     container: {
         maxWidth: '1400px',
-        margin: '0',  // Changed from '0 auto' - left-aligned instead of centered
-        padding: '3rem 1.5rem',
+        margin: '0',
+        padding: '3rem 1.5rem 3rem 1rem',  // Small left gap (1rem) for breathing room
         background: 'linear-gradient(to bottom, #fafafa 0%, #ffffff 100%)',
         minHeight: '100vh'
     },

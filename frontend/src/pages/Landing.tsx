@@ -14,8 +14,8 @@ const styles = {
     },
     container: {
         maxWidth: '1240px',
-        margin: '0',  // Changed from '0 auto' - no longer centered, starts from left
-        padding: '0',  // Removed all padding - text now flush to edge
+        margin: '0',
+        padding: '0 1.5rem 0 1rem',  // Small left gap (1rem) for breathing room
         position: 'relative' as const,
         zIndex: 10
     },
@@ -156,8 +156,8 @@ const styles = {
     },
     featuresContainer: {
         maxWidth: '1280px',
-        margin: '0',  // Changed from '0 auto' - left-aligned
-        padding: '6rem 1.5rem'
+        margin: '0',
+        padding: '6rem 1.5rem 6rem 1rem'  // Small left gap (1rem)
     },
     featuresGrid: {
         display: 'grid',
