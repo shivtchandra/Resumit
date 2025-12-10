@@ -15,7 +15,7 @@ const styles = {
     container: {
         maxWidth: '1240px',
         margin: '0 auto',
-        padding: '0 1.5rem',
+        padding: '0 0.75rem',  // Reduced from 1.5rem to bring text closer to edge
         position: 'relative' as const,
         zIndex: 10
     },
@@ -26,7 +26,7 @@ const styles = {
         alignItems: 'center'
     },
     heroGridLg: {
-        gridTemplateColumns: '1fr 1fr'
+        gridTemplateColumns: '1.2fr 1fr'  // Give more space to left column (text)
     },
     heroLeft: {
         display: 'flex',
