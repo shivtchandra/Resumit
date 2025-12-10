@@ -72,6 +72,27 @@ const styles = {
         color: 'var(--text-main)',
         borderBottomColor: 'var(--text-main)'
     },
+    // Mobile menu link styles
+    mobileNavLink: {
+        color: 'var(--text-main)',
+        textDecoration: 'none',
+        fontSize: isMobile() ? '0.95rem' : '1.1rem',  // Smaller on mobile
+        fontWeight: 500,
+        transition: 'all 0.2s',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.75rem',
+        padding: isMobile() ? '0.75rem 1rem' : '0.875rem 1rem',  // Smaller padding on mobile
+        borderRadius: 'var(--radius-sm)',
+        background: '#ffffff',  // White background
+        border: '1px solid var(--border-subtle)'
+    },
+    mobileNavLinkActive: {
+        background: '#000000',  // Black when selected
+        color: '#ffffff',  // White text when selected
+        border: '1px solid #000000',
+        fontWeight: 600
+    },
     ctaButton: {
         padding: '0.75rem 1.5rem',
         background: 'var(--text-main)',
@@ -200,13 +221,11 @@ export const Navbar = () => {
                                 to={link.path}
                                 onClick={() => setIsMobileMenuOpen(false)}
                                 style={{
-                                    ...styles.navLink,
-                                    ...(active ? styles.navLinkActive : {}),
-                                    fontSize: '1.1rem',
-                                    padding: '0.75rem'
+                                    ...styles.mobileNavLink,
+                                    ...(active ? styles.mobileNavLinkActive : {})
                                 }}
                             >
-                                <MaterialIcon icon={link.icon} size={24} filled={active} />
+                                <MaterialIcon icon={link.icon} size={20} filled={active} />
                                 {link.label}
                             </Link>
                         );
