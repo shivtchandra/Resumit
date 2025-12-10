@@ -8,21 +8,26 @@ import { LoadingSpinner } from '../components/ui/Loading';
 import { getProductionTemplates } from '../data/allTemplates';
 import type { ResumeTemplate } from '../data/realisticTemplates';
 
+// Responsive helper
+const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 768;
+
 const styles = {
     container: {
         display: 'flex',
+        flexDirection: isMobile() ? 'column' as const : 'row' as const,  // Stack vertically on mobile
         minHeight: 'calc(100vh - 4rem)',
         background: 'var(--bg-page)'
     },
     sidebar: {
-        width: '18rem',
+        width: isMobile() ? '100%' : '18rem',
         background: 'var(--bg-card)',
-        borderRight: '1px solid var(--border-subtle)',
-        padding: '2rem 1.5rem',
+        borderRight: isMobile() ? 'none' : '1px solid var(--border-subtle)',
+        borderBottom: isMobile() ? '1px solid var(--border-subtle)' : 'none',
+        padding: isMobile() ? '1rem' : '2rem 1.5rem',
         overflowY: 'auto' as const,
-        position: 'sticky' as const,
-        top: '4rem',
-        height: 'calc(100vh - 4rem)'
+        position: isMobile() ? 'relative' as const : 'sticky' as const,
+        top: isMobile() ? '0' : '4rem',
+        height: isMobile() ? 'auto' : 'calc(100vh - 4rem)'
     },
     sidebarHeader: {
         display: 'flex',
@@ -49,21 +54,26 @@ const styles = {
     },
     filterOptions: {
         display: 'flex',
-        flexDirection: 'column' as const,
-        gap: '0.5rem'
+        flexDirection: isMobile() ? 'row' as const : 'column' as const,  // Horizontal on mobile
+        gap: isMobile() ? '0.5rem' : '0.5rem',
+        flexWrap: isMobile() ? 'wrap' as const : 'nowrap' as const,
+        overflowX: isMobile() ? 'auto' as const : 'visible' as const
     },
     filterOption: (active: boolean) => ({
         display: 'flex',
         alignItems: 'center',
         gap: '0.75rem',
-        padding: '0.625rem 0.75rem',
+        padding: isMobile() ? '0.5rem 0.75rem' : '0.625rem 0.75rem',  // Smaller on mobile
         borderRadius: 'var(--radius-sm)',
         cursor: 'pointer',
         transition: 'all 0.2s',
-        background: active ? 'var(--bg-surface)' : 'transparent',
-        border: `1px solid ${active ? 'var(--border-subtle)' : 'transparent'}`,
-        color: active ? 'var(--text-main)' : 'var(--text-muted)',
-        fontWeight: active ? 600 : 400
+        background: active ? '#000000' : '#ffffff',  // Black when selected, white otherwise
+        border: `1px solid ${active ? '#000000' : 'var(--border-subtle)'}`,
+        color: active ? '#ffffff' : 'var(--text-main)',  // White text when selected
+        fontWeight: active ? 600 : 400,
+        fontSize: isMobile() ? '0.875rem' : '1rem',  // Smaller text on mobile
+        whiteSpace: 'nowrap' as const,
+        flexShrink: isMobile() ? 0 : 1
     }),
     checkbox: (checked: boolean) => ({
         width: '1.125rem',
@@ -79,7 +89,7 @@ const styles = {
     }),
     main: {
         flex: 1,
-        padding: '2rem 3rem',
+        padding: isMobile() ? '1.5rem 1rem' : '2rem 3rem',  // Less padding on mobile
         overflowY: 'auto' as const
     },
     header: {
@@ -123,8 +133,8 @@ const styles = {
     },
     grid: {
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(22rem, 1fr))',
-        gap: '2rem'
+        gridTemplateColumns: isMobile() ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(22rem, 1fr))',  // 2 columns on mobile
+        gap: isMobile() ? '1rem' : '2rem'  // Smaller gap on mobile
     },
     loadingContainer: {
         display: 'flex',
