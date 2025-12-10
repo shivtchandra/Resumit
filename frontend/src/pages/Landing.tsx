@@ -31,8 +31,7 @@ const styles = {
     heroLeft: {
         display: 'flex',
         flexDirection: 'column' as const,
-        justifyContent: 'center',
-        alignItems: 'flex-start' as const
+        justifyContent: 'center'
     },
     pill: {
         display: 'inline-flex',
@@ -76,8 +75,7 @@ const styles = {
         display: 'flex',
         flexDirection: 'column' as const,
         gap: '1rem',
-        marginBottom: '3rem',
-        alignItems: 'flex-start' as const
+        marginBottom: '3rem'
     },
     ctaContainerSm: {
         flexDirection: 'row' as const
