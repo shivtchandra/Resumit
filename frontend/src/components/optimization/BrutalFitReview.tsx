@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle, XCircle, TrendingDown, Target, Lightbulb } from 'lucide-react';
+import { AlertTriangle, CheckCircle, XCircle, TrendingDown, Target, Lightbulb, Search, Clock } from 'lucide-react';
 import type { HarshReview, CompanyExpectations } from '@/types';
 
 interface BrutalFitReviewProps {
@@ -161,7 +161,8 @@ export const BrutalFitReview = ({ companyExpectations, harshReview }: BrutalFitR
             {/* Header */}
             <div style={styles.header}>
                 <h2 style={styles.title}>
-                    🔍 Brutal Fit Review (AI as a hiring manager)
+                    <Search size={20} style={{ display: 'inline-block', marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                    Brutal Fit Review (AI as a hiring manager)
                 </h2>
                 <p style={styles.subtitle}>
                     Unfiltered feedback on how you look for this job
@@ -245,8 +246,9 @@ export const BrutalFitReview = ({ companyExpectations, harshReview }: BrutalFitR
                                 <strong>How to build it:</strong> {skill.how_to_build_it}
                             </div>
                             {skill.success_story && (
-                                <div style={{ ...styles.skillDetail, marginTop: '0.5rem', fontStyle: 'italic', color: '#059669' }}>
-                                    💡 <strong>Success story:</strong> {skill.success_story}
+                                <div style={{ ...styles.skillDetail, marginTop: '0.5rem', fontStyle: 'italic', color: '#059669', display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                                    <Lightbulb size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                                    <span><strong>Success story:</strong> {skill.success_story}</span>
                                 </div>
                             )}
                         </div>
@@ -293,12 +295,15 @@ export const BrutalFitReview = ({ companyExpectations, harshReview }: BrutalFitR
                             )}
                             <div style={{ display: 'flex', gap: '1rem', fontSize: '0.85rem', color: '#64748b', marginTop: '0.5rem' }}>
                                 {actionItem.time_estimate && (
-                                    <span>⏱️ <strong>Time:</strong> {actionItem.time_estimate}</span>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                        <Clock size={14} /> <strong>Time:</strong> {actionItem.time_estimate}
+                                    </span>
                                 )}
                             </div>
                             {actionItem.what_helped_others && (
-                                <p style={{ margin: '0.75rem 0 0 0', fontSize: '0.85rem', color: '#059669', fontStyle: 'italic', background: '#ecfdf5', padding: '0.5rem', borderRadius: '4px' }}>
-                                    💡 {actionItem.what_helped_others}
+                                <p style={{ margin: '0.75rem 0 0 0', fontSize: '0.85rem', color: '#059669', fontStyle: 'italic', background: '#ecfdf5', padding: '0.5rem', borderRadius: '4px', display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                                    <Lightbulb size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                                    <span>{actionItem.what_helped_others}</span>
                                 </p>
                             )}
                         </div>

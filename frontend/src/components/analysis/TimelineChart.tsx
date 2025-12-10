@@ -1,4 +1,5 @@
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, ReferenceLine } from 'recharts';
+import { AlertTriangle } from 'lucide-react';
 
 interface TimelineData {
     year: string;
@@ -22,7 +23,9 @@ export const TimelineChart = ({ data }: TimelineChartProps) => {
                     <p className="text-text-secondary">{item.company}</p>
                     <p className="text-text-muted mt-1">{item.duration} months</p>
                     {item.gap && (
-                        <p className="text-signal-danger font-bold mt-1">⚠️ Employment Gap</p>
+                        <p className="text-signal-danger font-bold mt-1 flex items-center gap-1">
+                            <AlertTriangle size={14} /> Employment Gap
+                        </p>
                     )}
                 </div>
             );

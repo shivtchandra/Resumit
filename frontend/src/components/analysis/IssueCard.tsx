@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, AlertCircle, AlertTriangle, Info } from 'lucide-react';
+import { ChevronDown, ChevronUp, AlertCircle, AlertTriangle, Info, Lightbulb } from 'lucide-react';
 
 interface IssueCardProps {
     issue: {
@@ -192,8 +192,8 @@ export const IssueCard = ({ issue }: IssueCardProps) => {
 
             {isExpanded && (
                 <div style={styles.expandedSection(config.border)}>
-                    <h5 style={styles.fixTitle}>
-                        💡 How to Fix:
+                    <h5 style={{ ...styles.fixTitle, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Lightbulb size={16} /> How to Fix:
                     </h5>
                     <ul style={styles.suggestionsList}>
                         {issue.fix_suggestions.map((suggestion, index) => (

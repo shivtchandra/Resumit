@@ -55,7 +55,8 @@ const styles = {
         lineHeight: '0.95',
         letterSpacing: '-0.02em',
         marginBottom: '2rem',
-        color: 'var(--text-main)'
+        color: 'var(--text-main)',
+        textAlign: 'left' as const
     },
     h1Accent: {
         color: 'var(--text-subtle)',
@@ -67,7 +68,8 @@ const styles = {
         maxWidth: '32rem',
         marginBottom: '2.5rem',
         fontWeight: 400,
-        lineHeight: '1.75'
+        lineHeight: '1.75',
+        textAlign: 'left' as const
     },
     ctaContainer: {
         display: 'flex',
