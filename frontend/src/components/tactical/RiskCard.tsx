@@ -1,5 +1,5 @@
 import { Card } from '@/components/ui/card';
-import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle, XCircle, MapPin, Lightbulb } from 'lucide-react';
 import { useState } from 'react';
 
 interface RiskCardProps {
@@ -59,17 +59,17 @@ export const RiskCard = ({ type, message, severity, penalty, location, onFix }: 
                         {isExpanded && (
                             <div className="mt-3 space-y-2 text-xs font-mono">
                                 {location && (
-                                    <div className="text-text-muted">
-                                        📍 Location: {location}
+                                    <div className="text-text-muted flex items-center gap-1">
+                                        <MapPin size={12} /> Location: {location}
                                     </div>
                                 )}
                                 {penalty && (
-                                    <div className={config.color}>
-                                        ⚠️ Penalty: -{penalty} points
+                                    <div className={`${config.color} flex items-center gap-1`}>
+                                        <AlertTriangle size={12} /> Penalty: -{penalty} points
                                     </div>
                                 )}
-                                <div className="text-cyan-neon">
-                                    💡 Click "Fix Now" to apply automated correction
+                                <div className="text-cyan-neon flex items-center gap-1">
+                                    <Lightbulb size={12} /> Click "Fix Now" to apply automated correction
                                 </div>
                             </div>
                         )}

@@ -1,0 +1,5 @@
+{
+  "artifactType": "ARTIFACT_TYPE_IMPLEMENTATION_PLAN",
+  "summary": "Comprehensive plan for integrating training datasets into the three ML modes, including dataset selection rationale, download scripts, preprocessing pipelines, and training workflows.",
+  "updatedAt": "2025-11-24T05:23:14.675233Z"
+}
