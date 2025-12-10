@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { MaterialIcon } from '../ui/MaterialIcon';
 
+// Responsive helper
+const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 768;
+
 const styles = {
     nav: {
         position: 'sticky' as const,
@@ -14,11 +17,11 @@ const styles = {
     container: {
         maxWidth: '1240px',
         margin: '0',  // Left-aligned to match page content
-        padding: '0 2.5rem 0 2rem',  // Match Landing page padding
+        padding: isMobile() ? '0 1rem' : '0 2.5rem 0 2rem',  // 1rem mobile, 2rem desktop
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        height: '4.5rem'
+        height: isMobile() ? '3.5rem' : '4.5rem'  // Shorter on mobile
     },
     left: {
         display: 'flex',
@@ -36,7 +39,7 @@ const styles = {
     },
     logoText: {
         fontFamily: 'var(--font-heading)',
-        fontSize: '1.25rem',
+        fontSize: isMobile() ? '1.1rem' : '1.25rem',  // Smaller on mobile
         fontWeight: 700,
         color: 'var(--text-main)',
         letterSpacing: '-0.02em'

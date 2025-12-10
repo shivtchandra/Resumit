@@ -6,11 +6,14 @@ import { ArrowLeft, Sparkles, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 
+// Responsive helper
+const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 768;
+
 const styles = {
     container: {
         maxWidth: '1400px',
         margin: '0',
-        padding: '3rem 1.5rem 3rem 1rem',  // Small left gap (1rem) for breathing room
+        padding: isMobile() ? '2rem 1rem' : '3rem 1.5rem 3rem 1rem',  // Less padding on mobile
         background: 'linear-gradient(to bottom, #fafafa 0%, #ffffff 100%)',
         minHeight: '100vh'
     },
@@ -37,7 +40,7 @@ const styles = {
     },
     title: {
         fontFamily: "'Space Grotesk', sans-serif",
-        fontSize: '3rem',
+        fontSize: isMobile() ? '2rem' : '3rem',  // 32px mobile, 48px desktop
         fontWeight: 700,
         background: 'linear-gradient(135deg, #1e293b 0%, #475569 100%)',
         WebkitBackgroundClip: 'text',

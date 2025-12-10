@@ -3,6 +3,9 @@ import { MaterialIcon } from '../components/ui/MaterialIcon';
 import { PageLayout } from '../components/layout/PageLayout';
 import { Navbar } from '../components/layout/Navbar';
 
+// Responsive helper
+const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 768;
+
 const styles = {
     hero: {
         position: 'relative' as const,
@@ -15,7 +18,7 @@ const styles = {
     container: {
         maxWidth: '1240px',
         margin: '0',
-        padding: '0 2.5rem 0 2rem',  // Small left gap (1rem) for breathing room
+        padding: isMobile() ? '0 1rem' : '0 2.5rem 0 2rem',  // 1rem on mobile, 2rem on desktop
         position: 'relative' as const,
         zIndex: 10
     },
@@ -52,10 +55,10 @@ const styles = {
     h1: {
         fontFamily: "'Space Grotesk', sans-serif",
         fontWeight: 700,
-        fontSize: '4rem',
-        lineHeight: '0.95',
+        fontSize: isMobile() ? '2.5rem' : '4rem',  // 40px mobile, 64px desktop
+        lineHeight: isMobile() ? '1.1' : '0.95',
         letterSpacing: '-0.02em',
-        marginBottom: '2rem',
+        marginBottom: isMobile() ? '1.5rem' : '2rem',
         color: 'var(--text-main)',
         textAlign: 'left' as const
     },
@@ -64,10 +67,10 @@ const styles = {
         fontStyle: 'italic'
     },
     subtext: {
-        fontSize: '1.25rem',
+        fontSize: isMobile() ? '1rem' : '1.25rem',  // 16px mobile, 20px desktop
         color: 'var(--text-muted)',
         maxWidth: '32rem',
-        marginBottom: '2.5rem',
+        marginBottom: isMobile() ? '1.5rem' : '2.5rem',
         fontWeight: 400,
         lineHeight: '1.75',
         textAlign: 'left' as const
@@ -83,12 +86,12 @@ const styles = {
         flexDirection: 'row' as const
     },
     btnPrimary: {
-        padding: '1rem 2rem',
+        padding: isMobile() ? '0.875rem 1.5rem' : '1rem 2rem',  // Smaller on mobile
         borderRadius: '9999px',
         background: 'var(--text-main)',
         color: '#ffffff',
         fontWeight: 600,
-        fontSize: '1.125rem',
+        fontSize: isMobile() ? '1rem' : '1.125rem',  // 16px mobile, 18px desktop
         transition: 'all 0.3s',
         boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
         textAlign: 'center' as const,
@@ -97,15 +100,17 @@ const styles = {
         cursor: 'pointer',
         display: 'inline-flex',
         alignItems: 'center',
-        gap: '0.5rem'
+        gap: '0.5rem',
+        width: isMobile() ? '100%' : 'auto',  // Full width on mobile
+        justifyContent: 'center'
     },
     btnSecondary: {
-        padding: '1rem 2rem',
+        padding: isMobile() ? '0.875rem 1.5rem' : '1rem 2rem',
         borderRadius: '9999px',
         border: '1px solid var(--border-subtle)',
         color: 'var(--text-main)',
         fontWeight: 500,
-        fontSize: '1.125rem',
+        fontSize: isMobile() ? '1rem' : '1.125rem',
         transition: 'all 0.3s',
         textAlign: 'center' as const,
         textDecoration: 'none',
@@ -113,27 +118,30 @@ const styles = {
         cursor: 'pointer',
         display: 'inline-flex',
         alignItems: 'center',
-        gap: '0.5rem'
+        gap: '0.5rem',
+        width: isMobile() ? '100%' : 'auto',
+        justifyContent: 'center'
     },
     stats: {
         display: 'flex',
         alignItems: 'center',
-        gap: '2rem',
+        gap: isMobile() ? '1.5rem' : '2rem',
         borderTop: '1px solid var(--border-subtle)',
-        paddingTop: '2rem'
+        paddingTop: isMobile() ? '1.5rem' : '2rem',
+        flexWrap: 'wrap' as const  // Allow wrapping on very small screens
     },
     statItem: {
         display: 'flex',
         flexDirection: 'column' as const
     },
     statNumber: {
-        fontSize: '1.5rem',
+        fontSize: isMobile() ? '1.25rem' : '1.5rem',
         fontFamily: "'Space Grotesk', sans-serif",
         fontWeight: 700,
         color: 'var(--text-main)'
     },
     statLabel: {
-        fontSize: '0.875rem',
+        fontSize: isMobile() ? '0.8rem' : '0.875rem',
         color: 'var(--text-muted)'
     },
     heroRight: {
@@ -157,7 +165,7 @@ const styles = {
     featuresContainer: {
         maxWidth: '1280px',
         margin: '0',
-        padding: '6rem 1.5rem 6rem 1rem'  // Small left gap (1rem)
+        padding: isMobile() ? '4rem 1rem' : '6rem 1.5rem 6rem 1rem'  // Less padding on mobile
     },
     featuresGrid: {
         display: 'grid',
