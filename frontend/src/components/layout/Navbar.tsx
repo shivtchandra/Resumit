@@ -99,16 +99,18 @@ const styles = {
     },
     mobileMenu: {
         position: 'fixed' as const,
-        top: '4.5rem',
+        top: isMobile() ? '3.5rem' : '4.5rem',  // Match responsive navbar height
         left: 0,
         right: 0,
         bottom: 0,
-        background: 'var(--bg-page)',
+        background: 'rgba(255, 255, 255, 0.98)',  // Slightly transparent white
+        backdropFilter: 'blur(8px)',  // Blur background content
         padding: '2rem 1.5rem',
         display: 'flex',
         flexDirection: 'column' as const,
         gap: '1rem',
-        zIndex: 40
+        zIndex: 100,  // Higher z-index to overlay everything
+        borderTop: '1px solid var(--border-subtle)'
     }
 };
 
