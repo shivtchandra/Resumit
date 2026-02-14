@@ -3,6 +3,7 @@ from pdfminer.high_level import extract_text
 from Levenshtein import ratio
 import io
 import logging
+from typing import List
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,7 @@ class PDFParser:
         visual_text = ""
         is_image_based = True
         total_text_len = 0
+        extracted_urls = self._extract_hyperlinks(doc)
         
         for page in doc:
             text = page.get_text()
@@ -77,7 +79,8 @@ class PDFParser:
             "file_size_bytes": len(file_bytes),
             "has_tables": has_tables,
             "table_count": table_count,
-            "has_multi_column": has_columns
+            "has_multi_column": has_columns,
+            "extracted_urls": extracted_urls,
         }
     
     def _detect_tables(self, doc):
@@ -113,3 +116,27 @@ class PDFParser:
                 if gaps and max(gaps) > 100:  # Significant horizontal gap
                     return True
         return False
+
+    def _extract_hyperlinks(self, doc) -> List[str]:
+        """Extract external hyperlinks embedded in the PDF (e.g., LinkedIn/GitHub URL behind anchor text)."""
+        urls: List[str] = []
+        seen = set()
+        for page in doc:
+            try:
+                links = page.get_links()
+            except Exception:
+                continue
+            for link in links:
+                uri = (link or {}).get("uri")
+                if not uri:
+                    continue
+                cleaned = str(uri).strip().rstrip(".,);")
+                if not cleaned:
+                    continue
+                if not cleaned.startswith(("http://", "https://")) and "." in cleaned:
+                    cleaned = f"https://{cleaned}"
+                if cleaned in seen:
+                    continue
+                seen.add(cleaned)
+                urls.append(cleaned)
+        return urls[:40]

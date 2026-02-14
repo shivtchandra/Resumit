@@ -1,238 +1,115 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { MaterialIcon } from '../ui/MaterialIcon';
+import { motion, AnimatePresence } from 'framer-motion';
 
-// Responsive helper
-const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 768;
-
-const styles = {
-    nav: {
-        position: 'sticky' as const,
-        top: 0,
-        zIndex: 50,
-        background: 'rgba(255, 255, 255, 0.8)',
-        borderBottom: '1px solid var(--border-subtle)',
-        backdropFilter: 'blur(12px)'
-    },
-    container: {
-        maxWidth: '1240px',
-        margin: '0',  // Left-aligned to match page content
-        padding: isMobile() ? '0 1rem' : '0 2.5rem 0 2rem',  // 1rem mobile, 2rem desktop
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        height: isMobile() ? '3.5rem' : '4.5rem'  // Shorter on mobile
-    },
-    left: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '2rem'
-    },
-    logo: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.75rem',
-        textDecoration: 'none'
-    },
-    logoIcon: {
-        color: 'var(--text-main)'
-    },
-    logoText: {
-        fontFamily: 'var(--font-heading)',
-        fontSize: isMobile() ? '1.1rem' : '1.25rem',  // Smaller on mobile
-        fontWeight: 700,
-        color: 'var(--text-main)',
-        letterSpacing: '-0.02em'
-    },
-    logoAccent: {
-        color: 'var(--text-subtle)',
-        fontWeight: 400
-    },
-    navLinks: {
-        display: 'none',
-        gap: '2rem',
-        alignItems: 'center'
-    },
-    navLinksDesktop: {
-        display: 'flex'
-    },
-    navLink: {
-        color: 'var(--text-muted)',
-        textDecoration: 'none',
-        fontSize: '0.95rem',
-        fontWeight: 500,
-        transition: 'all 0.2s',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        padding: '0.5rem 0',
-        borderBottom: '2px solid transparent'
-    },
-    navLinkActive: {
-        color: 'var(--text-main)',
-        borderBottomColor: 'var(--text-main)'
-    },
-    // Mobile menu link styles
-    mobileNavLink: {
-        color: 'var(--text-main)',
-        textDecoration: 'none',
-        fontSize: isMobile() ? '0.95rem' : '1.1rem',  // Smaller on mobile
-        fontWeight: 500,
-        transition: 'all 0.2s',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.75rem',
-        padding: isMobile() ? '1rem 1.5rem' : '0.875rem 1rem',  // More padding for touch targets
-        borderRadius: '0',  // No border radius for seamless dropdown
-        background: '#ffffff',  // White background
-        border: 'none',  // No border
-        borderBottom: '1px solid var(--border-subtle)'  // Only bottom border
-    },
-    mobileNavLinkActive: {
-        background: '#000000',  // Black when selected
-        color: '#ffffff',  // White text when selected
-        borderBottom: '1px solid #000000',
-        fontWeight: 600
-    },
-    ctaButton: {
-        padding: '0.75rem 1.5rem',
-        background: 'var(--text-main)',
-        color: '#ffffff',
-        borderRadius: 'var(--radius-md)',
-        fontSize: '0.9rem',
-        fontWeight: 600,
-        textDecoration: 'none',
-        transition: 'all 0.2s',
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-    },
-    mobileMenuButton: {
-        display: 'block',
-        background: 'none',
-        border: 'none',
-        color: 'var(--text-main)',
-        cursor: 'pointer',
-        padding: '0.5rem'
-    },
-    mobileMenuButtonDesktop: {
-        display: 'none'
-    },
-    mobileMenu: {
-        position: 'fixed' as const,
-        top: isMobile() ? '3.5rem' : '4.5rem',  // Match responsive navbar height
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(255, 255, 255, 0.98)',  // Slightly transparent white
-        backdropFilter: 'blur(8px)',  // Blur background content
-        padding: '0',  // No padding for compact dropdown
-        display: 'flex',
-        flexDirection: 'column' as const,
-        gap: '0',  // No gaps between items
-        zIndex: 100,  // Higher z-index to overlay everything
-        borderTop: '1px solid var(--border-subtle)'
-    },
-};
+const navLinks = [
+    { path: '/', label: 'Home', icon: 'home' },
+    { path: '/analysis', label: 'Analyze', icon: 'auto_awesome' },
+    { path: '/templates', label: 'Templates', icon: 'grid_view' },
+    { path: '/resume-fix-lab', label: 'Fix Lab', icon: 'edit_note' },
+    { path: '/github', label: 'GitHub', icon: 'code' },
+    { path: '/pricing', label: 'Pricing', icon: 'payments' },
+];
 
 export const Navbar = () => {
     const location = useLocation();
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
+    const [isDesktop, setIsDesktop] = useState(
+        typeof window === 'undefined' ? true : window.innerWidth >= 1024
+    );
+    const [open, setOpen] = useState(false);
 
     useEffect(() => {
-        const handleResize = () => {
-            setIsDesktop(window.innerWidth >= 768);
-            if (window.innerWidth >= 768) {
-                setIsMobileMenuOpen(false);
-            }
-        };
-
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+        const onResize = () => setIsDesktop(window.innerWidth >= 1024);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
     }, []);
 
-    const navLinks = [
-        { path: '/', label: 'Mission Control', icon: 'dashboard' },
-        { path: '/templates', label: 'Templates', icon: 'grid_view' },
-        { path: '/analysis', label: 'Analysis', icon: 'auto_awesome' },
-        { path: '/pricing', label: 'Pricing', icon: 'payments' },
-    ];
+    useEffect(() => {
+        if (isDesktop) setOpen(false);
+    }, [isDesktop]);
 
     const isActive = (path: string) => location.pathname === path;
 
     return (
-        <nav style={styles.nav}>
-            <div style={styles.container}>
-                {/* Logo */}
-                <Link to="/" style={styles.logo}>
-                    <MaterialIcon icon="description" size={28} style={styles.logoIcon} />
-                    <span style={styles.logoText}>
-                        ATS Emulator <span style={styles.logoAccent}>V2</span>
-                    </span>
-                </Link>
-
-                {/* Desktop Nav Links */}
-                <div style={{ ...styles.navLinks, ...(isDesktop ? styles.navLinksDesktop : {}) }}>
-                    {navLinks.map((link) => {
-                        const active = isActive(link.path);
-
-                        return (
-                            <Link
-                                key={link.path}
-                                to={link.path}
-                                style={{
-                                    ...styles.navLink,
-                                    ...(active ? styles.navLinkActive : {})
-                                }}
-                            >
-                                <MaterialIcon icon={link.icon} size={20} filled={active} />
-                                {link.label}
-                            </Link>
-                        );
-                    })}
-                </div>
-
-                {/* CTA Button */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <Link to="/analysis" style={styles.ctaButton}>
-                        Run Analysis
+        <nav className="sticky top-0 z-50 border-b border-border-subtle bg-white/80 backdrop-blur-xl">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex justify-between items-center h-16 gap-4">
+                    {/* Logo */}
+                    <Link to="/" className="flex items-center gap-2 text-brand-secondary font-heading font-extrabold text-xl tracking-tight no-underline">
+                        <MaterialIcon icon="description" size={24} className="text-brand-primary" />
+                        <span>Resumit</span>
                     </Link>
 
-                    {/* Mobile Menu Button */}
-                    <button
-                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                        style={{ ...styles.mobileMenuButton, ...(isDesktop ? styles.mobileMenuButtonDesktop : {}) }}
-                    >
-                        <MaterialIcon icon={isMobileMenuOpen ? 'close' : 'menu'} size={24} />
-                    </button>
+                    {/* Desktop nav */}
+                    {isDesktop && (
+                        <div className="hidden lg:flex items-center bg-bg-muted p-1 rounded-full border border-border-subtle">
+                            {navLinks.map((link) => (
+                                <Link
+                                    key={link.path}
+                                    to={link.path}
+                                    className={`
+                                        flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-semibold transition-all duration-200 no-underline
+                                        ${isActive(link.path)
+                                            ? 'bg-brand-primary text-white shadow-sm'
+                                            : 'text-text-muted hover:text-brand-secondary hover:bg-white'}
+                                    `}
+                                >
+                                    <MaterialIcon icon={link.icon} size={16} filled={isActive(link.path)} />
+                                    {link.label}
+                                </Link>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Right actions */}
+                    <div className="flex items-center gap-3">
+                        <Link to="/analysis" className="btn-primary py-2 px-5 text-sm">
+                            Run Analysis
+                        </Link>
+                        {!isDesktop && (
+                            <button
+                                className="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-border-subtle bg-white text-text-main cursor-pointer hover:bg-bg-muted transition-colors"
+                                onClick={() => setOpen((v) => !v)}
+                                aria-label="Toggle menu"
+                            >
+                                <MaterialIcon icon={open ? 'close' : 'menu'} size={24} />
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
-            {/* Mobile Menu */}
-            {isMobileMenuOpen && !isDesktop && (
-                <div style={styles.mobileMenu}>
-                    {navLinks.map((link) => {
-                        const active = isActive(link.path);
-
-                        return (
-                            <Link
-                                key={link.path}
-                                to={link.path}
-                                onClick={() => setIsMobileMenuOpen(false)}
-                                style={{
-                                    ...styles.mobileNavLink,
-                                    ...(active ? styles.mobileNavLinkActive : {})
-                                }}
-                            >
-                                <MaterialIcon icon={link.icon} size={20} filled={active} />
-                                {link.label}
-                            </Link>
-                        );
-                    })}
-                </div>
-            )}
+            {/* Mobile menu */}
+            <AnimatePresence>
+                {!isDesktop && open && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        className="absolute top-16 left-0 right-0 p-4 bg-white border-b border-border-subtle shadow-lg lg:hidden"
+                    >
+                        <div className="grid gap-1.5">
+                            {navLinks.map((link) => (
+                                <Link
+                                    key={link.path}
+                                    to={link.path}
+                                    className={`
+                                        flex items-center gap-3 p-3 rounded-xl text-sm font-semibold transition-all no-underline
+                                        ${isActive(link.path)
+                                            ? 'bg-brand-primary text-white'
+                                            : 'text-text-main hover:bg-bg-muted'}
+                                    `}
+                                    onClick={() => setOpen(false)}
+                                >
+                                    <MaterialIcon icon={link.icon} size={20} filled={isActive(link.path)} />
+                                    {link.label}
+                                </Link>
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </nav>
     );
 };

@@ -6,7 +6,8 @@ import os
 import json
 import time
 import logging
-from typing import Dict, Any, List
+import re
+from typing import Dict, Any, List, Optional
 from openai import OpenAI
 
 logger = logging.getLogger(__name__)
@@ -21,11 +22,15 @@ class OpenAIClient:
         
         self.model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         self.temperature = float(os.getenv("OPENAI_TEMPERATURE", "0.0"))
+        self.timeout_seconds = float(os.getenv("OPENAI_TIMEOUT_SECONDS", "25"))
         self.client = OpenAI(api_key=self.api_key)
         
-        logger.info(f"Initialized OpenAI client with model: {self.model_name}, temperature: {self.temperature}")
+        logger.info(
+            f"Initialized OpenAI client with model: {self.model_name}, "
+            f"temperature: {self.temperature}, timeout={self.timeout_seconds}s"
+        )
     
-    def _call_gemini(self, prompt: str, max_retries: int = 3) -> str:
+    def _call_gemini(self, prompt: str, max_retries: Optional[int] = None) -> str:
         """
         Call OpenAI API with retry logic.
         Named _call_gemini for compatibility with existing code.
@@ -37,7 +42,10 @@ class OpenAIClient:
         Returns:
             Response text
         """
-        for attempt in range(max_retries):
+        retries = max_retries if max_retries is not None else int(os.getenv("OPENAI_MAX_RETRIES", "1"))
+        retries = max(1, retries)
+
+        for attempt in range(retries):
             try:
                 response = self.client.chat.completions.create(
                     model=self.model_name,
@@ -46,7 +54,8 @@ class OpenAIClient:
                         {"role": "user", "content": prompt}
                     ],
                     temperature=self.temperature,
-                    max_tokens=2048
+                    max_tokens=2048,
+                    timeout=self.timeout_seconds,
                 )
                 
                 text = response.choices[0].message.content
@@ -57,9 +66,9 @@ class OpenAIClient:
                 return text
                 
             except Exception as e:
-                logger.error(f"OpenAI API call failed (attempt {attempt + 1}/{max_retries}): {e}")
+                logger.error(f"OpenAI API call failed (attempt {attempt + 1}/{retries}): {e}")
                 
-                if attempt < max_retries - 1:
+                if attempt < retries - 1:
                     # Exponential backoff
                     wait_time = 2 ** attempt
                     logger.info(f"Retrying in {wait_time} seconds...")
@@ -98,6 +107,18 @@ class OpenAIClient:
         except json.JSONDecodeError as e:
             logger.error(f"JSON decode error: {e}")
             logger.error(f"Response text: {text[:500]}")
+
+            candidate = self._extract_json_object(text)
+            if candidate:
+                for attempt in (
+                    candidate,
+                    candidate.replace("\u201c", '"').replace("\u201d", '"').replace("\u2018", "'").replace("\u2019", "'"),
+                    re.sub(r",(\s*[}\]])", r"\1", candidate),
+                ):
+                    try:
+                        return json.loads(attempt)
+                    except json.JSONDecodeError:
+                        continue
             
             # Fallback: try to extract bullets from plain text
             lines = text.split('\n')
@@ -107,6 +128,40 @@ class OpenAIClient:
                 "bullets": bullets if bullets else ["Failed to parse response"],
                 "explanation": "Parsed from plain text due to JSON error"
             }
+
+    def _extract_json_object(self, text: str) -> Optional[str]:
+        """Extract first balanced JSON object from mixed content."""
+        if not text:
+            return None
+
+        start = text.find("{")
+        if start == -1:
+            return None
+
+        depth = 0
+        in_string = False
+        escaped = False
+
+        for idx in range(start, len(text)):
+            ch = text[idx]
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif ch == "\\":
+                    escaped = True
+                elif ch == '"':
+                    in_string = False
+                continue
+
+            if ch == '"':
+                in_string = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[start:idx + 1]
+        return None
     
     # Compatibility methods for resume rewriting
     def rewrite_experience_entry(
@@ -317,7 +372,8 @@ Explanation must be under 60 characters total. Use "✓" bullets. NO paragraphs.
     def rewrite_with_brutal_review(
         self,
         original_resume_text: str,
-        job_description: str
+        job_description: str,
+        company_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Comprehensive resume rewrite with brutal hiring manager review.
@@ -329,122 +385,120 @@ Explanation must be under 60 characters total. Use "✓" bullets. NO paragraphs.
         Returns:
             Dictionary with marked-up resume, changes, company expectations, and harsh review
         """
-        # Build the system prompt
-        system_prompt = '''You are an expert hiring manager and ATS specialist reviewing resumes for a specific role.
+        system_prompt = (
+            "You are a senior hiring manager and ATS specialist. "
+            "Return strict JSON only. Never invent experience. Be blunt but practical."
+        )
+        company_context = company_name.strip() if company_name else "the company"
+        brutal_timeout = float(os.getenv("OPENAI_BRUTAL_TIMEOUT_SECONDS", str(max(45.0, self.timeout_seconds))))
+        brutal_max_tokens = int(os.getenv("OPENAI_BRUTAL_MAX_TOKENS", "2200"))
 
-You have two jobs:
-1) Rewrite the candidate's resume to better match the job description WITHOUT inventing fake experience.
-2) Give a brutally honest, hiring-manager style review of how well this candidate fits the role.
+        payload = {
+            "company": company_context,
+            "resume_excerpt": original_resume_text[:9000],
+            "job_description_excerpt": job_description[:3000],
+        }
 
-Personality:
-- Direct, blunt, and time-constrained, like a senior hiring manager.
-- You don't sugar-coat weak points.
-- You never insult the candidate, but you clearly call out weaknesses, missing skills, and risk flags.
-- You respect truthfulness: never add experience, companies, or tools that were not clearly implied in the original resume.
+        user_prompt = f"""Rewrite and review the resume for this role.
 
-Output:
-- ALWAYS return valid JSON only. No markdown, no extra commentary outside JSON.
-- In "marked_up_resume", wrap additions in <ADD>...</ADD>, removals in <DEL>...</DEL>, and major rewrites in <REWRITE>...</REWRITE>.
-- In "harsh_review", talk as if you are writing notes for another hiring manager, not the candidate. Keep it blunt and practical.
-- Never make up employment history, degrees, or certifications that are not in the original resume.
-- You may infer reasonable skills (e.g. SQL from "wrote queries in PostgreSQL") but label them as inferred.'''
+Rules:
+- Preserve truthful claims. Do not fabricate companies, dates, metrics, or tools.
+- Keep format close to original.
+- In marked_up_resume, wrap additions with <ADD>, removals with <DEL>, rewrites with <REWRITE>.
+- Provide concrete fixes and practical coaching.
 
-        user_prompt = f"""RESUME CONTENT:
-{original_resume_text}
-
-JOB DESCRIPTION:
-{job_description}
-
-CRITICAL INSTRUCTIONS:
-
-1. FORMAT PRESERVATION:
-   - MAINTAIN the exact same resume format, structure, and layout as the original
-   - Keep the same section order, headings, and visual structure
-   - Only modify the CONTENT, not the FORMAT
-   - Preserve bullet point styles, date formats, and spacing
-
-2. ACTIONABLE GUIDANCE:
-   - For "missing_or_weak_skills", provide SPECIFIC, ACTIONABLE advice
-   - Include exact course names, platforms (Coursera, Udemy, LinkedIn Learning, etc.)
-   - Mention specific certifications that would help
-   - Reference real-world examples and success stories
-   - Provide concrete project ideas they can build
-
-3. TOP 3 ACTIONS - MAKE THEM PERFECT GUIDES:
-   - Don't just say "Take courses on X" - specify WHICH courses (with platform names)
-   - Don't just say "Build projects" - suggest SPECIFIC project ideas
-   - Include time estimates (e.g., "Complete the 4-week Google Data Analytics Certificate")
-   - Mention communities, forums, or resources to join
-   - Reference what has worked for others in similar situations
-
-Generate the brutal review and rewrite in this JSON format:
+Return JSON with this exact top-level shape:
 {{
-  "plain_text": "Full rewritten resume text WITHOUT tags, MAINTAINING THE EXACT SAME FORMAT as the original",
-  "marked_up_resume": "Full text with <ADD>, <DEL>, <REWRITE> tags showing changes",
+  "plain_text": "rewritten resume text without tags",
+  "marked_up_resume": "rewritten text with <ADD>/<DEL>/<REWRITE> tags",
   "changes": [
     {{
+      "section": "Summary|Experience|Skills|Header",
       "type": "add|remove|rewrite",
-      "content": "Text changed",
-      "reason": "Why you changed it",
-      "signal_to_company": "What this change signals to the hiring manager"
+      "before": "original text",
+      "after": "new text",
+      "reason": "why changed",
+      "jd_signal": "what signal this sends to hiring team"
     }}
   ],
   "company_expectations": {{
-    "role_summary": "1 sentence summary of what they really want",
-    "what_the_company_cares_about": ["value 1", "value 2"],
-    "ideal_candidate_snapshot": ["trait 1", "trait 2"]
+    "role_summary": "1 sentence",
+    "what_the_company_cares_about": ["3-6 items"],
+    "ideal_candidate_snapshot": ["3-6 items"]
   }},
   "harsh_review": {{
-    "overall_verdict": "Brutal 1-sentence summary",
-    "strengths": ["strength 1", "strength 2"],
-    "weaknesses": ["weakness 1", "weakness 2"],
+    "overall_verdict": "1 sentence",
+    "strengths": ["4-6 items"],
+    "weaknesses": ["4-8 items"],
     "missing_or_weak_skills": [
       {{
-        "skill": "Skill Name",
-        "why_it_matters": "Explain business impact and why this role needs it",
-        "how_to_build_it": "SPECIFIC steps: 'Complete [Course Name] on [Platform] (X weeks, $Y). Build [Specific Project Idea]. Join [Community/Forum]. Get certified in [Certification Name].'",
-        "success_story": "Example: 'Many candidates improved this by doing X, which led to Y'"
+        "skill": "name",
+        "why_it_matters": "business impact",
+        "how_to_build_it": "specific course/project steps",
+        "success_story": "short practical example"
       }}
     ],
-    "risk_flags": ["flag 1", "flag 2"],
+    "risk_flags": ["codes"],
     "would_I_interview_you": "yes|no|maybe",
-    "rationale": "Why yes/no/maybe",
+    "rationale": "decision rationale",
     "top_3_actions": [
       {{
-        "action": "Specific, actionable step",
-        "how_to_do_it": "DETAILED guide: exact courses (with platform), specific projects to build, certifications to get, communities to join, time commitment",
-        "resources": ["Specific resource 1 with platform/link", "Specific resource 2", "Specific resource 3"],
-        "time_estimate": "e.g., '4-6 weeks' or '2-3 months'",
-        "what_helped_others": "Real example of how this helped someone transition or improve"
+        "action": "specific step",
+        "how_to_do_it": "clear execution plan",
+        "resources": ["resource 1", "resource 2"],
+        "time_estimate": "duration",
+        "what_helped_others": "short evidence"
       }}
     ]
+  }},
+  "interview_prep": {{
+    "company": "{company_context}",
+    "likely_questions": [
+      {{
+        "category": "resume_deep_dive|jd_alignment|company_fit|behavioral|technical",
+        "question": "question text",
+        "why_asked": "reason",
+        "prep_tip": "tip",
+        "answer_framework": "how to answer",
+        "sample_answer": "short sample answer"
+      }}
+    ],
+    "prep_plan": ["4-6 steps"]
   }}
 }}
 
-EXAMPLES OF GOOD vs BAD GUIDANCE:
-
-❌ BAD: "Take courses on business analytics"
-✅ GOOD: "Complete 'Google Data Analytics Professional Certificate' on Coursera (6 months, $39/mo). Also take 'Business Analytics Specialization' by Wharton on Coursera. Build a portfolio project analyzing real business data (e.g., retail sales trends, customer churn analysis)."
-
-❌ BAD: "Pursue internships focused on business analysis"
-✅ GOOD: "Apply for Business Analyst internships at companies like Deloitte, PwC, or tech startups. Use platforms like LinkedIn, Handshake, and WayUp. Tailor your resume to highlight any data analysis, Excel modeling, or stakeholder communication experience. Many candidates successfully transitioned by starting with 3-month contract roles."
-
-❌ BAD: "Engage in projects that require business insights"
-✅ GOOD: "Build 3 portfolio projects: (1) Customer segmentation analysis using Python/Excel, (2) Sales forecasting dashboard in Tableau/Power BI, (3) A/B test analysis for a hypothetical product feature. Share on GitHub and LinkedIn. Join r/BusinessAnalysis and Kaggle competitions."
-
-Return ONLY the JSON. No markdown, no code blocks, no extra text."""
+Input JSON:
+{json.dumps(payload)}"""
 
         # Call OpenAI with extended max_tokens for longer response
         try:
-            response = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.3,
-                max_tokens=4096
-            )
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    temperature=0.2,
+                    response_format={"type": "json_object"},
+                    max_tokens=brutal_max_tokens,
+                    timeout=brutal_timeout,
+                )
+            except Exception as structured_exc:
+                logger.warning(
+                    "Structured brutal review call failed, retrying without response_format: %s",
+                    structured_exc,
+                )
+                response = self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    temperature=0.2,
+                    max_tokens=min(brutal_max_tokens, 1800),
+                    timeout=brutal_timeout,
+                )
             
             response_text = response.choices[0].message.content.strip()
             

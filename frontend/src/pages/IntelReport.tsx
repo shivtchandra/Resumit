@@ -102,7 +102,7 @@ export const AnalysisReport = ({ result, onReset }: AnalysisReportProps) => {
                     </Card>
                     <Card className="card-base p-6 flex items-center justify-center">
                         <ScoreGauge
-                            score={result.relevance_score}
+                            score={result.relevance_score ?? result.match_score ?? 0}
                             label="Role Match"
                             subLabel="Semantic Relevance"
                             color="var(--color-signal-success)"

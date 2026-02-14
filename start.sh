@@ -4,7 +4,7 @@
 echo "🚀 Starting Backend API on port 8000..."
 cd backend
 source .venv/bin/activate
-python main.py &
+uvicorn app.main:app --port 8000 &
 BACKEND_PID=$!
 
 # Wait for backend to start

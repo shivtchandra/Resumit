@@ -1,220 +1,114 @@
-import { Shell } from '@/components/layout/Shell';
-import { TemplateSelector } from '@/components/optimization/TemplateSelector';
-import { FullRewrite } from '@/components/optimization/FullRewrite';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Sparkles, FileText } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
-
-// Responsive helper
-const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 768;
-
-const styles = {
-    container: {
-        maxWidth: '1400px',
-        margin: '0',
-        padding: isMobile() ? '2rem 1rem' : '3rem 1.5rem 3rem 1rem',  // Less padding on mobile
-        background: 'linear-gradient(to bottom, #fafafa 0%, #ffffff 100%)',
-        minHeight: '100vh'
-    },
-    header: {
-        marginBottom: '3rem',
-        position: 'relative' as const,
-        paddingBottom: '2rem',
-        borderBottom: '2px solid #f0f0f0'
-    },
-    backButton: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        padding: '0.5rem 1rem',
-        marginBottom: '1.5rem',
-        color: '#6b7280',
-        fontSize: '0.875rem',
-        fontWeight: 500,
-        background: 'transparent',
-        border: 'none',
-        cursor: 'pointer',
-        transition: 'all 0.2s',
-        borderRadius: '8px'
-    },
-    title: {
-        fontFamily: "'Space Grotesk', sans-serif",
-        fontSize: isMobile() ? '2rem' : '3rem',  // 32px mobile, 48px desktop
-        fontWeight: 700,
-        background: 'linear-gradient(135deg, #1e293b 0%, #475569 100%)',
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
-        marginBottom: '0.75rem',
-        letterSpacing: '-0.02em'
-    },
-    subtitle: {
-        fontSize: '1.125rem',
-        color: '#64748b',
-        maxWidth: '600px',
-        lineHeight: '1.6'
-    },
-    tabsContainer: {
-        background: 'white',
-        borderRadius: '16px',
-        padding: '2rem',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
-        border: '1px solid #f0f0f0'
-    },
-    tabsList: {
-        display: 'inline-flex',
-        gap: '0.5rem',
-        padding: '0.5rem',
-        background: '#f8fafc',
-        borderRadius: '12px',
-        marginBottom: '2rem',
-        border: '1px solid #e2e8f0'
-    },
-    tabTrigger: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        padding: '0.75rem 1.5rem',
-        fontSize: '0.95rem',
-        fontWeight: 600,
-        color: '#64748b',
-        background: 'transparent',
-        border: 'none',
-        borderRadius: '8px',
-        cursor: 'pointer',
-        transition: 'all 0.2s',
-        fontFamily: "'Space Grotesk', sans-serif"
-    },
-    tabTriggerActive: {
-        background: 'white',
-        color: '#1e293b',
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)'
-    },
-    sectionHeader: {
-        marginBottom: '2rem',
-        padding: '1.5rem',
-        background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)',
-        borderRadius: '12px',
-        border: '1px solid #e2e8f0'
-    },
-    sectionTitle: {
-        fontFamily: "'Space Grotesk', sans-serif",
-        fontSize: '1.5rem',
-        fontWeight: 700,
-        color: '#1e293b',
-        marginBottom: '0.5rem',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.75rem'
-    },
-    sectionDesc: {
-        fontSize: '0.95rem',
-        color: '#64748b',
-        lineHeight: '1.6'
-    },
-    iconWrapper: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '40px',
-        height: '40px',
-        borderRadius: '10px',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        color: 'white'
-    }
-};
+import { PageLayout } from '../components/layout/PageLayout';
+import { Navbar } from '../components/layout/Navbar';
+import { PageGuide } from '../components/layout/PageGuide';
+import { WorkflowMap } from '../components/layout/WorkflowMap';
+import { TemplateSelector } from '../components/optimization/TemplateSelector';
+import { FullRewrite } from '../components/optimization/FullRewrite';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Sparkles, FileText } from 'lucide-react';
 
 export const OptimizationHub = () => {
-    const navigate = useNavigate();
-
     return (
-        <Shell>
-            <div style={styles.container}>
-                <div style={styles.header}>
-                    <button
-                        style={styles.backButton}
-                        onClick={() => navigate(-1)}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.background = '#f8fafc';
-                            e.currentTarget.style.color = '#1e293b';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'transparent';
-                            e.currentTarget.style.color = '#6b7280';
-                        }}
-                    >
-                        <ArrowLeft size={16} />
-                        Back to Home
-                    </button>
-                    <h1 style={styles.title}>
-                        Optimization Hub
+        <PageLayout header={<Navbar />} maxWidth="xl">
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
+                <div className="text-center space-y-6 pt-10">
+                    <h1 className="page-hero-title text-6xl md:text-8xl leading-[0.9] tracking-tighter">
+                        Resume <span className="text-brand-primary">Fix Lab.</span>
                     </h1>
-                    <p style={styles.subtitle}>
-                        Transform your resume with AI-powered rewrites and professional templates designed to beat ATS systems.
+                    <p className="text-xl text-text-muted max-w-2xl mx-auto font-medium">
+                        A structured fix workflow: choose a template, run guided rewrite, and get interview-ready coaching.
                     </p>
                 </div>
 
-                <div style={styles.tabsContainer}>
+                <PageGuide
+                    badge="RESUME FIX LAB GUIDE"
+                    title="Turn Diagnostics Into Final Resume Output"
+                    description="This page is execution mode. Use it to rewrite weak content, apply sharper language, and practice interview answers."
+                    whatThisPageDoes="Combines template selection, resume rewrite workflow, and answer scoring so you leave with practical, job-ready content."
+                    bestUseCase="Best after Analysis identifies gaps and you need to transform feedback into an improved resume."
+                    howToUse={[
+                        'Pick or confirm a template strategy for your target role.',
+                        'Upload resume + add JD + set role/company to run the fix engine.',
+                        'Review keep/rewrite/remove outputs and update your final resume draft.',
+                        'Practice expected interview questions and improve low-scoring answers.'
+                    ]}
+                    makeMostOfIt={[
+                        'Use one real target JD per run to avoid generic rewrites.',
+                        'Focus on quantified bullets and business impact, not buzzwords.',
+                        'Re-run Analysis after changes to confirm ATS and risk improvements.'
+                    ]}
+                    primaryAction={{ label: 'Run Analysis First', to: '/analysis' }}
+                    secondaryAction={{ label: 'Browse Templates', to: '/templates' }}
+                />
+
+                <div className="zen-card p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className="p-5 rounded-xl border border-border-subtle bg-bg-muted">
+                        <h3 className="text-xs font-black tracking-widest uppercase text-brand-secondary mb-2">When To Use This Page</h3>
+                        <p className="text-sm text-text-muted leading-relaxed">
+                            Use after Analysis when you need actual rewritten lines, cleaner bullet wording, and interview practice with score feedback.
+                        </p>
+                    </div>
+                    <div className="p-5 rounded-xl border border-emerald-200 bg-emerald-50">
+                        <h3 className="text-xs font-black tracking-widest uppercase text-brand-secondary mb-2">Expected Outcome</h3>
+                        <p className="text-sm text-text-muted leading-relaxed">
+                            You leave with a concrete fix draft: what changed, why it changed, what to keep, and how to answer likely interview questions.
+                        </p>
+                    </div>
+                </div>
+
+                <WorkflowMap currentStep="fix" />
+
+                <div className="bg-white rounded-premium p-8 shadow-zen border border-border-subtle overflow-hidden">
                     <Tabs defaultValue="rewrite" className="w-full">
-                        <TabsList className="inline-flex gap-2 p-2 mb-8" style={{
-                            background: '#f8fafc',
-                            borderRadius: '12px',
-                            border: '1px solid #e2e8f0'
-                        }}>
+                        <TabsList className="inline-flex gap-2 p-2 mb-8 bg-bg-page rounded-xl border border-border-subtle">
                             <TabsTrigger
                                 value="templates"
-                                className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold rounded-lg transition-all"
-                                style={{
-                                    fontFamily: "'Space Grotesk', sans-serif"
-                                }}
+                                className="inline-flex items-center gap-2 px-6 py-3 text-sm font-black uppercase tracking-widest rounded-lg transition-all"
                             >
-                                <FileText size={18} />
+                                <FileText size={16} />
                                 Templates
                             </TabsTrigger>
                             <TabsTrigger
                                 value="rewrite"
-                                className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold rounded-lg transition-all"
-                                style={{
-                                    fontFamily: "'Space Grotesk', sans-serif"
-                                }}
+                                className="inline-flex items-center gap-2 px-6 py-3 text-sm font-black uppercase tracking-widest rounded-lg transition-all"
                             >
-                                <Sparkles size={18} />
-                                AI Rewrite
+                                <Sparkles size={16} />
+                                Resume Fix Studio
                             </TabsTrigger>
                         </TabsList>
 
-                        <TabsContent value="templates" className="mt-0">
-                            <div style={styles.sectionHeader}>
-                                <h2 style={styles.sectionTitle}>
-                                    <div style={styles.iconWrapper}>
+                        <TabsContent value="templates" className="mt-0 space-y-8">
+                            <div className="space-y-4">
+                                <h2 className="text-3xl font-black text-brand-secondary flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-brand-primary/10 text-brand-secondary flex items-center justify-center">
                                         <FileText size={20} />
                                     </div>
                                     Strategic Templates
                                 </h2>
-                                <p style={styles.sectionDesc}>
+                                <p className="text-lg text-text-muted leading-relaxed max-w-3xl">
                                     Professional, ATS-optimized templates selected based on your target role and industry. Each template is tested against major ATS systems like Workday, Taleo, and Greenhouse.
                                 </p>
                             </div>
                             <TemplateSelector role="DevOps" onSelect={(id) => console.log('Selected:', id)} />
                         </TabsContent>
 
-                        <TabsContent value="rewrite" className="mt-0">
-                            <div style={styles.sectionHeader}>
-                                <h2 style={styles.sectionTitle}>
-                                    <div style={styles.iconWrapper}>
+                        <TabsContent value="rewrite" className="mt-0 space-y-8">
+                            <div className="space-y-4">
+                                <h2 className="text-3xl font-black text-brand-secondary flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-brand-primary/10 text-brand-secondary flex items-center justify-center">
                                         <Sparkles size={20} />
                                     </div>
-                                    Gemini AI Resume Rewriter
+                                    Resume Fix Studio
                                 </h2>
-                                <p style={styles.sectionDesc}>
-                                    Upload your resume and job description. Our Gemini-powered AI will rewrite your content to maximize ATS compatibility while maintaining truthfulness and your unique voice.
+                                <p className="text-lg text-text-muted leading-relaxed max-w-3xl">
+                                    Upload resume + JD, then get a practical rewrite with what-to-keep, what-to-cut, and interview preparation.
                                 </p>
                             </div>
                             <FullRewrite />
                         </TabsContent>
                     </Tabs>
                 </div>
-            </div>
-        </Shell>
+            </main>
+        </PageLayout>
     );
 };

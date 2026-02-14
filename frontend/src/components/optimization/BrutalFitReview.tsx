@@ -118,7 +118,7 @@ const styles = {
     actionItem: {
         padding: '1rem 1.25rem',
         background: 'white',
-        border: '2px solid #8b5cf6',
+        border: '2px solid #0f766e',
         borderRadius: '8px',
         marginBottom: '0.75rem',
         display: 'flex',
@@ -128,7 +128,7 @@ const styles = {
     actionNumber: {
         width: '32px',
         height: '32px',
-        background: '#8b5cf6',
+        background: '#0f766e',
         color: 'white',
         borderRadius: '50%',
         display: 'flex',
@@ -177,7 +177,7 @@ export const BrutalFitReview = ({ companyExpectations, harshReview }: BrutalFitR
             {/* Company Expectations */}
             <div style={styles.section}>
                 <h3 style={styles.sectionTitle}>
-                    <Target size={20} color="#8b5cf6" />
+                    <Target size={20} color="#0f766e" />
                     What This Company Cares About
                 </h3>
                 <p style={{ fontSize: '0.95rem', color: '#475569', marginBottom: '1rem', lineHeight: '1.6' }}>
@@ -186,7 +186,7 @@ export const BrutalFitReview = ({ companyExpectations, harshReview }: BrutalFitR
                 <ul style={styles.list}>
                     {companyExpectations.what_the_company_cares_about.map((item, i) => (
                         <li key={i} style={styles.listItem}>
-                            <span style={{ color: '#8b5cf6' }}>•</span>
+                            <span style={{ color: '#0f766e' }}>•</span>
                             <span style={{ color: '#334155' }}>{item}</span>
                         </li>
                     ))}
@@ -270,7 +270,7 @@ export const BrutalFitReview = ({ companyExpectations, harshReview }: BrutalFitR
             {/* Top 3 Actions */}
             <div style={styles.section}>
                 <h3 style={styles.sectionTitle}>
-                    <Lightbulb size={20} color="#8b5cf6" />
+                    <Lightbulb size={20} color="#0f766e" />
                     Top 3 Things to Fix Next
                 </h3>
                 {harshReview.top_3_actions.map((actionItem, i) => (

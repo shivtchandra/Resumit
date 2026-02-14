@@ -1,218 +1,139 @@
-import { MaterialIcon } from '../components/ui/MaterialIcon';
 import { PageLayout } from '../components/layout/PageLayout';
 import { Navbar } from '../components/layout/Navbar';
+import { PageGuide } from '../components/layout/PageGuide';
+import { WorkflowMap } from '../components/layout/WorkflowMap';
+import { Link } from 'react-router-dom';
+import { Check, ArrowRight, Sparkles } from 'lucide-react';
+import { motion } from 'framer-motion';
 
-const styles = {
-    container: {
-        padding: '4rem 1rem',
-        maxWidth: '1200px',
-        margin: '0 auto'
-    },
-    header: {
-        textAlign: 'center' as const,
-        marginBottom: '4rem'
-    },
-    title: {
-        fontFamily: "'Space Grotesk', sans-serif",
-        fontSize: '3.5rem',
-        fontWeight: 700,
-        color: 'var(--text-main)',
-        marginBottom: '1rem',
-        lineHeight: 1.1,
-        letterSpacing: '-0.02em'
-    },
-    subtitle: {
-        fontSize: '1.25rem',
-        color: 'var(--text-muted)',
-        maxWidth: '600px',
-        margin: '0 auto',
-        fontFamily: "'Inter', sans-serif",
-        lineHeight: 1.6
-    },
-    grid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-        gap: '2rem',
-        alignItems: 'start'
-    },
-    card: (highlighted: boolean) => ({
-        background: 'var(--bg-card)',
-        borderRadius: '1rem',
-        border: highlighted ? '2px solid var(--text-main)' : '1px solid var(--border-subtle)',
-        padding: '2.5rem',
-        position: 'relative' as const,
-        boxShadow: highlighted ? '0 20px 40px rgba(0, 0, 0, 0.05)' : 'var(--shadow-soft)',
-        transform: highlighted ? 'scale(1.02)' : 'none',
-        zIndex: highlighted ? 10 : 1,
-        transition: 'all 0.3s'
-    }),
-    badgeContainer: {
-        position: 'absolute' as const,
-        top: '-1rem',
-        left: '50%',
-        transform: 'translateX(-50%)'
-    },
-    badge: {
-        background: 'var(--text-main)',
-        color: 'white',
-        padding: '0.5rem 1rem',
-        borderRadius: '9999px',
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        fontFamily: "'Space Grotesk', sans-serif",
-        letterSpacing: '0.05em',
-        textTransform: 'uppercase' as const
-    },
-    planName: {
-        fontFamily: "'Space Grotesk', sans-serif",
-        fontSize: '1.5rem',
-        fontWeight: 700,
-        color: 'var(--text-main)',
-        marginBottom: '0.5rem'
-    },
-    priceContainer: {
-        display: 'flex',
-        alignItems: 'baseline',
-        gap: '0.25rem',
-        marginBottom: '2rem'
-    },
-    currency: {
-        fontSize: '1.5rem',
-        color: 'var(--text-subtle)',
-        fontWeight: 500
-    },
-    price: {
-        fontFamily: "'Space Grotesk', sans-serif",
-        fontSize: '3.5rem',
-        fontWeight: 700,
-        color: 'var(--text-main)'
-    },
-    period: {
-        color: 'var(--text-subtle)',
-        fontSize: '1rem',
-        fontFamily: "'Inter', sans-serif"
-    },
-    featuresList: {
-        display: 'flex',
-        flexDirection: 'column' as const,
-        gap: '1rem',
-        marginBottom: '2.5rem'
-    },
-    featureItem: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.75rem',
-        color: 'var(--text-muted)',
-        fontSize: '0.95rem',
-        fontFamily: "'Inter', sans-serif"
-    },
-    checkIcon: {
-        color: 'var(--text-main)',
-    },
-    button: (highlighted: boolean) => ({
-        width: '100%',
-        padding: '1rem',
-        borderRadius: '0.5rem',
-        border: highlighted ? 'none' : '1px solid var(--border-subtle)',
-        background: highlighted ? 'var(--text-main)' : 'transparent',
-        color: highlighted ? 'white' : 'var(--text-main)',
-        fontSize: '1rem',
-        fontWeight: 600,
-        cursor: 'pointer',
-        transition: 'all 0.2s',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '0.5rem',
-        fontFamily: "'Inter', sans-serif"
-    })
-};
-
-const plans = [
+const tiers = [
     {
-        name: 'Starter',
-        price: '0',
-        features: [
-            'Basic Resume Analysis',
-            '1 Resume Template',
-            'PDF Export (Watermarked)',
-            'Standard Support'
-        ],
-        highlighted: false,
-        cta: 'Start Free'
+        name: 'Free Tier',
+        price: '$0',
+        period: '/mo',
+        featured: false,
+        features: ['Basic Analysis', '1 Template', 'ATS Check'],
+        cta: 'Get Started',
     },
     {
-        name: 'Professional',
-        price: '19',
+        name: 'Pro Mode',
+        price: '$29',
+        period: '/mo',
+        featured: true,
         features: [
-            'Advanced AI Analysis',
-            'All 20+ Premium Templates',
-            'Unlimited PDF Exports',
-            'Keyword Optimization',
-            'Priority Support'
+            'Full AI Roast Report',
+            'All Pro Templates',
+            'Interview Question Bank',
+            'GitHub Strategic Audit',
+            'Unlimited Analysis',
         ],
-        highlighted: true,
-        badge: 'MOST POPULAR',
-        cta: 'Get Started'
+        cta: 'Go Pro Now',
     },
     {
-        name: 'Enterprise',
-        price: '49',
-        features: [
-            'Everything in Professional',
-            'LinkedIn Profile Optimization',
-            'Cover Letter Generator',
-            '1-on-1 Career Coaching',
-            '24/7 Dedicated Support'
-        ],
-        highlighted: false,
-        cta: 'Contact Sales'
-    }
+        name: 'Deep Tech',
+        price: '$99',
+        period: '/mo',
+        featured: false,
+        features: ['Personalized Coaching', 'Custom AI Models', 'Video Prep', 'Job Referral Sync'],
+        cta: 'Contact Support',
+    },
 ];
 
 export const PricingPage = () => {
     return (
-        <PageLayout header={<Navbar />}>
-            <div style={styles.container}>
-                <div style={styles.header}>
-                    <h1 style={styles.title}>Simple, Transparent Pricing</h1>
-                    <p style={styles.subtitle}>
-                        Choose the plan that fits your career goals. No hidden fees.
+        <PageLayout header={<Navbar />} maxWidth="xl">
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-12">
+                {/* Hero */}
+                <div className="text-center space-y-5 pt-8">
+                    <div className="page-badge">
+                        <Sparkles size={14} />
+                        Simple & Transparent
+                    </div>
+                    <h1 className="page-hero-title">
+                        Choose Your <span className="text-brand-primary">Plan.</span>
+                    </h1>
+                    <p className="text-lg text-text-muted max-w-2xl mx-auto font-medium">
+                        Start for free, upgrade when you need the full arsenal for your job search.
                     </p>
                 </div>
 
-                <div style={styles.grid}>
-                    {plans.map((plan) => (
-                        <div key={plan.name} style={styles.card(plan.highlighted)}>
-                            {plan.badge && (
-                                <div style={styles.badgeContainer}>
-                                    <span style={styles.badge}>{plan.badge}</span>
+                <PageGuide
+                    badge="PRICING GUIDE"
+                    title="Select the Right Level for Your Stage"
+                    description="Free gets the basics. Pro unlocks the full workflow. Deep Tech is for engineers who want everything automated."
+                    whatThisPageDoes="Compares feature access, usage limits, and value across all tiers."
+                    bestUseCase="When you need to decide which level matches your current job search intensity."
+                    howToUse={[
+                        'Start free to evaluate the analysis quality.',
+                        'Upgrade to Pro when you want full rewrites and interview prep.',
+                        'Use Deep Tech if you want dedicated coaching and custom models.',
+                    ]}
+                    makeMostOfIt={[
+                        'Free tier is powerful enough for a quick diagnostic pass.',
+                        'Pro pays for itself if it helps you land even one extra interview.',
+                        'Teams can contact support for volume pricing.',
+                    ]}
+                    primaryAction={{ label: 'Try Free Analysis', to: '/analysis' }}
+                    secondaryAction={{ label: 'Browse Templates', to: '/templates' }}
+                />
+
+                {/* Pricing Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {tiers.map((tier, i) => (
+                        <motion.div
+                            key={tier.name}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: i * 0.1 }}
+                            className={`rounded-premium flex flex-col justify-between transition-all duration-300 ${tier.featured
+                                    ? 'bg-brand-secondary p-9 border-2 border-brand-primary shadow-premium scale-[1.03] relative'
+                                    : 'bg-white p-9 border border-border-subtle hover:shadow-premium'
+                                }`}
+                        >
+                            {tier.featured && (
+                                <div className="absolute top-0 right-8 -translate-y-1/2 bg-brand-accent text-brand-secondary px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase">
+                                    Most Popular
                                 </div>
                             )}
-                            <h3 style={styles.planName}>{plan.name}</h3>
-                            <div style={styles.priceContainer}>
-                                <span style={styles.currency}>$</span>
-                                <span style={styles.price}>{plan.price}</span>
-                                <span style={styles.period}>/mo</span>
-                            </div>
-
-                            <div style={styles.featuresList}>
-                                {plan.features.map((feature, index) => (
-                                    <div key={index} style={styles.featureItem}>
-                                        <MaterialIcon icon="check" size={20} style={styles.checkIcon} />
-                                        {feature}
+                            <div className="space-y-8">
+                                <div className="space-y-2">
+                                    <h3 className={`text-xs font-black tracking-widest uppercase ${tier.featured ? 'text-brand-primary' : 'text-text-subtle'}`}>
+                                        {tier.name}
+                                    </h3>
+                                    <div className={`text-4xl font-black ${tier.featured ? 'text-white' : 'text-brand-secondary'}`}>
+                                        {tier.price}
+                                        <span className={`text-lg font-normal ${tier.featured ? 'text-slate-500' : 'text-text-subtle'}`}>{tier.period}</span>
                                     </div>
-                                ))}
+                                </div>
+                                <ul className="space-y-3">
+                                    {tier.features.map((f) => (
+                                        <li key={f} className={`flex items-center gap-3 text-sm font-medium ${tier.featured ? 'text-slate-300' : 'text-text-muted'}`}>
+                                            <Check size={16} className={`shrink-0 ${tier.featured ? 'text-brand-primary' : 'text-brand-primary'}`} />
+                                            {f}
+                                        </li>
+                                    ))}
+                                </ul>
                             </div>
-
-                            <button style={styles.button(plan.highlighted)}>
-                                {plan.cta}
-                                {plan.highlighted && <MaterialIcon icon="bolt" size={18} />}
+                            <button
+                                className={`w-full mt-8 py-3 px-8 rounded-full font-bold transition-all active:scale-95 ${tier.featured
+                                        ? 'bg-brand-primary text-white hover:bg-teal-400'
+                                        : 'btn-secondary'
+                                    }`}
+                            >
+                                {tier.cta}
                             </button>
-                        </div>
+                        </motion.div>
                     ))}
                 </div>
-            </div>
+
+                {/* Bottom CTA */}
+                <div className="text-center pt-8">
+                    <p className="text-sm text-text-subtle mb-4">Not sure yet? Start with a free analysis.</p>
+                    <Link to="/analysis" className="btn-primary py-3 px-8">
+                        Analyze My Resume <ArrowRight size={18} />
+                    </Link>
+                </div>
+            </main>
         </PageLayout>
     );
 };

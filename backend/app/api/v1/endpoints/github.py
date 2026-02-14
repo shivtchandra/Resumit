@@ -1,8 +1,11 @@
 """
 GitHub repository analysis endpoints.
 """
+import asyncio
 import logging
+import os
 from fastapi import APIRouter, Form, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from typing import Optional
 
 from app.services.github.github_client import GitHubClient
@@ -19,7 +22,7 @@ async def analyze_github_repos(
     job_role: str = Form(..., description="Target job role"),
     job_description: str = Form("", description="Optional job description for better matching"),
     pinned_repos: Optional[str] = Form(None, description="Comma-separated list of priority repo names"),
-    use_ai: bool = Form(True, description="Use AI for enhanced analysis (Gemini/OpenAI)"),
+    use_ai: bool = Form(False, description="Use AI for enhanced analysis (slower, deeper)"),
     github_token: Optional[str] = Form(None, description="Optional GitHub token for higher rate limits")
 ):
     """
@@ -37,6 +40,7 @@ async def analyze_github_repos(
         JSON with analyzed repositories, top recommendations, and insights
     """
     try:
+        timeout_seconds = float(os.getenv("GITHUB_ANALYZE_TIMEOUT_SECONDS", "35"))
         # Initialize clients
         github_client = GitHubClient(access_token=github_token)
         analyzer = RepositoryAnalyzer()
@@ -52,7 +56,16 @@ async def analyze_github_repos(
         logger.info(f"Analyzing repositories for user: {username}, role: {job_role}, AI: {use_ai}, pinned: {len(pinned_list)}")
         
         # Fetch repositories
-        repositories = github_client.get_user_repositories(username)
+        try:
+            repositories = await asyncio.wait_for(
+                run_in_threadpool(github_client.get_user_repositories, username),
+                timeout=timeout_seconds,
+            )
+        except asyncio.TimeoutError:
+            raise HTTPException(
+                status_code=504,
+                detail="GitHub fetch timed out. Try again, add a GitHub token, or analyze fewer repos.",
+            )
         
         if not repositories:
             return {
@@ -67,22 +80,33 @@ async def analyze_github_repos(
             }
         
         # Analyze and score repositories
-        analyzed_repos = analyzer.analyze_repositories(
-            repositories,
-            job_role,
-            job_description,
-            use_ai=use_ai,
-            pinned_repos=pinned_list
-        )
+        try:
+            analyzed_repos = await asyncio.wait_for(
+                run_in_threadpool(
+                    lambda: analyzer.analyze_repositories(
+                        repositories,
+                        job_role,
+                        job_description,
+                        use_ai=use_ai,
+                        pinned_repos=pinned_list,
+                    )
+                ),
+                timeout=timeout_seconds,
+            )
+        except asyncio.TimeoutError:
+            raise HTTPException(
+                status_code=504,
+                detail="GitHub analysis timed out. Disable AI mode or provide pinned repos for a faster pass.",
+            )
         
         # Get insights
-        insights = analyzer.get_insights(repositories)
+        insights = await run_in_threadpool(analyzer.get_insights, repositories)
         
         # Get top 5 repositories
         top_repos = analyzed_repos[:5]
         
         # Get rate limit info
-        rate_limit = github_client.get_rate_limit()
+        rate_limit = await run_in_threadpool(github_client.get_rate_limit)
         
         # Check if any repos were AI-enhanced
         ai_used = any(repo.get("ai_enhanced", False) for repo in analyzed_repos)
@@ -96,12 +120,15 @@ async def analyze_github_repos(
             "all_repositories": analyzed_repos,
             "insights": insights,
             "rate_limit": rate_limit,
-            "ai_used": ai_used
+            "ai_used": ai_used,
+            "analysis_mode": "ai" if ai_used else "heuristic"
         }
         
     except ValueError as e:
         logger.error(f"Validation error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to analyze GitHub repos: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to analyze repositories: {str(e)}")

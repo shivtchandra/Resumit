@@ -29,6 +29,18 @@ export interface GitHubRepository {
     };
     why_relevant?: string;
     suggested_resume_text?: string;
+    ai_enhanced?: boolean;
+    first_impression?: string;
+    can_they_code?: string;
+    problem_solving?: string;
+    tech_stack_fit?: string;
+    passion_and_effort?: string;
+    interview_worthy?: boolean;
+    strengths?: string[];
+    red_flags?: string[];
+    interview_questions?: string[];
+    improvement_advice?: string[];
+    match_level?: 'high' | 'medium' | 'low';
 }
 
 export interface GitHubAnalysisResult {
@@ -36,6 +48,8 @@ export interface GitHubAnalysisResult {
     total_repos: number;
     analyzed_repos: number;
     job_role: string;
+    ai_used?: boolean;
+    analysis_mode?: 'ai' | 'heuristic';
     top_repositories: GitHubRepository[];
     all_repositories: GitHubRepository[];
     insights: {

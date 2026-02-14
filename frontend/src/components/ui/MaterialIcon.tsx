@@ -17,7 +17,7 @@ export const MaterialIcon: React.FC<MaterialIconProps> = ({
 }) => {
     return (
         <span
-            className={`material-symbols-rounded ${filled ? 'filled' : ''} ${className}`}
+            className={`material-symbol ${filled ? 'filled' : ''} ${className}`}
             style={{
                 fontSize: `${size}px`,
                 ...style

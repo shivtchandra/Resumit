@@ -5,13 +5,27 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 
 interface UploadCardProps {
-    onFileSelect: (file: File) => void;
+    onFileSelect: (file: File | null) => void;
     selectedFile: File | null;
 }
 
 export const UploadCard = ({ onFileSelect, selectedFile }: UploadCardProps) => {
     const [isDragging, setIsDragging] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
+
+    const simulateUpload = useCallback((file: File) => {
+        setUploadProgress(0);
+        const interval = setInterval(() => {
+            setUploadProgress(prev => {
+                if (prev >= 100) {
+                    clearInterval(interval);
+                    onFileSelect(file);
+                    return 100;
+                }
+                return prev + 10;
+            });
+        }, 50);
+    }, [onFileSelect]);
 
     const handleDrag = useCallback((e: React.DragEvent) => {
         e.preventDefault();
@@ -39,27 +53,13 @@ export const UploadCard = ({ onFileSelect, selectedFile }: UploadCardProps) => {
         if (files && files[0]) {
             simulateUpload(files[0]);
         }
-    }, []);
+    }, [simulateUpload]);
 
     const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (files && files[0]) {
             simulateUpload(files[0]);
         }
-    };
-
-    const simulateUpload = (file: File) => {
-        setUploadProgress(0);
-        const interval = setInterval(() => {
-            setUploadProgress(prev => {
-                if (prev >= 100) {
-                    clearInterval(interval);
-                    onFileSelect(file);
-                    return 100;
-                }
-                return prev + 10;
-            });
-        }, 50);
     };
 
     return (
@@ -95,7 +95,7 @@ export const UploadCard = ({ onFileSelect, selectedFile }: UploadCardProps) => {
                         </div>
                         <Button
                             variant="outline"
-                            onClick={() => onFileSelect(null as any)}
+                            onClick={() => onFileSelect(null)}
                             className="text-sm text-text-secondary hover:text-primary"
                         >
                             Replace File

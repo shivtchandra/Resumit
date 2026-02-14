@@ -2,19 +2,33 @@ import numpy as np
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer, util
 import re
+import os
 
 # Lazy loading model to avoid startup delay if not used
 _semantic_model = None
 
 def get_semantic_model():
     global _semantic_model
+    if _semantic_model is False:
+        return None
+
     if _semantic_model is None:
-        _semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
-    return _semantic_model
+        # Keep semantic embedding optional so the service works offline.
+        if os.getenv("ENABLE_SEMANTIC_MODEL", "false").lower() != "true":
+            _semantic_model = False
+            return None
+
+        try:
+            _semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
+        except Exception:
+            _semantic_model = False
+            return None
+
+    return _semantic_model if _semantic_model is not False else None
 
 class VisibilityRanker:
     def __init__(self):
-        self.model = get_semantic_model()
+        self.model = None
 
     def rank(self, resume_text: str, jd_text: str):
         """
@@ -37,9 +51,16 @@ class VisibilityRanker:
         bm25_norm = min(bm25_score / 20.0, 1.0) * 100
 
         # 2. Semantic Score (Vector Similarity)
-        resume_emb = self.model.encode(resume_text, convert_to_tensor=True)
-        jd_emb = self.model.encode(jd_text, convert_to_tensor=True)
-        semantic_score = util.cos_sim(resume_emb, jd_emb).item() * 100
+        semantic_score = bm25_norm
+        model = self.model or get_semantic_model()
+        if model is not None:
+            try:
+                resume_emb = model.encode(resume_text, convert_to_tensor=True)
+                jd_emb = model.encode(jd_text, convert_to_tensor=True)
+                semantic_score = util.cos_sim(resume_emb, jd_emb).item() * 100
+                self.model = model
+            except Exception:
+                semantic_score = bm25_norm
 
         # 3. Boolean Coverage (Must Haves)
         # Heuristic: Find capitalized words in JD that are not stopwords
@@ -57,6 +78,7 @@ class VisibilityRanker:
         # Weighted Final Score
         # Weights: BM25 (40%), Semantic (40%), Boolean (20%)
         final_score = (0.4 * bm25_norm) + (0.4 * semantic_score) + (0.2 * boolean_score)
+        final_score = max(0.0, min(100.0, final_score))
         
         # Percentile Estimation (Dummy Distribution)
         # Assume average resume scores 40. Std dev 15.

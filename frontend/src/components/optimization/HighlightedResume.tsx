@@ -47,7 +47,7 @@ const styles = {
     },
     toggleBtnActive: {
         background: 'white',
-        color: '#8b5cf6',
+        color: '#0f766e',
         boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
     },
     resumeText: {
@@ -75,8 +75,8 @@ const styles = {
         transition: 'all 0.2s'
     },
     rewrite: {
-        background: '#f3e8ff',
-        borderBottom: '2px solid #8b5cf6',
+        background: '#ccfbf1',
+        borderBottom: '2px solid #0f766e',
         padding: '2px 4px',
         borderRadius: '3px',
         cursor: 'pointer',

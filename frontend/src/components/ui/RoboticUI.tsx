@@ -8,39 +8,19 @@ interface RoboticBadgeProps {
     className?: string;
 }
 
-const badgeStyles = {
-    base: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        padding: '0.25rem 0.75rem',
-        borderRadius: 'var(--radius-sm)',
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        fontFamily: 'var(--font-mono)',
-        letterSpacing: '0.05em',
-        textTransform: 'uppercase' as const,
-        border: '1px solid transparent'
-    },
-    primary: {
-        background: 'rgba(27, 142, 242, 0.1)',
-        color: 'var(--accent-primary)',
-        borderColor: 'rgba(27, 142, 242, 0.2)'
-    },
-    secondary: {
-        background: 'rgba(0, 194, 168, 0.1)',
-        color: 'var(--accent-secondary)',
-        borderColor: 'rgba(0, 194, 168, 0.2)'
-    },
-    outline: {
-        background: 'transparent',
-        color: 'var(--text-muted)',
-        borderColor: 'var(--border-subtle)'
-    }
-};
+export const RoboticBadge: React.FC<RoboticBadgeProps> = ({ children, variant = 'outline', className = '' }) => {
+    const variantClasses = {
+        primary: 'bg-brand-primary/10 text-brand-primary border-brand-primary/20',
+        secondary: 'bg-brand-accent/10 text-brand-accent border-brand-accent/20',
+        outline: 'bg-transparent text-text-muted border-border-subtle'
+    };
 
-export const RoboticBadge: React.FC<RoboticBadgeProps> = ({ children, variant = 'outline', className }) => {
     return (
-        <span style={{ ...badgeStyles.base, ...badgeStyles[variant] }} className={className}>
+        <span className={`
+            inline-flex items-center px-3 py-1 rounded-sm text-[10px] font-bold font-mono tracking-widest uppercase border transition-colors
+            ${variantClasses[variant]}
+            ${className}
+        `}>
             {children}
         </span>
     );
@@ -53,33 +33,24 @@ interface TechIconProps {
     active?: boolean;
 }
 
-const iconStyles = {
-    base: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: 'var(--radius-sm)',
-        transition: 'all 0.2s'
-    },
-    sm: { width: '2rem', height: '2rem' },
-    md: { width: '3rem', height: '3rem' },
-    lg: { width: '4rem', height: '4rem' },
-    active: {
-        background: 'var(--bg-surface)',
-        boxShadow: 'var(--shadow-soft)',
-        border: '1px solid var(--border-subtle)',
-        color: 'var(--accent-primary)'
-    },
-    inactive: {
-        background: 'rgba(0,0,0,0.03)',
-        color: 'var(--text-muted)'
-    }
-};
-
 export const TechIcon: React.FC<TechIconProps> = ({ icon: Icon, size = 'md', active = false }) => {
+    const sizeClasses = {
+        sm: 'w-8 h-8',
+        md: 'w-12 h-12',
+        lg: 'w-16 h-16'
+    };
+
+    const activeClasses = active
+        ? 'bg-bg-surface shadow-sm border border-border-subtle text-brand-primary'
+        : 'bg-black/5 text-text-muted';
+
     return (
-        <div style={{ ...iconStyles.base, ...iconStyles[size], ...(active ? iconStyles.active : iconStyles.inactive) }}>
-            <Icon style={{ width: size === 'sm' ? '1rem' : size === 'md' ? '1.5rem' : '2rem', height: 'auto' }} />
+        <div className={`
+            flex items-center justify-center rounded-sm transition-all duration-200
+            ${sizeClasses[size]}
+            ${activeClasses}
+        `}>
+            <Icon size={size === 'sm' ? 16 : size === 'md' ? 24 : 32} />
         </div>
     );
 };
@@ -91,20 +62,20 @@ interface MetricGaugeProps {
     color?: string;
 }
 
-export const MetricGauge: React.FC<MetricGaugeProps> = ({ value, label, color = 'var(--accent-primary)' }) => {
+export const MetricGauge: React.FC<MetricGaugeProps> = ({ value, label, color = 'var(--color-brand-primary)' }) => {
     const circumference = 2 * Math.PI * 16; // r=16
     const offset = circumference - (value / 100) * circumference;
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-            <div style={{ position: 'relative', width: '48px', height: '48px' }}>
-                <svg width="48" height="48" style={{ transform: 'rotate(-90deg)' }}>
+        <div className="flex flex-col items-center gap-2">
+            <div className="relative w-12 h-12">
+                <svg width="48" height="48" className="-rotate-90">
                     <circle
                         cx="24"
                         cy="24"
                         r="16"
                         fill="none"
-                        stroke="var(--border-subtle)"
+                        stroke="var(--color-border-subtle)"
                         strokeWidth="4"
                     />
                     <circle
@@ -120,24 +91,11 @@ export const MetricGauge: React.FC<MetricGaugeProps> = ({ value, label, color = 
                         style={{ transition: 'stroke-dashoffset 1s ease' }}
                     />
                 </svg>
-                <div style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    fontFamily: 'var(--font-mono)',
-                    color: 'var(--text-main)'
-                }}>
+                <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold font-mono text-text-main">
                     {value}
                 </div>
             </div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>{label}</span>
+            <span className="text-[10px] text-text-muted font-bold tracking-tight">{label}</span>
         </div>
     );
 };

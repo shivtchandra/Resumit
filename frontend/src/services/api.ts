@@ -1,7 +1,8 @@
 import axios from 'axios';
-import type { AnalysisResult, BackendAnalysisResponse, FullRewriteResult, BrutalRewriteResult } from '../types';
+import type { AnalysisResult, BackendAnalysisResponse, FullRewriteResult, BrutalRewriteResult, InterviewAnswerScoreResult } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const RAW_API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = RAW_API_BASE_URL.replace(/\/api\/v1\/?$/, '');
 
 export const api = axios.create({
     baseURL: API_BASE_URL,
@@ -32,41 +33,40 @@ export interface RewriteResult {
     prompt?: string;
 }
 
-// Analysis API
-export const analyzeResume = async (
-    file: File,
-    jobDescription?: string,
-    targetRole?: string,
-    targetATS?: string
-): Promise<AnalysisResult> => {
-    const formData = new FormData();
-    formData.append('file', file);
-    if (jobDescription) formData.append('job_description', jobDescription);
-    if (targetRole) formData.append('target_role', targetRole);
-    if (targetATS) formData.append('target_ats', targetATS);
+export interface AnalysisOptions {
+    targetRole?: string;
+    targetATS?: string;
+    analysisMode?: 'jd_or_general' | 'jd_only' | 'general_only';
+    feedbackTone?: 'brutal' | 'professional';
+    companyName?: string;
+    githubUsername?: string;
+    linkedinText?: string;
+    githubToken?: string;
+}
 
-    const response = await api.post<BackendAnalysisResponse>('/analyze', formData, {
-        headers: {
-            'Content-Type': 'multipart/form-data',
-        },
-    });
+const mapLegacyAnalysisResponse = (file: File, data: BackendAnalysisResponse): AnalysisResult => {
+    if (!data.features || !data.friendliness) {
+        throw new Error('Unexpected legacy analysis response format');
+    }
 
-    const data = response.data;
+    const features = data.features;
+    const friendliness = data.friendliness;
+    const relevance = data.relevance;
 
-    // Map backend response to AnalysisResult
     return {
         filename: file.name,
         file_size_bytes: file.size,
-        word_count: data.features.word_count,
-        friendliness_score: data.friendliness.score,
-        match_score: data.relevance?.score,
+        word_count: features.word_count,
+        friendliness_score: friendliness.score,
+        match_score: relevance?.score,
+        relevance_score: relevance?.score,
         vendor_compatibility: {
-            taleo: { status: data.features.risk_flags.includes('TALEO_TABLE_RISK') ? 'fail' : 'pass', issues: [] },
-            workday: { status: data.features.risk_flags.includes('WORKDAY_PARSING_RISK') ? 'fail' : 'pass', issues: [] },
+            taleo: { status: features.risk_flags.includes('TALEO_TABLE_RISK') ? 'fail' : 'pass', issues: [] },
+            workday: { status: features.risk_flags.includes('WORKDAY_PARSING_RISK') ? 'fail' : 'pass', issues: [] },
             greenhouse: { status: 'pass', issues: [] },
-            icims: { status: data.features.risk_flags.includes('ICIMS_FRAGMENTATION_RISK') ? 'fail' : 'pass', issues: [] }
+            icims: { status: features.risk_flags.includes('ICIMS_FRAGMENTATION_RISK') ? 'fail' : 'pass', issues: [] }
         },
-        critical_issues: data.friendliness.issues.map((issue: any) => ({
+        critical_issues: friendliness.issues.map((issue) => ({
             severity: issue.penalty > 10 ? 'critical' : 'warning',
             type: issue.type,
             title: issue.type.replace(/_/g, ' '),
@@ -74,33 +74,128 @@ export const analyzeResume = async (
             fix_suggestions: []
         })),
         ats_extracted: {
-            skills: data.features.ner_skills || [],
-            job_titles: [], // Backend doesn't return this yet
-            education: [], // Backend doesn't return this yet
+            skills: features.ner_skills || [],
+            job_titles: [],
+            education: [],
             contact: [
-                data.features.email_found ? 'Email Detected' : 'No Email',
-                data.features.phone_found ? 'Phone Detected' : 'No Phone'
+                features.email_found ? 'Email Detected' : 'No Email',
+                features.phone_found ? 'Phone Detected' : 'No Phone'
             ],
-            raw_text: data.features.raw_text || 'No text extracted'
+            raw_text: features.raw_text || 'No text extracted'
         },
         timeline: {
-            jobs: data.features.timeline?.jobs?.map((job: any) => ({
-                role: job.title,
-                company: job.company,
-                startDate: job.start_date,
-                endDate: job.end_date
+            jobs: features.timeline?.jobs?.map((job: { title?: string; company?: string; start_date?: string; end_date?: string }) => ({
+                role: job.title || '',
+                company: job.company || '',
+                startDate: job.start_date || '',
+                endDate: job.end_date || ''
             })) || [],
-            gaps: data.features.timeline?.gaps || []
+            gaps: features.timeline?.gaps || []
         },
-        recommendations: data.friendliness.advice || [],
-        visibility_breakdown: data.relevance ? {
-            semantic_score: data.relevance.semantic_score,
-            keyword_score: data.relevance.keyword_score,
-            level: data.relevance.level
+        recommendations: friendliness.advice || [],
+        visibility_breakdown: relevance ? {
+            semantic_score: relevance.semantic_score,
+            keyword_score: relevance.keyword_score,
+            level: relevance.level
         } : undefined,
-        missing_keywords: data.relevance?.missing_keywords || [],
+        missing_keywords: relevance?.missing_keywords || [],
         ai_insights: data.ai_insights
     };
+};
+
+const normalizeTimeline = (timeline: BackendAnalysisResponse['timeline']): AnalysisResult['timeline'] => {
+    if (!timeline) return undefined;
+
+    const jobs = (timeline.jobs || []).map((job: Record<string, unknown>) => ({
+        role: String(job.role || job.title || ''),
+        company: String(job.company || ''),
+        startDate: String(job.startDate || job.start_date || job.start || ''),
+        endDate: String(job.endDate || job.end_date || job.end || ''),
+    }));
+
+    return {
+        jobs,
+        gaps: timeline.gaps || [],
+    };
+};
+
+const mapModernAnalysisResponse = (file: File, data: BackendAnalysisResponse): AnalysisResult => {
+    const recommendations = (data.recommendations || []).map((item) => {
+        if (typeof item === 'string') {
+            return item;
+        }
+        return item.message || 'Recommendation available';
+    });
+
+    return {
+        filename: data.filename || file.name,
+        file_size_bytes: data.file_size_bytes || file.size,
+        word_count: data.word_count || 0,
+        friendliness_score: data.friendliness_score || 0,
+        match_score: data.match_score || undefined,
+        relevance_score: data.match_score || undefined,
+        analysis_summary: data.analysis_summary,
+        vendor_compatibility: data.vendor_compatibility || {},
+        critical_issues: data.critical_issues || [],
+        ats_extracted: data.ats_extracted || {
+            skills: [],
+            job_titles: [],
+            education: [],
+            contact: [],
+            raw_text: ''
+        },
+        timeline: normalizeTimeline(data.timeline),
+        recommendations,
+        visibility_breakdown: data.visibility_breakdown,
+        missing_keywords: data.missing_keywords,
+        roast_report: data.roast_report,
+        content_decisions: data.content_decisions,
+        external_profile_intel: data.external_profile_intel,
+        interview_prep: data.interview_prep,
+        top_actions: data.top_actions,
+        score_calibration: data.score_calibration,
+        beginner_checklist: data.beginner_checklist,
+        comprehensive_analysis: data.comprehensive_analysis,
+    };
+};
+
+// Analysis API
+export const analyzeResume = async (
+    file: File,
+    jobDescription?: string,
+    targetRoleOrOptions?: string | AnalysisOptions,
+    targetATS?: string
+): Promise<AnalysisResult> => {
+    const options: AnalysisOptions = typeof targetRoleOrOptions === 'string'
+        ? { targetRole: targetRoleOrOptions, targetATS }
+        : (targetRoleOrOptions || {});
+
+    const formData = new FormData();
+    formData.append('file', file);
+    if (jobDescription) formData.append('job_description', jobDescription);
+    if (options.targetRole) formData.append('target_role', options.targetRole);
+    if (options.targetATS) formData.append('target_ats', options.targetATS);
+    if (options.analysisMode) formData.append('analysis_mode', options.analysisMode);
+    if (options.feedbackTone) formData.append('feedback_tone', options.feedbackTone);
+    if (options.companyName) formData.append('company_name', options.companyName);
+    if (options.githubUsername) formData.append('github_username', options.githubUsername);
+    if (options.linkedinText) formData.append('linkedin_text', options.linkedinText);
+    if (options.githubToken) formData.append('github_token', options.githubToken);
+
+    const response = await api.post<BackendAnalysisResponse>('/api/v1/analyze/full', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+        timeout: 90000,
+    });
+
+    const data = response.data;
+
+    if (typeof data.friendliness_score === 'number') {
+        return mapModernAnalysisResponse(file, data);
+    }
+
+    return mapLegacyAnalysisResponse(file, data);
 };
 
 // Templates API
@@ -170,17 +265,46 @@ const mockTemplates: Template[] = [
 export const getTemplates = async (params?: { role?: string; ats_vendor?: string; experience_level?: string }): Promise<Template[]> => {
     try {
         const response = await api.get('/api/v1/templates/recommend', { params });
-        return response.data;
+        const data = response.data;
+        const templateList = Array.isArray(data) ? data : data.templates;
+
+        if (!Array.isArray(templateList)) {
+            return [];
+        }
+
+        return templateList.map((template: {
+            id?: string;
+            template_id?: string;
+            name: string;
+            role: string;
+            experience_level: string;
+            ats_vendors?: string[];
+            ats_compatibility?: string[];
+            ats_success_rate: number;
+            file_url?: string;
+            download_url?: string;
+            preview_image_url?: string;
+            description?: string;
+        }) => ({
+            template_id: template.id || template.template_id || '',
+            name: template.name,
+            role: template.role,
+            experience_level: template.experience_level,
+            ats_compatibility: template.ats_compatibility || template.ats_vendors || [],
+            ats_success_rate: template.ats_success_rate,
+            download_url: template.download_url || template.file_url || '#',
+            preview_image_url: template.preview_image_url,
+            description: template.description,
+        }));
     } catch {
-        // Return mock data if backend is unavailable
-        console.warn('Backend unavailable, using mock template data');
         let filtered = [...mockTemplates];
 
         if (params?.role) {
             filtered = filtered.filter(t => t.role === params.role);
         }
         if (params?.ats_vendor) {
-            filtered = filtered.filter(t => t.ats_compatibility.includes(params.ats_vendor!));
+            const atsVendor = params.ats_vendor;
+            filtered = filtered.filter(t => t.ats_compatibility.includes(atsVendor));
         }
         if (params?.experience_level) {
             filtered = filtered.filter(t => t.experience_level === params.experience_level);
@@ -199,7 +323,7 @@ export const exportTemplate = async (
     templateId: string,
     userData: Record<string, unknown>
 ): Promise<{ download_url: string }> => {
-    const response = await api.post('/templates/export', {
+    const response = await api.post('/api/v1/templates/export', {
         template_id: templateId,
         user_data: userData,
     });
@@ -207,12 +331,11 @@ export const exportTemplate = async (
 };
 
 // Rewrite API
-// Rewrite API
 export const rewriteSection = async (data: {
     layout_schema?: Record<string, unknown>;
     section_index?: number;
-    section?: string; // Legacy support
-    content?: string; // Legacy support
+    section?: string;
+    content?: string;
     job_description?: string;
     target_keywords?: string[];
     ats_rules?: string[];
@@ -249,15 +372,18 @@ export const healthCheck = async (): Promise<{ status: string; version: string }
 api.interceptors.response.use(
     (response) => response,
     (error) => {
+        if (error.code === 'ERR_CANCELED') {
+            throw new Error('Request canceled by user.');
+        }
+        if (error.code === 'ECONNABORTED') {
+            throw new Error('Request timed out. Please retry with a shorter JD or try again in a moment.');
+        }
         if (error.response) {
-            // Server responded with error
             const message = error.response.data?.detail || error.response.statusText;
             throw new Error(message);
         } else if (error.request) {
-            // Request made but no response
             throw new Error('No response from server. Please check if the backend is running.');
         } else {
-            // Error in request setup
             throw new Error(error.message);
         }
     }
@@ -270,17 +396,22 @@ export default api;
 export const rewriteWithBrutalFeedback = async (
     file: File,
     jobDescription: string,
-    userId: string = 'anonymous'
+    companyName?: string,
+    userId: string = 'anonymous',
+    signal?: AbortSignal
 ): Promise<BrutalRewriteResult> => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('job_description', jobDescription);
+    if (companyName) formData.append('company_name', companyName);
     formData.append('user_id', userId);
 
     const response = await api.post<BrutalRewriteResult>('/api/v1/rewrite/brutal', formData, {
         headers: {
             'Content-Type': 'multipart/form-data',
         },
+        timeout: 90000,
+        signal,
     });
     return response.data;
 };
@@ -289,12 +420,20 @@ export const rewriteWithBrutalFeedback = async (
 export const analyzeGitHubRepos = async (
     githubUsername: string,
     jobRole: string,
-    jobDescription?: string
+    options?: {
+        jobDescription?: string;
+        pinnedRepos?: string;
+        useAI?: boolean;
+        githubToken?: string;
+    }
 ): Promise<import('../types/github').GitHubAnalysisResult> => {
     const formData = new FormData();
     formData.append('github_username', githubUsername);
     formData.append('job_role', jobRole);
-    if (jobDescription) formData.append('job_description', jobDescription);
+    if (options?.jobDescription) formData.append('job_description', options.jobDescription);
+    if (options?.pinnedRepos) formData.append('pinned_repos', options.pinnedRepos);
+    if (typeof options?.useAI === 'boolean') formData.append('use_ai', String(options.useAI));
+    if (options?.githubToken) formData.append('github_token', options.githubToken);
 
     const response = await api.post<import('../types/github').GitHubAnalysisResult>(
         '/api/v1/github/analyze',
@@ -303,8 +442,19 @@ export const analyzeGitHubRepos = async (
             headers: {
                 'Content-Type': 'multipart/form-data',
             },
+            timeout: 45000,
         }
     );
     return response.data;
 };
 
+export const scoreInterviewAnswer = async (payload: {
+    question: string;
+    answer: string;
+    company_name?: string;
+    target_role?: string;
+    job_description?: string;
+}): Promise<InterviewAnswerScoreResult> => {
+    const response = await api.post<InterviewAnswerScoreResult>('/api/v1/analyze/interview/score', payload);
+    return response.data;
+};

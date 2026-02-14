@@ -1,6 +1,7 @@
 """
 Repository analyzer for scoring relevance to job roles.
 """
+import os
 import logging
 from typing import List, Dict, Any
 import re
@@ -133,16 +134,16 @@ class RepositoryAnalyzer:
         Enhance repositories with AI using smart multi-tier filtering.
         
         Industry best practices:
-        - User pinning (3-5 priority repos)
+        - User pinning (priority repos)
         - High-value detection (stars, forks, recent activity, complexity)
-        - Increased coverage (20 repos instead of 10)
+        - Bounded AI coverage for predictable latency
         
         Args:
             repositories: Sorted list of repositories
             job_role: Target job role
             job_description: Job description
             pinned_repos: List of repo names user wants to prioritize
-            max_repos: Maximum number of repos to enhance (default: 20)
+            max_repos: Maximum number of repos to enhance
             
         Returns:
             Enhanced repositories list
@@ -153,6 +154,10 @@ class RepositoryAnalyzer:
             
             ai_analyzer = GitHubAIAnalyzer()
             pinned_repos = pinned_repos or []
+            ai_repo_cap = int(os.getenv("GITHUB_AI_MAX_REPOS", "5"))
+            ai_repo_cap = max(1, min(ai_repo_cap, max_repos))
+            top_scored_limit = int(os.getenv("GITHUB_AI_TOP_SCORED_LIMIT", "8"))
+            recent_days = int(os.getenv("GITHUB_AI_RECENT_DAYS", "120"))
             
             # TIER 1: User-pinned repos (ALWAYS analyze)
             must_analyze = [r for r in repositories if r['name'] in pinned_repos]
@@ -169,12 +174,12 @@ class RepositoryAnalyzer:
                 has_forks = repo.get('forks', 0) > 5
                 is_complex = len(repo.get('languages', {})) >= 3
                 
-                # Check if recently updated (< 6 months)
+                # Check if recently updated (< configured days)
                 is_recent = False
                 if repo.get('pushed_at'):
                     try:
                         pushed_at = datetime.fromisoformat(repo['pushed_at'].replace('Z', '+00:00'))
-                        is_recent = datetime.now(pushed_at.tzinfo) - pushed_at < timedelta(days=180)
+                        is_recent = datetime.now(pushed_at.tzinfo) - pushed_at < timedelta(days=recent_days)
                     except:
                         pass
                 
@@ -182,8 +187,8 @@ class RepositoryAnalyzer:
                 if has_stars or has_forks or is_complex or is_recent:
                     high_value.append(repo)
             
-            # TIER 3: Top 15 by algorithmic score
-            top_scored = [r for r in repositories[:15] if r['name'] not in pinned_repos]
+            # TIER 3: Top-N by algorithmic score
+            top_scored = [r for r in repositories[:top_scored_limit] if r['name'] not in pinned_repos]
             
             # Combine all tiers and deduplicate
             to_analyze = []
@@ -195,10 +200,16 @@ class RepositoryAnalyzer:
                     seen_names.add(repo['name'])
                     
                 # Stop at max_repos
-                if len(to_analyze) >= max_repos:
+                if len(to_analyze) >= ai_repo_cap:
                     break
             
-            logger.info(f"Smart filtering: {len(must_analyze)} pinned, {len(high_value)} high-value, analyzing {len(to_analyze)} total")
+            logger.info(
+                "Smart AI filtering: pinned=%s high_value=%s analyzing=%s cap=%s",
+                len(must_analyze),
+                len(high_value),
+                len(to_analyze),
+                ai_repo_cap,
+            )
             
             # Enhance selected repos with AI
             for repo in to_analyze:

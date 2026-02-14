@@ -5,7 +5,7 @@ import os
 import logging
 from typing import List, Dict, Any, Optional
 from github import Github, GithubException
-from datetime import datetime
+from urllib.parse import urlparse
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -47,8 +47,14 @@ class GitHubClient:
         try:
             user = self.client.get_user(username)
             repos = []
+            max_repos = int(os.getenv("GITHUB_MAX_REPOS", "60"))
+            readme_scan_limit = int(os.getenv("GITHUB_README_SCAN_LIMIT", "24"))
+            readme_content_limit = int(os.getenv("GITHUB_README_CONTENT_LIMIT", "8"))
             
-            for repo in user.get_repos():
+            # Prioritize recently active repositories to keep response fast and relevant.
+            for idx, repo in enumerate(user.get_repos(sort="updated", direction="desc")):
+                if idx >= max_repos:
+                    break
                 # For freshers, include ALL repos (even forks show learning)
                 # Skip only if it's a fork with absolutely no activity
                 if repo.fork and repo.stargazers_count == 0 and repo.forks_count == 0:
@@ -60,9 +66,18 @@ class GitHubClient:
                     except:
                         continue  # Can't access commits, skip
                 
-                # Check for README first
-                has_readme = self._has_readme(repo)
-                readme_content = self.get_readme_content(repo) if has_readme else ""
+                # README calls are expensive. We only inspect a limited number of repositories.
+                has_readme = False
+                readme_content = ""
+                if idx < readme_scan_limit:
+                    has_readme = self._has_readme(repo)
+                    should_fetch_readme = has_readme and idx < readme_content_limit and (
+                        repo.stargazers_count > 0
+                        or repo.forks_count > 0
+                        or not repo.fork
+                    )
+                    if should_fetch_readme:
+                        readme_content = self.get_readme_content(repo)
                 
                 repo_data = {
                     "name": repo.name,
@@ -89,7 +104,14 @@ class GitHubClient:
                 
                 repos.append(repo_data)
             
-            logger.info(f"Fetched {len(repos)} repositories for user {username}")
+            logger.info(
+                "Fetched %s repositories for user %s (max=%s, readme_scan=%s, readme_content=%s)",
+                len(repos),
+                username,
+                max_repos,
+                readme_scan_limit,
+                readme_content_limit,
+            )
             return repos
             
         except GithubException as e:
@@ -166,21 +188,37 @@ class GitHubClient:
         Returns:
             GitHub username
         """
-        # If it's a URL, extract username
-        if "github.com" in github_input:
-            # Handle various URL formats:
-            # https://github.com/username
-            # https://github.com/username/repo
-            # github.com/username
-            parts = github_input.rstrip('/').split('/')
-            
-            # Find 'github.com' and get the next part
-            try:
-                github_index = next(i for i, part in enumerate(parts) if 'github.com' in part)
-                username = parts[github_index + 1]
-                return username
-            except (IndexError, StopIteration):
+        raw = (github_input or "").strip()
+        if not raw:
+            raise ValueError("GitHub username is required")
+
+        # Accept common shorthand like @username.
+        if raw.startswith("@"):
+            raw = raw[1:]
+
+        # If this is a URL (or domain-like input), parse safely.
+        if "github.com" in raw:
+            parsed = urlparse(raw if "://" in raw else f"https://{raw}")
+            host = (parsed.netloc or "").lower()
+            if "github.com" not in host:
+                raise ValueError("Invalid GitHub URL")
+
+            path_parts = [part for part in (parsed.path or "").split("/") if part]
+            if not path_parts:
                 raise ValueError("Invalid GitHub URL format")
-        
-        # Otherwise, assume it's already a username
-        return github_input.strip()
+            username = path_parts[0]
+        else:
+            username = raw
+
+        # Strip query/fragment artifacts and trailing punctuation.
+        username = username.split("?")[0].split("#")[0].strip().rstrip("/")
+        username = username.strip(" ,.;")
+
+        # GitHub usernames allow alphanumeric and hyphen, max length 39.
+        if not username or len(username) > 39:
+            raise ValueError("Invalid GitHub username")
+
+        if not all(ch.isalnum() or ch == "-" for ch in username):
+            raise ValueError("Invalid GitHub username format")
+
+        return username

@@ -4,6 +4,9 @@ Supabase client configuration for ATS Emulator V2
 import os
 from supabase import create_client, Client
 from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Supabase configuration
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
@@ -12,6 +15,14 @@ SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 
 # Initialize client
 supabase: Optional[Client] = None
+
+
+def _is_supabase_configured(use_service_key: bool = False) -> bool:
+    if not SUPABASE_URL:
+        return False
+
+    key = SUPABASE_SERVICE_KEY if use_service_key else SUPABASE_ANON_KEY
+    return bool(key)
 
 def get_supabase_client(use_service_key: bool = False) -> Client:
     """
@@ -49,6 +60,10 @@ async def store_analysis(analysis_data: dict) -> str:
     Returns:
         Analysis ID
     """
+    if not _is_supabase_configured():
+        logger.info("Supabase not configured. Skipping analysis persistence.")
+        return None
+
     client = get_supabase_client()
     
     result = client.table("analyses").insert({
@@ -75,6 +90,10 @@ async def get_templates(role: str = None, ats_vendor: str = None, experience_lev
     Returns:
         List of matching templates
     """
+    if not _is_supabase_configured():
+        logger.info("Supabase not configured. Returning empty template list.")
+        return []
+
     client = get_supabase_client()
     
     query = client.table("templates").select("*")
@@ -106,6 +125,10 @@ async def upload_file_to_storage(bucket: str, file_path: str, file_bytes: bytes)
     Returns:
         Public URL of uploaded file
     """
+    if not _is_supabase_configured(use_service_key=True):
+        logger.info("Supabase service key missing. Skipping file upload.")
+        return None
+
     client = get_supabase_client(use_service_key=True)
     
     result = client.storage.from_(bucket).upload(

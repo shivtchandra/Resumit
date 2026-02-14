@@ -5,7 +5,8 @@ import os
 import json
 import time
 import logging
-from typing import Dict, Any, List
+import re
+from typing import Dict, Any, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -265,7 +266,8 @@ class GeminiClient:
     def rewrite_with_brutal_review(
         self,
         original_resume_text: str,
-        job_description: str
+        job_description: str,
+        company_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Comprehensive resume rewrite with brutal hiring manager review.
@@ -277,6 +279,8 @@ class GeminiClient:
         Returns:
             Dictionary with marked-up resume, changes, company expectations, and harsh review
         """
+        company_context = company_name.strip() if company_name else "Target company not specified"
+
         prompt = f"""You are an expert hiring manager and ATS specialist reviewing resumes for a specific role.
 
 You have two jobs:
@@ -294,6 +298,9 @@ RESUME CONTENT:
 
 JOB DESCRIPTION:
 {job_description}
+
+COMPANY CONTEXT:
+{company_context}
 
 CRITICAL INSTRUCTIONS:
 
@@ -526,6 +533,18 @@ Return ONLY the JSON. No markdown, no code blocks, no extra text."""
         except json.JSONDecodeError as e:
             logger.error(f"JSON decode error: {e}")
             logger.error(f"Response text: {text[:500]}")
+
+            candidate = self._extract_json_object(text)
+            if candidate:
+                for attempt in (
+                    candidate,
+                    candidate.replace("\u201c", '"').replace("\u201d", '"').replace("\u2018", "'").replace("\u2019", "'"),
+                    re.sub(r",(\s*[}\]])", r"\1", candidate),
+                ):
+                    try:
+                        return json.loads(attempt)
+                    except json.JSONDecodeError:
+                        continue
             
             # Fallback: try to extract bullets from plain text
             lines = text.split('\n')
@@ -535,3 +554,37 @@ Return ONLY the JSON. No markdown, no code blocks, no extra text."""
                 "bullets": bullets if bullets else ["Failed to parse response"],
                 "explanation": "Parsed from plain text due to JSON error"
             }
+
+    def _extract_json_object(self, text: str) -> Optional[str]:
+        """Extract first balanced JSON object from mixed content."""
+        if not text:
+            return None
+
+        start = text.find("{")
+        if start == -1:
+            return None
+
+        depth = 0
+        in_string = False
+        escaped = False
+
+        for idx in range(start, len(text)):
+            ch = text[idx]
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif ch == "\\":
+                    escaped = True
+                elif ch == '"':
+                    in_string = False
+                continue
+
+            if ch == '"':
+                in_string = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[start:idx + 1]
+        return None

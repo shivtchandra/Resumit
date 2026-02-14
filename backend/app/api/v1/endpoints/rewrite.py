@@ -2,9 +2,11 @@
 AI-powered rewrite endpoint for resume optimization with Gemini
 """
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import os
+import asyncio
 import tempfile
 import logging
 from pathlib import Path
@@ -77,8 +79,8 @@ class RewriteSectionRequest(BaseModel):
     """Request model for section rewrite"""
     layout_schema: Dict[str, Any]
     section_index: int
-    job_description: str
-    target_keywords: List[str]
+    job_description: str = ""
+    target_keywords: List[str] = []
 
 
 class RewriteFullResponse(BaseModel):
@@ -112,18 +114,28 @@ async def rewrite_section(request: RewriteSectionRequest):
         section = sections[request.section_index]
         section_type = section.get("type")
         
+        rewriter = get_rewriter()
+        ai_client = rewriter.ai_client
+        if not ai_client:
+            return {
+                "section_index": request.section_index,
+                "section_type": section_type,
+                "rewritten": section.get("raw", section.get("entries", [])),
+                "explanation": "AI provider not configured. Returning original content."
+            }
+
         # Rewrite based on section type
         if section_type == "EXPERIENCE":
-            # Rewrite experience entry
-            rewriter = get_rewriter()
-            # Assuming 'section_content' should be derived from 'section'
-            # The original code used section["entries"][0]
             section_content = section.get("entries")[0] if section.get("entries") else {}
-            result = rewriter.gemini_client.rewrite_experience_entry(
-                entry=section_content,
-                job_description=request.job_description or "",
-                target_keywords=request.target_keywords or []
-            )
+            try:
+                result = ai_client.rewrite_experience_entry(
+                    entry=section_content,
+                    job_description=request.job_description or "",
+                    target_keywords=request.target_keywords or []
+                )
+            except Exception as exc:
+                logger.warning("Experience section rewrite fallback: %s", exc)
+                result = {"bullets": section_content.get("bullets", []), "explanation": "AI rewrite unavailable. Returned original bullets."}
             
             return {
                     "section_index": request.section_index,
@@ -132,12 +144,15 @@ async def rewrite_section(request: RewriteSectionRequest):
                     "explanation": result.get("explanation", "")
                 }
         elif section_type == "SUMMARY":
-            rewriter = get_rewriter() # Added lazy getter
-            result = rewriter.gemini_client.rewrite_summary(
-                section.get("raw", ""),
-                request.job_description,
-                request.target_keywords
-            )
+            try:
+                result = ai_client.rewrite_summary(
+                    section.get("raw", ""),
+                    request.job_description,
+                    request.target_keywords
+                )
+            except Exception as exc:
+                logger.warning("Summary rewrite fallback: %s", exc)
+                result = {"content": section.get("raw", ""), "explanation": "AI rewrite unavailable. Returned original summary."}
             return {
                 "section_index": request.section_index,
                 "section_type": section_type,
@@ -145,12 +160,15 @@ async def rewrite_section(request: RewriteSectionRequest):
                 "explanation": result.get("explanation", "")
             }
         elif section_type == "SKILLS":
-            rewriter = get_rewriter() # Added lazy getter
-            result = rewriter.gemini_client.rewrite_skills(
-                section.get("raw", ""),
-                request.job_description,
-                request.target_keywords
-            )
+            try:
+                result = ai_client.rewrite_skills(
+                    section.get("raw", ""),
+                    request.job_description,
+                    request.target_keywords
+                )
+            except Exception as exc:
+                logger.warning("Skills rewrite fallback: %s", exc)
+                result = {"content": section.get("raw", ""), "explanation": "AI rewrite unavailable. Returned original skills."}
             return {
                 "section_index": request.section_index,
                 "section_type": section_type,
@@ -204,8 +222,11 @@ async def rewrite_full(
         
         # COMPREHENSIVE ANALYSIS (NEW)
         logger.info("Performing comprehensive analysis")
-        comprehensive_analyzer = get_comprehensive_analyzer() # Use lazy getter
-        comprehensive_analysis = comprehensive_analyzer.analyze_comprehensive(text, job_description)
+        try:
+            comprehensive_analyzer = get_comprehensive_analyzer()
+            comprehensive_analyzer.analyze_comprehensive(text, job_description)
+        except Exception as exc:
+            logger.warning("Comprehensive analysis skipped: %s", exc)
         
         # Extract layout schema
         logger.info("Extracting layout schema")
@@ -217,7 +238,7 @@ async def rewrite_full(
         
         # Get visibility score
         visibility_ranker = get_visibility_ranker()
-        visibility_before = visibility_ranker.rank(raw_text, job_description)
+        visibility_before = visibility_ranker.rank(text, job_description)
         
         # Get friendliness score
         from app.services.features.extractor import FeatureExtractor
@@ -334,6 +355,7 @@ async def rewrite_resume_legacy(resume_text: str = Form(...), jd_text: str = For
 async def rewrite_with_brutal_feedback(
     file: UploadFile = File(...),
     job_description: str = Form(...),
+    company_name: Optional[str] = Form(None),
     user_id: str = Form("anonymous")
 ):
     """
@@ -348,6 +370,7 @@ async def rewrite_with_brutal_feedback(
         Marked-up resume, changes, company expectations, and harsh review
     """
     try:
+        warnings: List[str] = []
         # Read file
         file_bytes = await file.read()
         filename = file.filename
@@ -371,26 +394,41 @@ async def rewrite_with_brutal_feedback(
         logger.info("Generating brutal review")
         rewriter = get_rewriter()
         
-        # Call the new brutal review method
-        brutal_result = rewriter.ai_client.rewrite_with_brutal_review(
-            original_resume_text=original_text,
-            job_description=job_description
-        )
-        
-        # Extract layout schema for rebuilding
-        schema_extractor = get_schema_extractor()
-        layout_schema = schema_extractor.extract_from_parsed_data(parsing_result, filename)
-        
-        # Build DOCX from plain_text (we'll need to update the schema with new text)
-        # For now, just return the JSON response
-        # TODO: Rebuild DOCX with marked-up content
-        
+        # Call brutal review with AI when available, fallback otherwise
+        brutal_timeout = float(os.getenv("REWRITE_BRUTAL_TIMEOUT_SECONDS", "85"))
+        try:
+            brutal_result = await asyncio.wait_for(
+                run_in_threadpool(
+                    rewriter.rewrite_with_brutal_review,
+                    original_text,
+                    job_description,
+                    company_name,
+                ),
+                timeout=brutal_timeout,
+            )
+        except asyncio.TimeoutError:
+            logger.warning("Brutal rewrite timed out after %ss, forcing deterministic fallback.", brutal_timeout)
+            warnings.append(
+                "AI rewrite timed out. Returned deterministic fallback rewrite with practical fixes."
+            )
+            brutal_result = await run_in_threadpool(
+                rewriter._fallback_brutal_review,
+                original_text,
+                job_description,
+                company_name,
+            )
+            if isinstance(brutal_result, dict):
+                brutal_result["generation_mode"] = "fallback_timeout"
+
         return {
             "plain_text": brutal_result.get("plain_text", ""),
             "marked_up_resume": brutal_result.get("marked_up_resume", ""),
             "changes": brutal_result.get("changes", []),
             "company_expectations": brutal_result.get("company_expectations", {}),
             "harsh_review": brutal_result.get("harsh_review", {}),
+            "interview_prep": brutal_result.get("interview_prep", {}),
+            "generation_mode": brutal_result.get("generation_mode", "fallback"),
+            "warnings": warnings,
             "original_text": original_text
         }
         

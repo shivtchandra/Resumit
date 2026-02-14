@@ -1,670 +1,440 @@
 import { Link } from 'react-router-dom';
-import { MaterialIcon } from '../components/ui/MaterialIcon';
+import { ArrowRight, Sparkles, ShieldCheck, Github, Check, ChevronDown, Rocket, Target, Zap, Search, MessageSquare, Star, Circle } from 'lucide-react';
 import { PageLayout } from '../components/layout/PageLayout';
 import { Navbar } from '../components/layout/Navbar';
+import { motion, AnimatePresence } from 'framer-motion';
+import { MaterialIcon } from '../components/ui/MaterialIcon';
+import { useState } from 'react';
 
-// Responsive helper
-const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 768;
+const fadeInUp = {
+    initial: { opacity: 0, y: 20 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.5 }
+};
 
-const styles = {
-    hero: {
-        position: 'relative' as const,
-        minHeight: '90vh',
-        display: 'flex',
-        alignItems: 'center',
-        background: 'var(--bg-page)',
-        overflow: 'hidden'
-    },
-    container: {
-        maxWidth: '1240px',
-        margin: '0',
-        padding: isMobile() ? '0 1rem' : '0 2.5rem 0 2rem',  // 1rem on mobile, 2rem on desktop
-        position: 'relative' as const,
-        zIndex: 10
-    },
-    heroGrid: {
-        display: 'grid',
-        gridTemplateColumns: '1fr',
-        gap: '4rem',
-        alignItems: 'center'
-    },
-    heroGridLg: {
-        gridTemplateColumns: '1.2fr 1fr'  // Give more space to left column (text)
-    },
-    heroLeft: {
-        display: 'flex',
-        flexDirection: 'column' as const,
-        justifyContent: 'center',
-        alignItems: 'flex-start' as const
-    },
-    pill: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        padding: '0.5rem 1rem',
-        borderRadius: '9999px',
-        fontSize: '0.75rem',
-        fontFamily: 'var(--font-heading)',
-        fontWeight: 600,
-        marginBottom: '2rem',
-        border: '1px solid var(--border-subtle)',
-        background: 'var(--bg-surface)',
-        color: 'var(--text-muted)',
-        width: 'fit-content'
-    },
-    h1: {
-        fontFamily: "'Space Grotesk', sans-serif",
-        fontWeight: 700,
-        fontSize: isMobile() ? '2.5rem' : '4rem',  // 40px mobile, 64px desktop
-        lineHeight: isMobile() ? '1.1' : '0.95',
-        letterSpacing: '-0.02em',
-        marginBottom: isMobile() ? '1.5rem' : '2rem',
-        color: 'var(--text-main)',
-        textAlign: 'left' as const
-    },
-    h1Accent: {
-        color: 'var(--text-subtle)',
-        fontStyle: 'italic'
-    },
-    subtext: {
-        fontSize: isMobile() ? '1rem' : '1.25rem',  // 16px mobile, 20px desktop
-        color: 'var(--text-muted)',
-        maxWidth: '32rem',
-        marginBottom: isMobile() ? '1.5rem' : '2.5rem',
-        fontWeight: 400,
-        lineHeight: '1.75',
-        textAlign: 'left' as const
-    },
-    ctaContainer: {
-        display: 'flex',
-        flexDirection: 'column' as const,
-        gap: '1rem',
-        marginBottom: '3rem',
-        alignItems: 'flex-start' as const
-    },
-    ctaContainerSm: {
-        flexDirection: 'row' as const
-    },
-    btnPrimary: {
-        padding: isMobile() ? '0.875rem 1.5rem' : '1rem 2rem',  // Smaller on mobile
-        borderRadius: '9999px',
-        background: 'var(--text-main)',
-        color: '#ffffff',
-        fontWeight: 600,
-        fontSize: isMobile() ? '1rem' : '1.125rem',  // 16px mobile, 18px desktop
-        transition: 'all 0.3s',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-        textAlign: 'center' as const,
-        textDecoration: 'none',
-        border: 'none',
-        cursor: 'pointer',
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        width: isMobile() ? '100%' : 'auto',  // Full width on mobile
-        justifyContent: 'center'
-    },
-    btnSecondary: {
-        padding: isMobile() ? '0.875rem 1.5rem' : '1rem 2rem',
-        borderRadius: '9999px',
-        border: '1px solid var(--border-subtle)',
-        color: 'var(--text-main)',
-        fontWeight: 500,
-        fontSize: isMobile() ? '1rem' : '1.125rem',
-        transition: 'all 0.3s',
-        textAlign: 'center' as const,
-        textDecoration: 'none',
-        background: 'transparent',
-        cursor: 'pointer',
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        width: isMobile() ? '100%' : 'auto',
-        justifyContent: 'center'
-    },
-    stats: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: isMobile() ? '1.5rem' : '2rem',
-        borderTop: '1px solid var(--border-subtle)',
-        paddingTop: isMobile() ? '1.5rem' : '2rem',
-        flexWrap: 'wrap' as const  // Allow wrapping on very small screens
-    },
-    statItem: {
-        display: 'flex',
-        flexDirection: 'column' as const
-    },
-    statNumber: {
-        fontSize: isMobile() ? '1.25rem' : '1.5rem',
-        fontFamily: "'Space Grotesk', sans-serif",
-        fontWeight: 700,
-        color: 'var(--text-main)'
-    },
-    statLabel: {
-        fontSize: isMobile() ? '0.8rem' : '0.875rem',
-        color: 'var(--text-muted)'
-    },
-    heroRight: {
-        position: 'relative' as const,
-        height: '600px',
-        display: 'none',
-        background: 'var(--bg-elevated)',
-        borderRadius: '1.5rem 0 0 1.5rem',
-        marginRight: 'calc((100vw - 100%) / -2)',
-        overflow: 'hidden',
-        borderLeft: '1px solid var(--border-subtle)'
-    },
-    heroRightLg: {
-        display: 'block'
-    },
-    featuresSection: {
-        background: 'var(--bg-surface)',
-        borderTop: '1px solid var(--border-subtle)',
-        borderBottom: '1px solid var(--border-subtle)'
-    },
-    featuresContainer: {
-        maxWidth: '1280px',
-        margin: '0',
-        padding: isMobile() ? '4rem 1rem' : '6rem 1.5rem 6rem 1rem'  // Less padding on mobile
-    },
-    featuresGrid: {
-        display: 'grid',
-        gridTemplateColumns: '1fr',
-        gap: '2rem'
-    },
-    featuresGridMd: {
-        gridTemplateColumns: 'repeat(3, 1fr)'
-    },
-    featureCard: {
-        position: 'relative' as const,
-        padding: '2rem',
-        background: 'white',
-        borderRadius: '1rem',
-        border: '1px solid var(--border-subtle)',
-        transition: 'transform 0.3s, box-shadow 0.3s',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02)'
-    },
-    featureIcon: {
-        marginBottom: '1.5rem',
-        color: 'var(--text-main)'
-    },
-    featureTitle: {
-        color: 'var(--text-main)',
-        fontFamily: "'Space Grotesk', sans-serif",
-        fontWeight: 600,
-        fontSize: '1.25rem',
-        marginBottom: '0.75rem'
-    },
-    featureDesc: {
-        color: 'var(--text-muted)',
-        fontSize: '0.95rem',
-        lineHeight: '1.6'
-    },
-    engineSection: {
-        padding: '8rem 0',
-        background: 'white'
-    },
-    engineGrid: {
-        display: 'grid',
-        gridTemplateColumns: '1fr',
-        gap: '4rem',
-        alignItems: 'center'
-    },
-    engineGridLg: {
-        gridTemplateColumns: '1fr 1fr'
-    },
-    engineViz: {
-        aspectRatio: '4/3',
-        borderRadius: '1rem',
-        background: 'var(--bg-surface)',
-        border: '1px solid var(--border-subtle)',
-        padding: '2rem',
-        position: 'relative' as const,
-        overflow: 'hidden'
-    },
-    engineText: {
-        order: 1
-    },
-    engineTextLg: {
-        order: 2
-    },
-    h2: {
-        fontFamily: "'Space Grotesk', sans-serif",
-        fontSize: '3rem',
-        fontWeight: 600,
-        marginBottom: '1.5rem',
-        color: 'var(--text-main)',
-        lineHeight: 1.1
-    },
-    engineDesc: {
-        color: 'var(--text-muted)',
-        fontSize: '1.125rem',
-        marginBottom: '2rem',
-        lineHeight: '1.75'
-    },
-    metricsGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: '2rem',
-        borderTop: '1px solid var(--border-subtle)',
-        paddingTop: '2rem'
-    },
-    metricNumber: {
-        fontSize: '2.5rem',
-        fontFamily: "'Space Grotesk', sans-serif",
-        fontWeight: 700,
-        color: 'var(--text-main)'
-    },
-    metricLabel: {
-        fontSize: '0.875rem',
-        color: 'var(--text-muted)',
-        marginTop: '0.25rem',
-        fontWeight: 500
-    },
-    faqSection: {
-        padding: '8rem 0',
-        background: 'var(--bg-elevated)'
-    },
-    faqGrid: {
-        display: 'grid',
-        gridTemplateColumns: '1fr',
-        gap: '4rem'
-    },
-    faqGridLg: {
-        gridTemplateColumns: 'repeat(12, 1fr)'
-    },
-    faqLeft: {
-        gridColumn: 'span 4'
-    },
-    faqRight: {
-        gridColumn: 'span 8'
-    },
-    faqHeading: {
-        fontFamily: "'Space Grotesk', sans-serif",
-        fontSize: '2.5rem',
-        fontWeight: 600,
-        marginBottom: '1.5rem',
-        color: 'var(--text-main)'
-    },
-    faqSubtext: {
-        color: 'var(--text-muted)',
-        lineHeight: '1.75'
-    },
-    testimonialsSection: {
-        padding: '8rem 0',
-        background: 'white',
-        borderTop: '1px solid var(--border-subtle)'
-    },
-    testimonialsHeader: {
-        textAlign: 'center' as const,
-        marginBottom: '4rem'
-    },
-    testimonialsHeading: {
-        fontFamily: "'Space Grotesk', sans-serif",
-        fontSize: '2.5rem',
-        fontWeight: 600,
-        marginBottom: '1rem',
-        color: 'var(--text-main)'
-    },
-    testimonialsGrid: {
-        display: 'grid',
-        gridTemplateColumns: '1fr',
-        gap: '2rem'
-    },
-    testimonialsGridMd: {
-        gridTemplateColumns: 'repeat(3, 1fr)'
+const staggerContainer = {
+    animate: {
+        transition: {
+            staggerChildren: 0.1
+        }
     }
 };
 
 export const Landing = () => {
+    const [faqOpen, setFaqOpen] = useState<number | null>(null);
+
     return (
         <PageLayout header={<Navbar />} maxWidth="full">
-            {/* Hero Section */}
-            <section style={styles.hero}>
-                <div style={styles.container}>
-                    <div style={{ ...styles.heroGrid, ...(window.innerWidth >= 1024 ? styles.heroGridLg : {}) }}>
-                        {/* Left Content */}
-                        <div style={styles.heroLeft}>
-                            <div style={styles.pill}>
-                                <MaterialIcon icon="auto_awesome" size={16} />
-                                AI-POWERED RESUME INTELLIGENCE
-                            </div>
+            <main className="space-y-0">
+                {/* ── Hero ── */}
+                <section className="relative pt-24 pb-32 overflow-hidden">
+                    <div className="absolute inset-0 pointer-events-none">
+                        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-brand-primary/8 blur-[120px] rounded-full" />
+                        <div className="absolute bottom-[10%] right-[-5%] w-[30%] h-[30%] bg-brand-accent/6 blur-[100px] rounded-full" />
+                    </div>
 
-                            <h1 style={styles.h1}>
-                                Beat The <br />
-                                Algorithm. <br />
-                                <span style={styles.h1Accent}>Not Just The Job.</span>
-                            </h1>
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+                        <motion.div
+                            initial="initial"
+                            animate="animate"
+                            variants={staggerContainer}
+                            className="text-center space-y-8"
+                        >
+                            <motion.div variants={fadeInUp} className="page-badge">
+                                <Sparkles size={14} />
+                                10,000+ Resumes Optimized This Week
+                            </motion.div>
 
-                            <p style={styles.subtext}>
-                                Our engine simulates enterprise ATS systems to show you exactly what they see, then rewrites your resume to pass their filters.
-                            </p>
+                            <motion.h1 variants={fadeInUp} className="text-5xl md:text-7xl lg:text-8xl font-black text-brand-secondary leading-[0.95] tracking-tight max-w-5xl mx-auto">
+                                The Resume Workflow <br />
+                                <span className="text-brand-primary">Built for Humans.</span>
+                            </motion.h1>
 
-                            <div style={{ ...styles.ctaContainer, ...(window.innerWidth >= 640 ? styles.ctaContainerSm : {}) }}>
-                                <Link to="/analysis" style={styles.btnPrimary}>
-                                    Upload Resume
-                                    <MaterialIcon icon="upload" size={20} />
-                                </Link>
-                                <Link to="/optimization-hub" style={{
-                                    ...styles.btnSecondary,
-                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                    color: '#ffffff',
-                                    border: 'none',
-                                    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
-                                }}>
-                                    AI Rewrite
-                                    <MaterialIcon icon="auto_awesome" size={20} />
-                                </Link>
-                                <Link to="/github" style={{
-                                    ...styles.btnSecondary,
-                                    background: 'linear-gradient(135deg, #24292e 0%, #1a1d21 100%)',
-                                    color: '#ffffff',
-                                    border: 'none',
-                                    boxShadow: '0 4px 12px rgba(36, 41, 46, 0.3)'
-                                }}>
-                                    GitHub Projects
-                                    <MaterialIcon icon="code" size={20} />
-                                </Link>
-                                <Link to="/templates" style={styles.btnSecondary}>
-                                    Explore Templates
-                                    <MaterialIcon icon="arrow_forward" size={20} />
-                                </Link>
-                            </div>
+                            <motion.p variants={fadeInUp} className="text-xl md:text-2xl text-text-muted max-w-3xl mx-auto font-medium leading-relaxed">
+                                Diagnose what's wrong, choose a clean template, and rewrite with practical AI feedback. Your path to a better job starts here.
+                            </motion.p>
 
-                            <div style={styles.stats}>
-                                <div style={styles.statItem}>
-                                    <div style={styles.statNumber}>15k+</div>
-                                    <div style={styles.statLabel}>Resumes Analyzed</div>
+                            <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+                                <Link to="/analysis" className="btn-primary py-4 px-10 text-lg group">
+                                    Analyze My Resume <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                                </Link>
+                                <Link to="/templates" className="btn-secondary py-4 px-10 text-lg">
+                                    Browse Templates
+                                </Link>
+                            </motion.div>
+
+                            {/* Simulated Dashboard Preview */}
+                            <motion.div
+                                variants={fadeInUp}
+                                className="mt-20 relative mx-auto max-w-5xl rounded-2xl border border-border-subtle shadow-premium overflow-hidden bg-white"
+                            >
+                                {/* Mock browser bar */}
+                                <div className="flex items-center gap-2 px-5 py-3 bg-slate-50 border-b border-border-subtle">
+                                    <div className="flex gap-1.5">
+                                        <div className="w-3 h-3 rounded-full bg-red-400" />
+                                        <div className="w-3 h-3 rounded-full bg-amber-400" />
+                                        <div className="w-3 h-3 rounded-full bg-emerald-400" />
+                                    </div>
+                                    <div className="flex-1 mx-4 h-7 rounded-lg bg-slate-100 flex items-center px-3">
+                                        <span className="text-[10px] text-text-subtle font-mono">resumit.app/analysis</span>
+                                    </div>
                                 </div>
-                                <div style={styles.statItem}>
-                                    <div style={styles.statNumber}>4x</div>
-                                    <div style={styles.statLabel}>Higher Interview Rate</div>
-                                </div>
-                            </div>
-                        </div>
 
-                        {/* Right Visual - Floating Resume */}
-                        <div style={{ ...styles.heroRight, ...(window.innerWidth >= 1024 ? styles.heroRightLg : {}) }}>
-                            <div style={{
-                                position: 'absolute',
-                                inset: 0,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                padding: '3rem'
-                            }}>
-                                {/* Floating Resume Card */}
-                                <div style={{
-                                    background: 'white',
-                                    borderRadius: '8px',
-                                    padding: '2.5rem 2rem',
-                                    width: '100%',
-                                    maxWidth: '450px',
-                                    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.1)',
-                                    animation: 'float 6s ease-in-out infinite',
-                                    transform: 'rotate(-2deg)',
-                                    border: '1px solid var(--border-subtle)'
-                                }}>
-                                    {/* Resume Header */}
-                                    <div style={{
-                                        marginBottom: '1.5rem',
-                                        paddingBottom: '1rem',
-                                        borderBottom: '2px solid var(--text-main)'
-                                    }}>
-                                        <h3 style={{
-                                            fontFamily: "'Space Grotesk', sans-serif",
-                                            fontSize: '1.75rem',
-                                            fontWeight: 700,
-                                            color: 'var(--text-main)',
-                                            marginBottom: '0.5rem'
-                                        }}>
-                                            Sarah Johnson
-                                        </h3>
-                                        <p style={{
-                                            color: 'var(--text-muted)',
-                                            fontSize: '0.85rem',
-                                            lineHeight: 1.6
-                                        }}>
-                                            sarah.j@email.com • (555) 123-4567<br />
-                                            San Francisco, CA • linkedin.com/in/sarahj
-                                        </p>
+                                {/* Mock dashboard content */}
+                                <div className="p-8 grid grid-cols-12 gap-6">
+                                    {/* Score Ring */}
+                                    <div className="col-span-4 flex flex-col items-center justify-center p-6 rounded-xl bg-slate-50">
+                                        <div className="relative w-28 h-28">
+                                            <svg className="w-28 h-28 -rotate-90" viewBox="0 0 120 120">
+                                                <circle cx="60" cy="60" r="52" stroke="#e2e8f0" strokeWidth="10" fill="none" />
+                                                <circle cx="60" cy="60" r="52" stroke="#14b8a6" strokeWidth="10" fill="none" strokeLinecap="round" strokeDasharray="327" strokeDashoffset="72" />
+                                            </svg>
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                                <span className="text-3xl font-black text-brand-secondary">78</span>
+                                                <span className="text-[9px] font-bold text-text-subtle uppercase tracking-wider">Score</span>
+                                            </div>
+                                        </div>
+                                        <span className="mt-3 text-xs font-bold text-brand-primary">Good — Fixable</span>
                                     </div>
 
-                                    {/* Summary */}
-                                    <div style={{ marginBottom: '1.25rem' }}>
-                                        <h4 style={{
-                                            fontFamily: "'Space Grotesk', sans-serif",
-                                            fontSize: '1rem',
-                                            fontWeight: 700,
-                                            color: 'var(--text-main)',
-                                            marginBottom: '0.5rem',
-                                            textTransform: 'uppercase',
-                                            letterSpacing: '0.05em'
-                                        }}>
-                                            Summary
-                                        </h4>
-                                        <p style={{
-                                            color: 'var(--text-muted)',
-                                            fontSize: '0.8rem',
-                                            lineHeight: 1.6
-                                        }}>
-                                            Senior Software Engineer with 8+ years building scalable web applications. Expert in React, Node.js, and cloud architecture.
-                                        </p>
-                                    </div>
+                                    {/* Keyword Matches */}
+                                    <div className="col-span-8 space-y-4">
+                                        <div className="text-[10px] font-black tracking-widest uppercase text-text-subtle">Keyword Coverage</div>
+                                        {[
+                                            { label: 'React', pct: 95, color: 'bg-emerald-400' },
+                                            { label: 'TypeScript', pct: 80, color: 'bg-blue-400' },
+                                            { label: 'CI/CD', pct: 40, color: 'bg-amber-400' },
+                                            { label: 'System Design', pct: 20, color: 'bg-red-400' },
+                                        ].map(k => (
+                                            <div key={k.label} className="flex items-center gap-3">
+                                                <span className="text-xs font-semibold text-text-muted w-24 shrink-0">{k.label}</span>
+                                                <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                                                    <div className={`h-full rounded-full ${k.color}`} style={{ width: `${k.pct}%` }} />
+                                                </div>
+                                                <span className="text-xs font-bold text-text-muted w-10 text-right">{k.pct}%</span>
+                                            </div>
+                                        ))}
 
-                                    {/* Skills */}
-                                    <div style={{ marginBottom: '1.25rem' }}>
-                                        <h4 style={{
-                                            fontFamily: "'Space Grotesk', sans-serif",
-                                            fontSize: '1rem',
-                                            fontWeight: 700,
-                                            color: 'var(--text-main)',
-                                            marginBottom: '0.5rem',
-                                            textTransform: 'uppercase',
-                                            letterSpacing: '0.05em'
-                                        }}>
-                                            Skills
-                                        </h4>
-                                        <div style={{
-                                            display: 'flex',
-                                            flexWrap: 'wrap',
-                                            gap: '0.4rem'
-                                        }}>
-                                            {['React', 'TypeScript', 'Node.js', 'AWS', 'Docker', 'Python'].map((skill, i) => (
-                                                <span key={i} style={{
-                                                    padding: '0.3rem 0.75rem',
-                                                    borderRadius: '15px',
-                                                    background: 'var(--bg-surface)',
-                                                    color: 'var(--text-main)',
-                                                    border: '1px solid var(--border-subtle)',
-                                                    fontSize: '0.7rem',
-                                                    fontWeight: 500
-                                                }}>
-                                                    {skill}
+                                        {/* ATS Status Row */}
+                                        <div className="flex gap-2 pt-2">
+                                            {['Greenhouse ✓', 'Workday ✓', 'Lever ✗'].map(tag => (
+                                                <span key={tag} className={`text-[10px] font-bold px-3 py-1 rounded-full ${tag.includes('✓') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                                                    {tag}
                                                 </span>
                                             ))}
                                         </div>
                                     </div>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    </div>
+                </section>
 
-                                    {/* Experience */}
-                                    <div>
-                                        <h4 style={{
-                                            fontFamily: "'Space Grotesk', sans-serif",
-                                            fontSize: '1rem',
-                                            fontWeight: 700,
-                                            color: 'var(--text-main)',
-                                            marginBottom: '0.5rem',
-                                            textTransform: 'uppercase',
-                                            letterSpacing: '0.05em'
-                                        }}>
-                                            Experience
-                                        </h4>
-                                        <div style={{ marginBottom: '0.75rem' }}>
-                                            <h5 style={{
-                                                fontWeight: 700,
-                                                color: 'var(--text-main)',
-                                                fontSize: '0.9rem',
-                                                marginBottom: '0.25rem'
-                                            }}>
-                                                Senior Software Engineer
-                                            </h5>
-                                            <p style={{
-                                                color: 'var(--text-subtle)',
-                                                fontSize: '0.75rem',
-                                                fontWeight: 600,
-                                                marginBottom: '0.25rem'
-                                            }}>
-                                                Tech Corp • 2020 - Present
-                                            </p>
-                                            <p style={{
-                                                color: 'var(--text-muted)',
-                                                fontSize: '0.75rem',
-                                                lineHeight: 1.5
-                                            }}>
-                                                Led development of microservices architecture serving 2M+ users. Improved system performance by 45%.
-                                            </p>
+                {/* ── Partners ── */}
+                <section className="py-14 bg-white border-y border-border-subtle">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <p className="text-center text-[10px] font-black tracking-[0.3em] uppercase text-text-subtle mb-8">Trusted by Talent at Top Companies</p>
+                        <div className="flex flex-wrap justify-center items-center gap-12 md:gap-20 opacity-30 grayscale hover:grayscale-0 hover:opacity-50 transition-all duration-700">
+                            {['Google', 'Stripe', 'Meta', 'Netflix', 'Airbnb', 'Amazon'].map(brand => (
+                                <span key={brand} className="text-2xl font-black tracking-tighter text-brand-secondary select-none">{brand}</span>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
+                {/* ── Benefits (Bento Grid) ── */}
+                <section className="py-28 bg-bg-muted">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
+                        <div className="text-center space-y-4">
+                            <h2 className="section-heading">Focus on what matters.</h2>
+                            <p className="section-subheading">We've built tools that help you solve the real reasons resumes fail.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-12 gap-5">
+                            {/* Card 1: Analysis */}
+                            <div className="md:col-span-6 lg:col-span-8 zen-card p-9 flex flex-col justify-between group overflow-hidden relative">
+                                <div className="space-y-4 relative z-10">
+                                    <div className="w-11 h-11 rounded-xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+                                        <Search size={22} />
+                                    </div>
+                                    <h3 className="text-2xl font-black text-brand-secondary">Find exactly what is broken.</h3>
+                                    <p className="text-base text-text-muted leading-relaxed">Our AI analyzes your resume against target JDs to identify ATS flags, keyword gaps, and styling errors instantly.</p>
+                                </div>
+                                <div className="mt-10 p-3 bg-bg-muted rounded-xl border border-border-subtle flex items-center gap-4 translate-y-4 group-hover:translate-y-0 transition-transform">
+                                    <div className="w-9 h-9 rounded-lg bg-brand-accent/15 flex items-center justify-center">
+                                        <Zap size={16} className="text-brand-accent" />
+                                    </div>
+                                    <span className="text-sm font-semibold text-text-muted truncate">"Missing keyword: Microservices Architecture"</span>
+                                </div>
+                            </div>
+
+                            {/* Card 2: Interview Prep */}
+                            <div className="md:col-span-3 lg:col-span-4 bg-brand-secondary p-9 rounded-premium flex flex-col justify-between text-white group">
+                                <div className="space-y-4">
+                                    <div className="w-11 h-11 rounded-xl bg-white/10 flex items-center justify-center">
+                                        <MessageSquare size={22} className="text-brand-accent" />
+                                    </div>
+                                    <h3 className="text-2xl font-black">Pre-empt any question.</h3>
+                                    <p className="text-sm text-slate-400 leading-relaxed">Predict likely interview questions based on your gaps and generate high-impact answer frameworks.</p>
+                                </div>
+                                <div className="mt-8 pt-6 border-t border-white/10 flex items-center justify-between">
+                                    <span className="text-[10px] font-black tracking-widest uppercase text-brand-accent">Risk Mitigation</span>
+                                    <MaterialIcon icon="psychology" size={28} />
+                                </div>
+                            </div>
+
+                            {/* Card 3: Templates */}
+                            <div className="md:col-span-3 lg:col-span-4 zen-card p-8 flex flex-col gap-5 group">
+                                <div className="w-11 h-11 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
+                                    <ShieldCheck size={22} />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black text-brand-secondary mb-2">ATS-Proof Templates</h3>
+                                    <p className="text-sm text-text-muted">Role-specific structures that ensure parsing compatibility with 99% of HR software.</p>
+                                </div>
+                                {/* Mini template preview */}
+                                <div className="mt-auto p-3 rounded-xl bg-slate-50 border border-border-subtle space-y-2 opacity-80 group-hover:opacity-100 transition-opacity">
+                                    <div className="h-2 w-20 bg-brand-secondary/20 rounded-full" />
+                                    <div className="h-1.5 w-full bg-slate-200 rounded-full" />
+                                    <div className="h-1.5 w-3/4 bg-slate-200 rounded-full" />
+                                    <div className="h-px w-full bg-slate-200 my-1" />
+                                    <div className="h-2 w-16 bg-brand-primary/20 rounded-full" />
+                                    <div className="h-1.5 w-full bg-slate-200 rounded-full" />
+                                    <div className="h-1.5 w-5/6 bg-slate-200 rounded-full" />
+                                </div>
+                            </div>
+
+                            {/* Card 4: GitHub Hub */}
+                            <div className="md:col-span-6 lg:col-span-8 zen-card p-8 flex flex-col md:flex-row gap-8 items-center group">
+                                <div className="space-y-4 flex-1 text-center md:text-left">
+                                    <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 mx-auto md:mx-0">
+                                        <Github size={22} />
+                                    </div>
+                                    <h3 className="text-2xl font-black text-brand-secondary">GitHub Strategy</h3>
+                                    <p className="text-sm text-text-muted">Don't just link your profile. We'll show you which repos act as "Proof" for your claims.</p>
+                                </div>
+                                {/* Mini repo cards */}
+                                <div className="grid grid-cols-2 gap-2.5 w-full md:w-auto">
+                                    {[
+                                        { name: 'ml-pipeline', lang: 'Python', color: 'bg-blue-400', stars: 24 },
+                                        { name: 'api-gateway', lang: 'Go', color: 'bg-cyan-400', stars: 18 },
+                                        { name: 'design-sys', lang: 'TypeScript', color: 'bg-blue-500', stars: 42 },
+                                        { name: 'infra-iac', lang: 'HCL', color: 'bg-violet-400', stars: 11 },
+                                    ].map(repo => (
+                                        <div key={repo.name} className="p-3 md:w-28 bg-slate-50 border border-border-subtle rounded-xl hover:border-brand-primary/30 transition-colors">
+                                            <span className="text-[11px] font-bold text-brand-secondary block truncate">{repo.name}</span>
+                                            <div className="flex items-center gap-1.5 mt-1.5">
+                                                <Circle size={6} className={`${repo.color} fill-current`} />
+                                                <span className="text-[9px] text-text-subtle">{repo.lang}</span>
+                                                <Star size={8} className="text-amber-400 fill-amber-400 ml-auto" />
+                                                <span className="text-[9px] text-text-subtle">{repo.stars}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* ── How it works ── */}
+                <section className="py-28 bg-white">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-20">
+                        <div className="text-center space-y-4">
+                            <h2 className="section-heading">The 3-Step Success Path.</h2>
+                            <p className="section-subheading">We've simplified the entire job hunting prep into three clear phases.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 relative">
+                            {/* Connecting Line */}
+                            <div className="hidden md:block absolute top-[52px] left-[15%] right-[15%] h-[2px] bg-border-subtle z-0" />
+
+                            {[
+                                { step: '01', title: 'Upload & Analyze', text: 'Diagnostic mode. Find out exactly why you\'re not getting calls.', icon: Search, to: '/analysis' },
+                                { step: '02', title: 'Fix & Rewrite', text: 'Rewrite weak bullet points and choose a pro template.', icon: Sparkles, to: '/resume-fix-lab' },
+                                { step: '03', title: 'Practice & Apply', text: 'Generate answer frameworks and apply with confidence.', icon: Target, to: '/templates' },
+                            ].map((item, i) => (
+                                <Link key={i} to={item.to} className="relative z-10 space-y-6 group no-underline">
+                                    <div className="w-[100px] h-[100px] rounded-full bg-white border-[3px] border-brand-primary flex items-center justify-center shadow-zen mx-auto group-hover:scale-110 group-hover:shadow-premium transition-all duration-300">
+                                        <item.icon size={40} className="text-brand-primary" />
+                                    </div>
+                                    <div className="text-center space-y-3">
+                                        <span className="text-[10px] font-black tracking-[0.3em] text-brand-primary uppercase">Phase {item.step}</span>
+                                        <h3 className="text-2xl font-black text-brand-secondary">{item.title}</h3>
+                                        <p className="text-sm text-text-muted leading-relaxed px-4">{item.text}</p>
+                                    </div>
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
+                {/* ── Pricing ── */}
+                <section className="py-28 bg-bg-muted">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
+                        <div className="text-center space-y-4">
+                            <h2 className="section-heading">Simple Pricing.</h2>
+                            <p className="section-subheading">Start for free, upgrade when you're ready for the big leagues.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* Tier 1 */}
+                            <div className="bg-white p-9 rounded-premium border border-border-subtle flex flex-col justify-between hover:shadow-premium transition-shadow">
+                                <div className="space-y-8">
+                                    <div className="space-y-2">
+                                        <h3 className="text-xs font-black tracking-widest uppercase text-text-subtle">Free Tier</h3>
+                                        <div className="text-4xl font-black text-brand-secondary">$0<span className="text-lg text-text-subtle font-normal">/mo</span></div>
+                                    </div>
+                                    <ul className="space-y-3">
+                                        {['Basic Analysis', '1 Template', 'ATS Check'].map(f => (
+                                            <li key={f} className="flex items-center gap-3 text-sm font-medium text-text-muted">
+                                                <Check size={16} className="text-brand-primary shrink-0" /> {f}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                                <button className="btn-secondary w-full mt-8">Get Started</button>
+                            </div>
+
+                            {/* Tier 2 (Featured) */}
+                            <div className="bg-brand-secondary p-9 rounded-premium border-2 border-brand-primary shadow-premium flex flex-col justify-between scale-[1.03] relative">
+                                <div className="absolute top-0 right-8 -translate-y-1/2 bg-brand-accent text-brand-secondary px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase">Most Popular</div>
+                                <div className="space-y-8">
+                                    <div className="space-y-2">
+                                        <h3 className="text-xs font-black tracking-widest uppercase text-brand-primary">Pro Mode</h3>
+                                        <div className="text-4xl font-black text-white">$29<span className="text-lg text-slate-500 font-normal">/mo</span></div>
+                                    </div>
+                                    <ul className="space-y-3">
+                                        {[
+                                            'Full AI Roast Report',
+                                            'All Pro Templates',
+                                            'Interview Question Bank',
+                                            'GitHub Strategic Audit',
+                                            'Unlimited Analysis'
+                                        ].map(f => (
+                                            <li key={f} className="flex items-center gap-3 text-sm font-medium text-slate-300">
+                                                <Check size={16} className="text-brand-primary shrink-0" /> {f}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                                <button className="w-full mt-8 py-3 px-8 rounded-full font-bold bg-brand-primary text-white hover:bg-teal-400 transition-all active:scale-95">Go Pro Now</button>
+                            </div>
+
+                            {/* Tier 3 */}
+                            <div className="bg-white p-9 rounded-premium border border-border-subtle flex flex-col justify-between hover:shadow-premium transition-shadow">
+                                <div className="space-y-8">
+                                    <div className="space-y-2">
+                                        <h3 className="text-xs font-black tracking-widest uppercase text-text-subtle">Deep Tech</h3>
+                                        <div className="text-4xl font-black text-brand-secondary">$99<span className="text-lg text-text-subtle font-normal">/mo</span></div>
+                                    </div>
+                                    <ul className="space-y-3">
+                                        {['Personalized Coaching', 'Custom AI Models', 'Video Prep', 'Job Referral Sync'].map(f => (
+                                            <li key={f} className="flex items-center gap-3 text-sm font-medium text-text-muted">
+                                                <Check size={16} className="text-brand-primary shrink-0" /> {f}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                                <button className="btn-secondary w-full mt-8">Contact Support</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* ── Testimonials ── */}
+                <section className="py-28 bg-white">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
+                        <div className="text-center space-y-4">
+                            <h2 className="section-heading">Loved by people worldwide.</h2>
+                            <p className="section-subheading">Join the community of people actually landing offers.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {[
+                                { name: 'Alex Rivera', role: 'Software Engineer @ Stripe', text: 'The Roast Report caught issues my career coach missed for months. Landed the interview at Stripe 2 weeks later.' },
+                                { name: 'Sarah Chen', role: 'Product Manager @ Meta', text: 'The interview frameworks are legendary. I felt like I had the cheat codes during the behavioral rounds.' },
+                                { name: 'David Miller', role: 'Full Stack Dev', text: 'Cleanest templates I have ever used. Finally reached a 95% ATS score and the calls haven\'t stopped.' },
+                            ].map((t, i) => (
+                                <div key={i} className="zen-card p-7 space-y-5">
+                                    <div className="flex gap-1 text-brand-accent">
+                                        {[1, 2, 3, 4, 5].map(j => <MaterialIcon key={j} icon="star" size={16} />)}
+                                    </div>
+                                    <p className="text-text-main font-medium italic leading-relaxed">"{t.text}"</p>
+                                    <div className="flex items-center gap-3 pt-4 border-t border-border-subtle">
+                                        <div className="w-9 h-9 rounded-full bg-brand-primary/15 flex items-center justify-center text-brand-primary font-bold text-xs">
+                                            {t.name.split(' ').map(n => n[0]).join('')}
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-brand-secondary text-sm">{t.name}</div>
+                                            <div className="text-[10px] uppercase tracking-widest text-text-subtle font-bold">{t.role}</div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-
-                            {/* Floating Animation */}
-                            <style>{`
-                                @keyframes float {
-                                    0%, 100% {
-                                        transform: translateY(0px) rotate(-2deg);
-                                    }
-                                    50% {
-                                        transform: translateY(-20px) rotate(-2deg);
-                                    }
-                                }
-                            `}</style>
+                            ))}
                         </div>
                     </div>
-                </div>
-            </section>
+                </section>
 
-            {/* Features Band */}
-            <section style={styles.featuresSection}>
-                <div style={styles.featuresContainer}>
-                    <div style={{ ...styles.featuresGrid, ...(window.innerWidth >= 768 ? styles.featuresGridMd : {}) }}>
-                        {[
-                            { icon: 'visibility', title: "Algorithm Transparency", desc: "See exactly how Workday, Taleo, and Greenhouse parse your resume." },
-                            { icon: 'auto_fix_high', title: "AI Rewrite Engine", desc: "Instantly rephrase bullet points to match high-performing patterns." },
-                            { icon: 'description', title: "ATS-Proof Templates", desc: "Clean, structure-first designs guaranteed to parse correctly." }
-                        ].map((feature, i) => (
-                            <div key={i} style={styles.featureCard}>
-                                <div style={styles.featureIcon}>
-                                    <MaterialIcon icon={feature.icon} size={32} />
-                                </div>
-                                <h3 style={styles.featureTitle}>{feature.title}</h3>
-                                <p style={styles.featureDesc}>{feature.desc}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </section>
-
-            {/* Engine Section */}
-            <section style={styles.engineSection}>
-                <div style={styles.container}>
-                    <div style={{ ...styles.engineGrid, ...(window.innerWidth >= 1024 ? styles.engineGridLg : {}) }}>
-                        <div style={styles.engineViz}>
-                            <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at center, rgba(0,0,0,0.03), transparent 70%)' }} />
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', height: '100%' }}>
-                                <div style={{ background: 'white', borderRadius: '0.5rem', border: '1px solid var(--border-subtle)', padding: '1rem' }}>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem', fontFamily: "'JetBrains Mono', monospace" }}>PARSING_LOGIC</div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                        {[85, 65, 90, 75].map((width, i) => (
-                                            <div key={i} style={{ height: '0.375rem', background: 'var(--bg-surface)', borderRadius: '0.25rem', width: `${width}%` }} />
-                                        ))}
-                                    </div>
-                                </div>
-                                <div style={{ background: 'white', borderRadius: '0.5rem', border: '1px solid var(--border-subtle)', padding: '1rem', marginTop: '2rem' }}>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem', fontFamily: "'JetBrains Mono', monospace" }}>ENTITY_EXTRACTION</div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                        {[1, 2, 3].map(i => (
-                                            <div key={i} style={{ height: '0.375rem', background: 'var(--bg-elevated)', borderRadius: '0.25rem', width: '100%' }} />
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
+                {/* ── FAQ ── */}
+                <section className="py-28 bg-bg-muted">
+                    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+                        <div className="text-center space-y-4">
+                            <h2 className="section-heading text-3xl md:text-4xl">Frequently Asked Questions</h2>
                         </div>
 
-                        <div style={{ ...styles.engineText, ...(window.innerWidth >= 1024 ? styles.engineTextLg : {}) }}>
-                            <h2 style={styles.h2}>
-                                Built To Beat <br />
-                                Filters.
-                            </h2>
-                            <p style={styles.engineDesc}>
-                                We reverse-engineered the parsing logic used by Fortune 500 companies. Our engine doesn't just check for keywords—it validates document structure, entity recognition, and semantic relevance.
-                            </p>
+                        <div className="space-y-3">
+                            {[
+                                { q: 'Is my data private?', a: 'Completely. We do not store your resumes on our servers permanently. They are analyzed in memory and deleted immediately after your session ends unless you explicitly choose to save a template.' },
+                                { q: 'How does the ATS score work?', a: 'We use the same parsing libraries used by major vendors like Workday and Lever. We check for formatting errors, unreadable fonts, and keyword density mapping.' },
+                                { q: 'Can I use this for non-tech roles?', a: 'Yes! While our "Pro" features are optimized for tech, our core analysis engine works for any professional role across all industries.' },
+                                { q: 'What is the "Brutal Roast" mode?', a: 'It\'s our most honest feedback mode. If your resume is boring or confusing, we\'ll tell you exactly why, using direct, no-nonsense language.' }
+                            ].map((faq, i) => (
+                                <div key={i} className="bg-white border border-border-subtle rounded-xl overflow-hidden">
+                                    <button
+                                        onClick={() => setFaqOpen(faqOpen === i ? null : i)}
+                                        className="w-full px-6 py-5 flex items-center justify-between text-left hover:bg-bg-muted/50 transition-colors cursor-pointer"
+                                    >
+                                        <span className="font-semibold text-brand-secondary">{faq.q}</span>
+                                        <ChevronDown size={18} className={`text-text-subtle transition-transform duration-200 shrink-0 ml-4 ${faqOpen === i ? 'rotate-180' : ''}`} />
+                                    </button>
+                                    <AnimatePresence>
+                                        {faqOpen === i && (
+                                            <motion.div
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: 'auto', opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                className="px-6 pb-5 text-sm text-text-muted leading-relaxed"
+                                            >
+                                                {faq.a}
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </section>
 
-                            <div style={styles.metricsGrid}>
-                                <div>
-                                    <div style={styles.metricNumber}>98%</div>
-                                    <div style={styles.metricLabel}>Parsing Accuracy</div>
-                                </div>
-                                <div>
-                                    <div style={styles.metricNumber}>4</div>
-                                    <div style={styles.metricLabel}>Engines Simulated</div>
-                                </div>
-                                <div>
-                                    <div style={styles.metricNumber}>15k+</div>
-                                    <div style={styles.metricLabel}>Resumes Tested</div>
-                                </div>
+                {/* ── Big CTA ── */}
+                <section className="py-28 px-4 sm:px-6 lg:px-8">
+                    <div className="max-w-7xl mx-auto bg-brand-secondary rounded-3xl p-12 lg:p-20 text-center space-y-8 relative overflow-hidden shadow-xl">
+                        <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/10 to-transparent" />
+                        <div className="relative z-10 space-y-6">
+                            <div className="w-14 h-14 rounded-2xl bg-brand-accent flex items-center justify-center mx-auto text-brand-secondary">
+                                <Rocket size={28} />
+                            </div>
+                            <h2 className="text-4xl lg:text-6xl font-black text-white tracking-tight">Stop Guessing. <br />Start Winning.</h2>
+                            <p className="text-lg text-slate-400 max-w-2xl mx-auto">Get the resume data you need to bypass original filters and get straight to the hiring manager.</p>
+                            <div className="pt-4">
+                                <Link to="/analysis" className="inline-flex items-center gap-2 py-4 px-10 rounded-full text-lg font-black bg-brand-primary text-white hover:bg-teal-400 transition-all active:scale-95 shadow-lg">
+                                    Analyze Your Resume Now
+                                </Link>
                             </div>
                         </div>
                     </div>
-                </div>
-            </section>
-
-            {/* FAQ Section */}
-            <section style={styles.faqSection}>
-                <div style={styles.container}>
-                    <div style={{ ...styles.faqGrid, ...(window.innerWidth >= 1024 ? styles.faqGridLg : {}) }}>
-                        <div style={window.innerWidth >= 1024 ? styles.faqLeft : {}}>
-                            <h2 style={styles.faqHeading}>
-                                Questions
-                            </h2>
-                            <p style={styles.faqSubtext}>
-                                Everything you need to know about how we protect your data and help you get hired.
-                            </p>
-                        </div>
-
-                        <div style={window.innerWidth >= 1024 ? styles.faqRight : {}}>
-                            {/* Accordion would go here */}
-                            <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                                FAQ content...
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            {/* Testimonials */}
-            <section style={styles.testimonialsSection}>
-                <div style={styles.container}>
-                    <div style={styles.testimonialsHeader}>
-                        <h2 style={styles.testimonialsHeading}>Trusted by Professionals</h2>
-                    </div>
-                    <div style={{ ...styles.testimonialsGrid, ...(window.innerWidth >= 768 ? styles.testimonialsGridMd : {}) }}>
-                        {/* Testimonial cards would go here */}
-                        <div style={{ background: 'white', padding: '2rem', borderRadius: '0.75rem', border: '1px solid var(--border-subtle)', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
-                            <p style={{ color: 'var(--text-main)', marginBottom: '1rem' }}>"This tool completely changed my job search. I went from 0 callbacks to 5 in a week."</p>
-                            <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', fontWeight: 600 }}>- Alex M., Software Engineer</p>
-                        </div>
-                        <div style={{ background: 'white', padding: '2rem', borderRadius: '0.75rem', border: '1px solid var(--border-subtle)', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
-                            <p style={{ color: 'var(--text-main)', marginBottom: '1rem' }}>"The analysis showed me exactly why my resume was getting rejected. The rewrite engine is magic."</p>
-                            <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', fontWeight: 600 }}>- Sarah K., Product Manager</p>
-                        </div>
-                        <div style={{ background: 'white', padding: '2rem', borderRadius: '0.75rem', border: '1px solid var(--border-subtle)', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
-                            <p style={{ color: 'var(--text-main)', marginBottom: '1rem' }}>"Simple, clean, and effective. The templates are beautiful and actually parse correctly."</p>
-                            <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', fontWeight: 600 }}>- James L., Data Scientist</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
+                </section>
+            </main>
         </PageLayout>
     );
 };

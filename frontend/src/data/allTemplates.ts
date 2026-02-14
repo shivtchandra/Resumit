@@ -688,12 +688,38 @@ const getMarketingTemplates = (): ResumeTemplate[] => [
 // Get all templates by role and level
 // Get all templates by role and level
 export const getProductionTemplates = (): ResumeTemplate[] => {
-    return [
+    const templates = [
         ...softwareEngineerTemplates,
         ...getDataScientistTemplates(),
         ...getProductManagerTemplates(),
         ...getDesignerTemplates(),
         ...getMarketingTemplates()
     ];
-};
 
+    const techRoles = new Set([
+        'software engineer',
+        'data scientist',
+        'frontend developer',
+        'backend developer',
+        'full stack developer',
+        'devops engineer',
+        'machine learning engineer',
+    ]);
+
+    return templates.map((template) => {
+        const role = template.metadata.role.toLowerCase();
+        if (!techRoles.has(role)) return template;
+
+        return {
+            ...template,
+            content: {
+                ...template.content,
+                personalInfo: {
+                    ...template.content.personalInfo,
+                    linkedin: template.content.personalInfo.linkedin || 'linkedin.com/in/yourname',
+                    github: template.content.personalInfo.github || 'github.com/yourname',
+                },
+            },
+        };
+    });
+};

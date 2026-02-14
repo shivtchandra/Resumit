@@ -16,7 +16,7 @@ export const MatchBar = ({ score, label, role }: MatchBarProps) => {
                 </div>
                 <span className="text-2xl font-heading font-bold text-brand-blue">{score}%</span>
             </div>
-            <Progress value={score} className="h-3 bg-slate-100" indicatorClassName="bg-brand-blue" />
+            <Progress value={score} className="h-3 bg-slate-100" />
             <div className="flex justify-between mt-2 text-xs text-text-muted">
                 <span>Low Match</span>
                 <span>Strong Match</span>

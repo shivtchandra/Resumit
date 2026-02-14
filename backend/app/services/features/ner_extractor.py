@@ -6,13 +6,19 @@ Uses pre-trained BERT model for Skill and Entity Extraction.
 from transformers import pipeline
 import logging
 import re
+import os
 
 logger = logging.getLogger(__name__)
 
 class NERExtractor:
     def __init__(self):
         self.ner_pipeline = None
-        self._load_model()
+        # Disable heavy remote model loading by default for stable startup/offline usage.
+        self.enable_hf_ner = os.getenv("ENABLE_HF_NER", "false").lower() == "true"
+        if self.enable_hf_ner:
+            self._load_model()
+        else:
+            logger.info("ENABLE_HF_NER=false: using keyword-only skill extraction fallback")
         
     def _load_model(self):
         try:
@@ -39,8 +45,22 @@ class NERExtractor:
                 'all_entities': []
             }
         """
+        result = {
+            'skills': [],
+            'designation': [],
+            'company': [],
+            'degree': [],
+            'all_entities': []
+        }
+
+        # Always run keyword extractor so API stays useful without remote model downloads.
+        keyword_skills = self._extract_skills_by_keywords(text)
+        result['skills'].extend(keyword_skills)
+
         if not self.ner_pipeline:
-            return {'skills': [], 'error': 'Model not loaded'}
+            result['skills'] = list(set(result['skills']))
+            result['error'] = 'Model not loaded'
+            return result
             
         # Truncate text if too long (BERT limit is usually 512 tokens)
         # We'll process the first 2000 characters which usually covers Summary + Skills + Experience start
@@ -52,14 +72,6 @@ class NERExtractor:
             logger.error(f"NER inference failed: {e}")
             return {'skills': [], 'error': str(e)}
             
-        result = {
-            'skills': [],
-            'designation': [],
-            'company': [],
-            'degree': [],
-            'all_entities': []
-        }
-        
         for entity in entities:
             label = entity['entity_group']
             word = entity['word']
@@ -78,10 +90,6 @@ class NERExtractor:
             
             self._update_specific_list(result, label, word)
             
-        # Fallback/Augment with Keyword Extraction
-        keyword_skills = self._extract_skills_by_keywords(text)
-        result['skills'].extend(keyword_skills)
-        
         # Deduplicate
         result['skills'] = list(set(result['skills']))
         result['designation'] = list(set(result['designation']))

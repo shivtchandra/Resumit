@@ -3,6 +3,7 @@ import xml.etree.ElementTree as ET
 from docx import Document
 import io
 import logging
+from typing import List
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class DOCXParser:
         stream.seek(0)
         floating_object_count = 0
         has_header_footer_content = False
+        extracted_urls: List[str] = []
         
         try:
             with zipfile.ZipFile(stream) as zf:
@@ -55,6 +57,8 @@ class DOCXParser:
                     # Check if they actually contain text
                     has_header_footer_content = self._check_header_footer_content(zf)
 
+                extracted_urls = self._extract_hyperlinks(zf)
+
         except Exception as e:
             logger.error(f"XML analysis failed: {e}")
 
@@ -62,7 +66,8 @@ class DOCXParser:
             "raw_text": extracted_text,
             "floating_object_count": floating_object_count,
             "has_header_footer_content": has_header_footer_content,
-            "file_size_bytes": len(file_bytes)
+            "file_size_bytes": len(file_bytes),
+            "extracted_urls": extracted_urls,
         }
 
     def _check_header_footer_content(self, zf):
@@ -78,3 +83,35 @@ class DOCXParser:
         except:
             pass
         return False
+
+    def _extract_hyperlinks(self, zf) -> List[str]:
+        """Extract external hyperlinks from DOCX relationship files."""
+        rel_ns = {'r': 'http://schemas.openxmlformats.org/package/2006/relationships'}
+        urls: List[str] = []
+        seen = set()
+
+        for name in zf.namelist():
+            if not name.endswith(".rels"):
+                continue
+            try:
+                xml = zf.read(name)
+                root = ET.fromstring(xml)
+            except Exception:
+                continue
+
+            for rel in root.findall('r:Relationship', rel_ns):
+                target = str(rel.attrib.get("Target", "")).strip()
+                target_mode = str(rel.attrib.get("TargetMode", "")).strip().lower()
+                if not target or target_mode != "external":
+                    continue
+                if not target.startswith(("http://", "https://", "www.", "linkedin.com", "github.com")):
+                    continue
+                cleaned = target.rstrip(".,);")
+                if cleaned.startswith("www.") or cleaned.startswith("linkedin.com") or cleaned.startswith("github.com"):
+                    cleaned = f"https://{cleaned}"
+                if cleaned in seen:
+                    continue
+                seen.add(cleaned)
+                urls.append(cleaned)
+
+        return urls[:40]

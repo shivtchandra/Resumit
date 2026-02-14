@@ -1,5 +1,23 @@
-import { useState } from 'react';
-import { Github, Code2, ExternalLink, TrendingUp, Award, CheckCircle2, XCircle, MessageSquare, Lightbulb, ThumbsUp, ThumbsDown, BookOpen, Target, Wrench, Sparkles, Search, BarChart3 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
+import {
+    Github,
+    Code2,
+    ExternalLink,
+    TrendingUp,
+    Award,
+    CheckCircle2,
+    XCircle,
+    MessageSquare,
+    Lightbulb,
+    ThumbsUp,
+    ThumbsDown,
+    Search,
+    BarChart3,
+    Settings2,
+    ShieldAlert,
+    Loader2,
+} from 'lucide-react';
 import { analyzeGitHubRepos } from '@/services/api';
 import type { GitHubAnalysisResult, GitHubRepository } from '@/types/github';
 
@@ -15,15 +33,100 @@ const JOB_ROLES = [
     { value: 'full-stack-developer', label: 'Full Stack Developer' },
 ];
 
+const styles = {
+    container: {
+        maxWidth: '1200px',
+        margin: '0 auto',
+        padding: '1rem',
+    },
+    sectionCard: {
+        background: '#ffffff',
+        borderRadius: '14px',
+        border: '1px solid var(--border-subtle)',
+        padding: '1rem',
+        marginBottom: '1rem',
+        boxShadow: 'var(--shadow-soft)',
+    },
+    headerTitle: {
+        fontSize: '1.6rem',
+        fontWeight: 700,
+        color: '#0f172a',
+        marginBottom: '0.35rem',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.65rem',
+    },
+    input: {
+        width: '100%',
+        padding: '0.68rem 0.75rem',
+        border: '1px solid #cbd5e1',
+        borderRadius: '10px',
+        fontSize: '0.9rem',
+        color: '#0f172a',
+        background: '#ffffff',
+    },
+    label: {
+        display: 'block',
+        fontWeight: 700,
+        marginBottom: '0.45rem',
+        color: '#1e293b',
+        fontSize: '0.84rem',
+    },
+    button: (disabled: boolean) => ({
+        width: '100%',
+        padding: '0.82rem',
+        background: disabled ? '#94a3b8' : '#0f172a',
+        color: 'white',
+        border: 'none',
+        borderRadius: '10px',
+        fontSize: '0.92rem',
+        fontWeight: 700,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '0.5rem',
+    }),
+};
+
 export const GitHubAnalyzer = () => {
     const [githubInput, setGithubInput] = useState('');
     const [jobRole, setJobRole] = useState('software-engineer');
+    const [jobDescription, setJobDescription] = useState('');
+    const [pinnedRepos, setPinnedRepos] = useState('');
+    const [githubToken, setGithubToken] = useState('');
+    const [useAI, setUseAI] = useState(false);
+    const [showAdvanced, setShowAdvanced] = useState(false);
+    const [elapsedSeconds, setElapsedSeconds] = useState(0);
+    const [loadingSignal, setLoadingSignal] = useState(0);
+
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<GitHubAnalysisResult | null>(null);
     const [error, setError] = useState<string | null>(null);
 
+    useEffect(() => {
+        if (!loading) {
+            setElapsedSeconds(0);
+            setLoadingSignal(0);
+            return;
+        }
+
+        const secondTimer = setInterval(() => {
+            setElapsedSeconds((prev) => prev + 1);
+        }, 1000);
+        const signalTimer = setInterval(() => {
+            setLoadingSignal((prev) => (prev + 1) % 4);
+        }, 1500);
+
+        return () => {
+            clearInterval(secondTimer);
+            clearInterval(signalTimer);
+        };
+    }, [loading]);
+
     const handleAnalyze = async () => {
-        if (!githubInput.trim()) {
+        const input = githubInput.trim();
+        if (!input) {
             setError('Please enter a GitHub username or URL');
             return;
         }
@@ -33,320 +136,321 @@ export const GitHubAnalyzer = () => {
         setResult(null);
 
         try {
-            const data = await analyzeGitHubRepos(githubInput, jobRole);
+            const data = await analyzeGitHubRepos(input, jobRole, {
+                jobDescription: jobDescription.trim() || undefined,
+                pinnedRepos: pinnedRepos.trim() || undefined,
+                useAI,
+                githubToken: githubToken.trim() || undefined,
+            });
             setResult(data);
-        } catch (err: any) {
-            setError(err.message || 'Failed to analyze repositories');
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to analyze repositories';
+            setError(message);
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
-            {/* Header */}
-            <div style={{ marginBottom: '2rem' }}>
-                <h1 style={{ fontSize: '2rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <Github size={32} />
+        <div style={styles.container}>
+            <div style={styles.sectionCard}>
+                <h1 style={styles.headerTitle}>
+                    <Github size={28} />
                     GitHub Repository Analyzer
                 </h1>
-                <p style={{ color: '#64748b', fontSize: '1rem' }}>
-                    Find your most relevant repositories for your target job role
+                <p style={{ color: '#64748b', fontSize: '0.92rem', margin: 0 }}>
+                    Rank your repositories by role relevance and get practical guidance on what to keep on your resume.
                 </p>
             </div>
 
-            {/* Tips & Best Practices */}
-            <div style={{ background: 'white', border: '2px solid #e2e8f0', borderRadius: '12px', padding: '2rem', marginBottom: '2rem' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0f172a' }}>
-                    <Lightbulb size={20} />
-                    How to Get the Best Results
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+            <div style={styles.sectionCard}>
+                <div style={{ display: 'grid', gap: '0.8rem' }}>
                     <div>
-                        <div style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0f172a' }}>
-                            <BookOpen size={18} />
-                            README is Critical
-                        </div>
-                        <p style={{ fontSize: '0.875rem', lineHeight: '1.6', color: '#475569' }}>
-                            Projects <strong>without a README score &lt;30%</strong>. Add setup instructions, screenshots, and explain what problem you solved.
-                        </p>
+                        <label style={styles.label}>GitHub Username or URL</label>
+                        <input
+                            type="text"
+                            value={githubInput}
+                            onChange={(e) => setGithubInput(e.target.value)}
+                            placeholder="e.g., torvalds or https://github.com/torvalds?tab=repositories"
+                            style={styles.input}
+                        />
                     </div>
-                    <div>
-                        <div style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0f172a' }}>
-                            <Target size={18} />
-                            Show Real Skills
-                        </div>
-                        <p style={{ fontSize: '0.875rem', lineHeight: '1.6', color: '#475569' }}>
-                            Tutorial clones score low. Original projects solving real problems get <strong>75%+</strong>. Demonstrate features like auth, APIs, databases.
-                        </p>
-                    </div>
-                    <div>
-                        <div style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0f172a' }}>
-                            <Wrench size={18} />
-                            Use Right Tech
-                        </div>
-                        <p style={{ fontSize: '0.875rem', lineHeight: '1.6', color: '#475569' }}>
-                            Match your tech stack to the role. Frontend roles need React/TypeScript. Data roles need Python/SQL. Wrong tech = penalty.
-                        </p>
-                    </div>
-                </div>
-                <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.875rem', color: '#0f172a', display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
-                    <Sparkles size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
-                    <div>
-                        <strong>Pro Tip:</strong> The AI thinks like a recruiter with 60 seconds to decide. Make your README professional, explain your project clearly, and show you can code.
-                    </div>
-                </div>
-            </div>
 
-            {/* Input Form */}
-            <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '2rem', marginBottom: '2rem' }}>
-                <div style={{ marginBottom: '1.5rem' }}>
-                    <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem', color: '#1e293b' }}>
-                        GitHub Username or URL
-                    </label>
-                    <input
-                        type="text"
-                        value={githubInput}
-                        onChange={(e) => setGithubInput(e.target.value)}
-                        placeholder="e.g., torvalds or https://github.com/torvalds"
-                        style={{ width: '100%', padding: '0.75rem', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '1rem' }}
-                    />
-                </div>
+                    <div>
+                        <label style={styles.label}>Target Job Role</label>
+                        <select
+                            value={jobRole}
+                            onChange={(e) => setJobRole(e.target.value)}
+                            style={styles.input}
+                        >
+                            {JOB_ROLES.map((role) => (
+                                <option key={role.value} value={role.value}>
+                                    {role.label}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
 
-                <div style={{ marginBottom: '1.5rem' }}>
-                    <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem', color: '#1e293b' }}>
-                        Target Job Role
-                    </label>
-                    <select
-                        value={jobRole}
-                        onChange={(e) => setJobRole(e.target.value)}
-                        style={{ width: '100%', padding: '0.75rem', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '1rem' }}
+                    <button
+                        type="button"
+                        onClick={() => setShowAdvanced((v) => !v)}
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            border: '1px solid var(--border-subtle)',
+                            background: '#fff',
+                            color: '#334155',
+                            borderRadius: '10px',
+                            padding: '0.5rem 0.7rem',
+                            fontSize: '0.8rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            width: 'fit-content',
+                        }}
                     >
-                        {JOB_ROLES.map(role => (
-                            <option key={role.value} value={role.value}>{role.label}</option>
-                        ))}
-                    </select>
-                </div>
+                        <Settings2 size={14} />
+                        {showAdvanced ? 'Hide Advanced Options' : 'Show Advanced Options'}
+                    </button>
 
-                <button
-                    onClick={handleAnalyze}
-                    disabled={loading}
-                    style={{
-                        width: '100%',
-                        padding: '1rem',
-                        background: loading ? '#94a3b8' : '#0f172a',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '1rem',
-                        fontWeight: 600,
-                        cursor: loading ? 'not-allowed' : 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.5rem'
-                    }}
-                >
-                    <Search size={18} />
-                    {loading ? 'Analyzing...' : 'Analyze Repositories'}
-                </button>
+                    {showAdvanced && (
+                        <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '10px', padding: '0.75rem', display: 'grid', gap: '0.7rem', background: '#f8fafc' }}>
+                            <div>
+                                <label style={styles.label}>Job Description (Optional)</label>
+                                <textarea
+                                    value={jobDescription}
+                                    onChange={(e) => setJobDescription(e.target.value)}
+                                    placeholder="Paste JD for more accurate scoring and interview relevance..."
+                                    style={{ ...styles.input, minHeight: '96px', resize: 'vertical' }}
+                                />
+                            </div>
+                            <div>
+                                <label style={styles.label}>Pinned Repositories (Optional)</label>
+                                <input
+                                    type="text"
+                                    value={pinnedRepos}
+                                    onChange={(e) => setPinnedRepos(e.target.value)}
+                                    placeholder="repo-one, repo-two, repo-three"
+                                    style={styles.input}
+                                />
+                                <p style={{ margin: '0.28rem 0 0', color: '#64748b', fontSize: '0.76rem' }}>
+                                    These repos are prioritized in AI analysis.
+                                </p>
+                            </div>
+                            <div>
+                                <label style={styles.label}>GitHub Token (Optional)</label>
+                                <input
+                                    type="password"
+                                    value={githubToken}
+                                    onChange={(e) => setGithubToken(e.target.value)}
+                                    placeholder="ghp_... (optional, helps avoid rate limits)"
+                                    style={styles.input}
+                                />
+                            </div>
+                            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.82rem', fontWeight: 700, color: '#334155' }}>
+                                <input type="checkbox" checked={useAI} onChange={(e) => setUseAI(e.target.checked)} />
+                                Enable AI recruiter analysis (slower; best for final pass)
+                            </label>
+                        </div>
+                    )}
+
+                    <button onClick={handleAnalyze} disabled={loading} style={styles.button(loading)}>
+                        <Search size={17} />
+                        {loading ? 'Analyzing GitHub...' : 'Analyze GitHub Profile'}
+                    </button>
+                </div>
             </div>
 
-            {/* Error */}
-            {error && (
-                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '1rem', marginBottom: '2rem', color: '#991b1b', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <XCircle size={20} />
-                    {error}
+            {loading && (
+                <div style={{ ...styles.sectionCard, padding: '1rem', display: 'grid', gap: '0.6rem' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', color: '#0f172a', fontWeight: 700 }}>
+                        <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
+                        Running GitHub analysis...
+                    </div>
+                    <div style={{ fontSize: '0.84rem', color: '#64748b' }}>
+                        {[
+                            'Fetching repositories and metadata',
+                            'Scoring role relevance and README quality',
+                            'Preparing top recommendations',
+                            'Compiling feedback cards',
+                        ][loadingSignal]}
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                        {elapsedSeconds}s elapsed
+                    </div>
                 </div>
             )}
 
-            {/* Results */}
+            {error && (
+                <div style={{ ...styles.sectionCard, background: '#fef2f2', borderColor: '#fecaca', color: '#991b1b', display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                    <XCircle size={19} />
+                    <div>
+                        <div style={{ fontWeight: 700, marginBottom: '0.2rem' }}>GitHub Checker Error</div>
+                        <div style={{ fontSize: '0.88rem' }}>{error}</div>
+                    </div>
+                </div>
+            )}
+
             {result && (
                 <>
-                    {/* Insights */}
-                    <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '2rem', marginBottom: '2rem' }}>
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1.5rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <BarChart3 size={24} />
-                            Profile Insights
+                    <div style={styles.sectionCard}>
+                        <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '1.1rem', margin: '0 0 0.8rem', color: '#0f172a' }}>
+                            <BarChart3 size={19} />
+                            Analysis Summary
                         </h2>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                            <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '8px' }}>
-                                <div style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '0.25rem' }}>Total Repos</div>
-                                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>{result.total_repos}</div>
-                            </div>
-                            <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '8px' }}>
-                                <div style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '0.25rem' }}>Total Stars</div>
-                                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>{result.insights.total_stars}</div>
-                            </div>
-                            <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '8px' }}>
-                                <div style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '0.25rem' }}>Top Languages</div>
-                                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0f172a' }}>
-                                    {result.insights.primary_languages.slice(0, 3).join(', ')}
-                                </div>
-                            </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.65rem' }}>
+                            <MetricCard label="User" value={result.username} />
+                            <MetricCard label="Total Repos" value={String(result.total_repos)} />
+                            <MetricCard label="Analyzed Repos" value={String(result.analyzed_repos)} />
+                            <MetricCard label="Total Stars" value={String(result.insights?.total_stars ?? 0)} />
+                            <MetricCard label="Mode" value={result.analysis_mode || (result.ai_used ? 'ai' : 'heuristic')} />
+                            <MetricCard label="Rate Limit Left" value={String(result.rate_limit?.remaining ?? 0)} />
                         </div>
+
+                        {(result.rate_limit?.remaining ?? 0) < 10 && (
+                            <div style={{ marginTop: '0.75rem', padding: '0.6rem', borderRadius: '8px', border: '1px solid #fde68a', background: '#fffbeb', color: '#92400e', fontSize: '0.83rem', display: 'flex', gap: '0.45rem' }}>
+                                <ShieldAlert size={16} />
+                                GitHub API rate limit is low. Add `github_token` in advanced options for reliable results.
+                            </div>
+                        )}
                     </div>
 
-                    {/* Top Repositories */}
-                    <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '2rem' }}>
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1.5rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <TrendingUp size={24} />
+                    <div style={styles.sectionCard}>
+                        <h2 style={{ fontSize: '1.15rem', fontWeight: 700, margin: '0 0 1rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <TrendingUp size={19} />
                             Top Recommended Repositories
                         </h2>
-
                         {result.top_repositories.length === 0 ? (
-                            <p style={{ color: '#64748b', textAlign: 'center', padding: '2rem' }}>
-                                No repositories found
+                            <p style={{ color: '#64748b', margin: 0 }}>
+                                No repositories were returned for this user.
                             </p>
                         ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            <div style={{ display: 'grid', gap: '0.85rem' }}>
                                 {result.top_repositories.map((repo, index) => (
-                                    <RepositoryCard key={repo.full_name} repo={repo} rank={index + 1} />
+                                    <RepositoryCard
+                                        key={repo.full_name}
+                                        repo={repo}
+                                        rank={index + 1}
+                                        isHeuristicOnly={(result.analysis_mode || (result.ai_used ? 'ai' : 'heuristic')) !== 'ai'}
+                                    />
                                 ))}
                             </div>
                         )}
                     </div>
                 </>
             )}
+            <style>{`
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+            `}</style>
         </div>
     );
 };
 
-const RepositoryCard = ({ repo, rank }: { repo: GitHubRepository; rank: number }) => {
+const MetricCard = ({ label, value }: { label: string; value: string }) => (
+    <div style={{ padding: '0.7rem', border: '1px solid var(--border-subtle)', borderRadius: '10px', background: '#f8fafc' }}>
+        <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.15rem' }}>{label}</div>
+        <div style={{ fontSize: '0.92rem', fontWeight: 700, color: '#0f172a', wordBreak: 'break-word' }}>{value}</div>
+    </div>
+);
+
+const RepositoryCard = ({
+    repo,
+    rank,
+    isHeuristicOnly,
+}: {
+    repo: GitHubRepository;
+    rank: number;
+    isHeuristicOnly: boolean;
+}) => {
     const [expanded, setExpanded] = useState(false);
     const score = repo.relevance_score || 0;
     const scoreColor = score >= 70 ? '#10b981' : score >= 40 ? '#f59e0b' : '#ef4444';
     const isInterviewWorthy = repo.interview_worthy;
 
     return (
-        <div style={{ border: '2px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: 'white', transition: 'all 0.2s' }}>
-            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-                <div style={{ width: '40px', height: '40px', background: '#0f172a', color: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '1.25rem', flexShrink: 0 }}>
+        <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '0.9rem', background: '#fff' }}>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <div style={{ width: '34px', height: '34px', background: '#0f172a', color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '1rem', flexShrink: 0 }}>
                     {rank}
                 </div>
                 <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
-                        <a href={repo.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.4rem' }}>
+                        <a href={repo.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
                             {repo.name}
-                            <ExternalLink size={18} />
+                            <ExternalLink size={15} />
                         </a>
-                        <div style={{ padding: '0.25rem 0.75rem', background: scoreColor, color: 'white', borderRadius: '12px', fontSize: '0.875rem', fontWeight: 600 }}>
+                        <span style={{ padding: '0.2rem 0.55rem', background: scoreColor, color: '#fff', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700 }}>
                             {score.toFixed(0)}% Match
-                        </div>
-                        {isInterviewWorthy && rank <= 3 && (
-                            <div style={{ padding: '0.25rem 0.75rem', background: '#10b981', color: 'white', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                <CheckCircle2 size={14} /> Interview Worthy
-                            </div>
+                        </span>
+                        {isInterviewWorthy && (
+                            <span style={{ padding: '0.2rem 0.55rem', background: '#ecfdf5', color: '#166534', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, border: '1px solid #bbf7d0', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                                <CheckCircle2 size={12} />
+                                Interview Worthy
+                            </span>
                         )}
-                    </div>
-
-                    {repo.description && (
-                        <p style={{ color: '#475569', marginBottom: '1rem', lineHeight: '1.6' }}>{repo.description}</p>
-                    )}
-
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
-                        {repo.language && (
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.875rem', color: '#64748b' }}>
-                                <Code2 size={16} /> {repo.language}
+                        {isHeuristicOnly && (
+                            <span style={{ padding: '0.2rem 0.55rem', background: '#fffbeb', color: '#92400e', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, border: '1px solid #fde68a' }}>
+                                Heuristic Mode
                             </span>
                         )}
                     </div>
 
-                    {/* First Impression */}
-                    {repo.first_impression && (
-                        <div style={{ padding: '0.75rem', background: '#fef3c7', border: '1px solid #fde047', borderRadius: '8px', marginBottom: '1rem' }}>
-                            <div style={{ fontSize: '0.875rem', color: '#92400e', fontWeight: 600, marginBottom: '0.25rem' }}>First Impression</div>
-                            <div style={{ fontSize: '0.875rem', color: '#a16207', fontStyle: 'italic' }}>{repo.first_impression}</div>
-                        </div>
+                    {repo.description && (
+                        <p style={{ color: '#475569', margin: '0 0 0.55rem', fontSize: '0.86rem' }}>{repo.description}</p>
                     )}
 
-                    {/* Recruiter Decision */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.55rem', marginBottom: '0.6rem' }}>
+                        {repo.language && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.78rem', color: '#64748b' }}>
+                                <Code2 size={13} /> {repo.language}
+                            </span>
+                        )}
+                    </div>
+
                     {repo.why_relevant && (
-                        <div style={{ padding: '0.75rem', background: isInterviewWorthy ? '#f0fdf4' : '#fef2f2', border: `1px solid ${isInterviewWorthy ? '#bbf7d0' : '#fecaca'}`, borderRadius: '8px', marginBottom: '1rem' }}>
-                            <div style={{ fontSize: '0.875rem', color: isInterviewWorthy ? '#166534' : '#991b1b', fontWeight: 600, marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                {isInterviewWorthy ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+                        <div style={{ padding: '0.55rem', background: isInterviewWorthy ? '#f0fdf4' : '#fef2f2', border: `1px solid ${isInterviewWorthy ? '#bbf7d0' : '#fecaca'}`, borderRadius: '8px', marginBottom: '0.55rem' }}>
+                            <div style={{ fontSize: '0.74rem', color: isInterviewWorthy ? '#166534' : '#991b1b', fontWeight: 700, marginBottom: '0.18rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                                {isInterviewWorthy ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
                                 Recruiter Decision
                             </div>
-                            <div style={{ fontSize: '0.875rem', color: isInterviewWorthy ? '#15803d' : '#991b1b' }}>{repo.why_relevant}</div>
+                            <div style={{ fontSize: '0.8rem', color: isInterviewWorthy ? '#166534' : '#991b1b' }}>{repo.why_relevant}</div>
                         </div>
                     )}
 
-                    {/* Resume Bullets */}
                     {repo.suggested_resume_text && (
-                        <div style={{ padding: '0.75rem', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', marginBottom: '1rem' }}>
-                            <div style={{ fontSize: '0.875rem', color: '#1e40af', fontWeight: 600, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                <Award size={14} /> Suggested for Resume
+                        <div style={{ padding: '0.55rem', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', marginBottom: '0.55rem' }}>
+                            <div style={{ fontSize: '0.74rem', color: '#1e40af', fontWeight: 700, marginBottom: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                                <Award size={12} /> Suggested Resume Bullets
                             </div>
-                            <div style={{ fontSize: '0.875rem', color: '#1e3a8a', whiteSpace: 'pre-line' }}>{repo.suggested_resume_text}</div>
+                            <div style={{ fontSize: '0.8rem', color: '#1e3a8a', whiteSpace: 'pre-line' }}>{repo.suggested_resume_text}</div>
                         </div>
                     )}
 
-                    {/* Expandable Details */}
-                    {((repo.strengths?.length ?? 0) > 0 || (repo.red_flags?.length ?? 0) > 0 || (repo.interview_questions?.length ?? 0) > 0) && (
+                    {((repo.strengths?.length ?? 0) > 0 || (repo.red_flags?.length ?? 0) > 0 || (repo.interview_questions?.length ?? 0) > 0 || (repo.improvement_advice?.length ?? 0) > 0) && (
                         <button
                             onClick={() => setExpanded(!expanded)}
-                            style={{ padding: '0.5rem 1rem', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.875rem', fontWeight: 600, color: '#475569', cursor: 'pointer', width: '100%', marginBottom: '1rem' }}
+                            style={{ padding: '0.42rem 0.7rem', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '0.76rem', fontWeight: 700, color: '#334155', cursor: 'pointer', width: '100%' }}
                         >
-                            {expanded ? 'Hide Details' : 'Show Detailed Analysis'}
+                            {expanded ? 'Hide Detailed Feedback' : 'Show Detailed Feedback'}
                         </button>
                     )}
 
                     {expanded && (
-                        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
-                            {/* Strengths */}
+                        <div style={{ marginTop: '0.55rem', paddingTop: '0.55rem', borderTop: '1px solid #e2e8f0' }}>
                             {repo.strengths && repo.strengths.length > 0 && (
-                                <div style={{ marginBottom: '1rem' }}>
-                                    <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#166534', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                        <ThumbsUp size={14} /> Strengths
-                                    </div>
-                                    <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#15803d', fontSize: '0.875rem' }}>
-                                        {repo.strengths.map((strength: string, i: number) => (
-                                            <li key={i} style={{ marginBottom: '0.25rem' }}>{strength}</li>
-                                        ))}
-                                    </ul>
-                                </div>
+                                <DetailList icon={<ThumbsUp size={13} />} title="Strengths" color="#166534" items={repo.strengths} />
                             )}
-
-                            {/* Red Flags */}
                             {repo.red_flags && repo.red_flags.length > 0 && (
-                                <div style={{ marginBottom: '1rem' }}>
-                                    <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#991b1b', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                        <ThumbsDown size={14} /> Red Flags
-                                    </div>
-                                    <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#991b1b', fontSize: '0.875rem' }}>
-                                        {repo.red_flags.map((flag: string, i: number) => (
-                                            <li key={i} style={{ marginBottom: '0.25rem' }}>{flag}</li>
-                                        ))}
-                                    </ul>
-                                </div>
+                                <DetailList icon={<ThumbsDown size={13} />} title="Red Flags" color="#991b1b" items={repo.red_flags} />
                             )}
-
-                            {/* Interview Questions */}
                             {repo.interview_questions && repo.interview_questions.length > 0 && (
-                                <div style={{ marginBottom: '1rem' }}>
-                                    <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#7c3aed', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                        <MessageSquare size={14} /> Interview Questions
-                                    </div>
-                                    <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#6d28d9', fontSize: '0.875rem' }}>
-                                        {repo.interview_questions.map((question: string, i: number) => (
-                                            <li key={i} style={{ marginBottom: '0.25rem' }}>{question}</li>
-                                        ))}
-                                    </ul>
-                                </div>
+                                <DetailList icon={<MessageSquare size={13} />} title="Interview Questions" color="#0f766e" items={repo.interview_questions} />
                             )}
-
-                            {/* Improvement Advice */}
                             {repo.improvement_advice && repo.improvement_advice.length > 0 && (
-                                <div>
-                                    <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#ea580c', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                        <Lightbulb size={14} /> Improvement Advice
-                                    </div>
-                                    <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#c2410c', fontSize: '0.875rem' }}>
-                                        {repo.improvement_advice.map((advice: string, i: number) => (
-                                            <li key={i} style={{ marginBottom: '0.25rem' }}>{advice}</li>
-                                        ))}
-                                    </ul>
-                                </div>
+                                <DetailList icon={<Lightbulb size={13} />} title="Improvement Advice" color="#c2410c" items={repo.improvement_advice} />
                             )}
                         </div>
                     )}
@@ -355,3 +459,26 @@ const RepositoryCard = ({ repo, rank }: { repo: GitHubRepository; rank: number }
         </div>
     );
 };
+
+const DetailList = ({
+    icon,
+    title,
+    color,
+    items,
+}: {
+    icon: ReactNode;
+    title: string;
+    color: string;
+    items: string[];
+}) => (
+    <div style={{ marginBottom: '0.6rem' }}>
+        <div style={{ fontSize: '0.78rem', fontWeight: 700, color, marginBottom: '0.25rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+            {icon} {title}
+        </div>
+        <ul style={{ margin: 0, paddingLeft: '1rem', color, fontSize: '0.8rem' }}>
+            {items.map((item, i) => (
+                <li key={i} style={{ marginBottom: '0.2rem' }}>{item}</li>
+            ))}
+        </ul>
+    </div>
+);

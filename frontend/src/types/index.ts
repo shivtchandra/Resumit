@@ -5,6 +5,16 @@ export interface AnalysisResult {
     word_count: number;
     friendliness_score: number;
     match_score?: number;
+    relevance_score?: number;
+    analysis_summary?: {
+        mode: string;
+        tone: string;
+        generation_mode?: 'ai' | 'heuristic' | string;
+        overall_score: number;
+        ats_score: number;
+        jd_fit_score?: number | null;
+        ats_score_raw?: number | null;
+    };
     vendor_compatibility: {
         [key: string]: {
             status: 'pass' | 'warning' | 'fail';
@@ -31,6 +41,75 @@ export interface AnalysisResult {
     };
     recommendations: string[];
     visibility_breakdown?: Record<string, unknown>;
+    roast_report?: {
+        strengths: string[];
+        weaknesses: string[];
+        hard_truths: string[];
+        priority_fixes: string[];
+    };
+    content_decisions?: {
+        keep: string[];
+        rewrite: string[];
+        remove: string[];
+        proof_needed: string[];
+    };
+    external_profile_intel?: {
+        github_best_projects: Array<{
+            name: string;
+            score: number;
+            reason: string;
+            resume_bullet?: string;
+        }>;
+        github_drop_projects: Array<{
+            name: string;
+            score: number;
+            reason: string;
+        }>;
+        github_summary: string;
+        linkedin_must_include: string[];
+        linkedin_remove: string[];
+        linkedin_summary: string;
+        detected_github_url?: string;
+        detected_linkedin_url?: string;
+        detected_github_username?: string;
+        extracted_profile_urls?: string[];
+    };
+    interview_prep?: {
+        company: string;
+        likely_questions: Array<{
+            category: string;
+            question: string;
+            why_asked: string;
+            prep_tip: string;
+            answer_framework?: string;
+            sample_answer?: string;
+        }>;
+        prep_plan: string[];
+    };
+    top_actions?: string[];
+    score_calibration?: {
+        raw_score: number;
+        adjusted_score: number;
+        total_penalty: number;
+        penalties: Array<{
+            reason: string;
+            penalty: number;
+        }>;
+    };
+    beginner_checklist?: {
+        role: string;
+        readiness_score: number;
+        gate_status: 'pass' | 'warning' | 'fail';
+        must_fix_before_apply: string[];
+        checklist: Array<{
+            id: string;
+            label: string;
+            required: boolean;
+            passed: boolean;
+            why_it_matters: string;
+            how_to_fix: string;
+        }>;
+    };
     original_text?: string;
     rewritten_text?: string;
     comprehensive_analysis?: {
@@ -42,8 +121,23 @@ export interface AnalysisResult {
             provider: string;
             relevance: string;
             impact: string;
+            url?: string;
         }>;
         actionable_recommendations: string[];
+        action_plan?: Array<{
+            title: string;
+            priority: string;
+            effort: string;
+            why: string;
+            steps: string[];
+            example: string;
+        }>;
+        sample_resume_upgrades?: Array<{
+            area: string;
+            before: string;
+            after: string;
+            reason: string;
+        }>;
     };
     missing_keywords?: string[];
     ai_insights?: {
@@ -64,6 +158,29 @@ export interface TimelineItem {
 }
 
 export interface BackendAnalysisResponse {
+    filename?: string;
+    file_size_bytes?: number;
+    word_count?: number;
+    friendliness_score?: number;
+    match_score?: number | null;
+    analysis_summary?: AnalysisResult["analysis_summary"];
+    vendor_compatibility?: AnalysisResult["vendor_compatibility"];
+    critical_issues?: AnalysisResult["critical_issues"];
+    ats_extracted?: AnalysisResult["ats_extracted"];
+    timeline?: AnalysisResult["timeline"];
+    recommendations?: Array<{ type?: string; message?: string } | string>;
+    visibility_breakdown?: Record<string, unknown>;
+    missing_keywords?: string[];
+    roast_report?: AnalysisResult["roast_report"];
+    content_decisions?: AnalysisResult["content_decisions"];
+    external_profile_intel?: AnalysisResult["external_profile_intel"];
+    interview_prep?: AnalysisResult["interview_prep"];
+    top_actions?: string[];
+    score_calibration?: AnalysisResult["score_calibration"];
+    beginner_checklist?: AnalysisResult["beginner_checklist"];
+    comprehensive_analysis?: AnalysisResult["comprehensive_analysis"];
+
+    // Legacy payload
     features: {
         email_found: boolean;
         phone_found: boolean;
@@ -177,7 +294,7 @@ export interface FullRewriteResult {
 // Brutal Review Types
 export interface Change {
     section: string;
-    type: 'added' | 'removed' | 'rewritten';
+    type: 'added' | 'removed' | 'rewritten' | 'add' | 'remove' | 'rewrite';
     before: string;
     after: string;
     reason: string;
@@ -222,5 +339,28 @@ export interface BrutalRewriteResult {
     changes: Change[];
     company_expectations: CompanyExpectations;
     harsh_review: HarshReview;
+    generation_mode?: 'ai' | 'hybrid' | 'fallback' | string;
+    warnings?: string[];
+    interview_prep?: {
+        company: string;
+        likely_questions: Array<{
+            category: 'resume_deep_dive' | 'jd_alignment' | 'company_fit' | string;
+            question: string;
+            why_asked: string;
+            prep_tip: string;
+            answer_framework?: string;
+            sample_answer?: string;
+        }>;
+        prep_plan: string[];
+    };
     original_text: string;
+}
+
+export interface InterviewAnswerScoreResult {
+    score: number;
+    band: 'weak' | 'average' | 'good' | 'strong' | string;
+    strengths: string[];
+    improvements: string[];
+    improved_answer: string;
+    evaluation_mode: 'ai' | 'heuristic' | string;
 }

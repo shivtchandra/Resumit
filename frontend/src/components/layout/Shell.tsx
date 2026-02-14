@@ -8,9 +8,9 @@ interface ShellProps {
 
 export const Shell = ({ children }: ShellProps) => {
     return (
-        <div className="min-h-screen flex flex-col bg-canvas font-sans text-text-primary">
+        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-page)', color: 'var(--text-main)' }}>
             <Navbar />
-            <main className="flex-grow">
+            <main style={{ flexGrow: 1 }}>
                 {children}
             </main>
             <Footer />

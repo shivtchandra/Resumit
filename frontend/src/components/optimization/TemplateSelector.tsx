@@ -1,7 +1,9 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Check, Star } from 'lucide-react';
+import { getTemplates } from '@/services/api';
 
 interface Template {
     id: string;
@@ -18,37 +20,51 @@ interface TemplateSelectorProps {
 }
 
 export const TemplateSelector = ({ role, onSelect }: TemplateSelectorProps) => {
-    const templates: Template[] = [
-        {
-            id: 'modern-tech',
-            name: 'Modern Tech Professional',
-            description: 'Clean, skills-focused layout optimized for engineering roles. High readability for both humans and ATS.',
-            tags: ['DevOps', 'Engineering', 'Clean'],
-            recommended: true,
-            atsCompatible: ['Workday', 'Greenhouse', 'Lever']
-        },
-        {
-            id: 'executive-brief',
-            name: 'Executive Brief',
-            description: 'Concise, impact-driven format for leadership positions. Emphasizes metrics and achievements.',
-            tags: ['Management', 'Leadership', 'Minimal'],
-            atsCompatible: ['Taleo', 'iCIMS']
-        },
-        {
-            id: 'creative-portfolio',
-            name: 'Creative Portfolio',
-            description: 'Visual layout with subtle design elements. Best for design and frontend roles where aesthetics matter.',
-            tags: ['Design', 'Frontend', 'Creative'],
-            atsCompatible: ['Greenhouse', 'Lever']
-        }
-    ];
+    const [templates, setTemplates] = useState<Template[]>([]);
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const roleMap: Record<string, string> = {
+            'software engineer': 'software-engineer',
+            'frontend developer': 'frontend-developer',
+            'backend developer': 'backend-developer',
+            'data scientist': 'data-scientist',
+            'product manager': 'product-manager',
+            'designer': 'designer',
+            'devops': 'devops-engineer'
+        };
+        const normalizedRole = roleMap[role.toLowerCase()] || 'software-engineer';
+
+        const loadTemplates = async () => {
+            const response = await getTemplates({ role: normalizedRole });
+            const mapped: Template[] = response.map((item, index) => ({
+                id: item.template_id,
+                name: item.name,
+                description: item.description || 'ATS-optimized layout with recruiter-friendly hierarchy.',
+                tags: [item.role, item.experience_level, ...item.ats_compatibility.slice(0, 1)].map(tag => tag.replace(/-/g, ' ')),
+                recommended: index === 0,
+                atsCompatible: item.ats_compatibility.map(v => v.toUpperCase())
+            }));
+            setTemplates(mapped);
+        };
+
+        void loadTemplates();
+    }, [role]);
+
+    const hasTemplates = useMemo(() => templates.length > 0, [templates]);
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {!hasTemplates && (
+                <Card className="card-base p-6">
+                    <p className="text-sm text-text-secondary">Loading templates...</p>
+                </Card>
+            )}
             {templates.map((template) => (
                 <Card
                     key={template.id}
                     className={`card-base p-0 overflow-hidden flex flex-col transition-all hover:shadow-float ${template.recommended ? 'ring-2 ring-brand-blue' : ''
+                        } ${selectedTemplateId === template.id ? 'border-brand-blue' : ''
                         }`}
                 >
                     {/* Preview Placeholder */}
@@ -96,6 +112,16 @@ export const TemplateSelector = ({ role, onSelect }: TemplateSelectorProps) => {
 
                         <Button className="w-full mt-4" onClick={() => onSelect(template.id)}>
                             Use Template
+                        </Button>
+                        <Button
+                            variant="outline"
+                            className="w-full mt-2"
+                            onClick={() => {
+                                setSelectedTemplateId(template.id);
+                                onSelect(template.id);
+                            }}
+                        >
+                            Select This Template
                         </Button>
                     </div>
                 </Card>

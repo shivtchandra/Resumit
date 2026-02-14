@@ -1,185 +1,143 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Loader2, CheckCircle, Sparkles } from 'lucide-react';
-import { rewriteWithBrutalFeedback } from '@/services/api';
-import type { BrutalRewriteResult } from '@/types';
+import { rewriteWithBrutalFeedback, scoreInterviewAnswer } from '@/services/api';
+import type { BrutalRewriteResult, InterviewAnswerScoreResult } from '@/types';
 import { BrutalFitReview } from './BrutalFitReview';
 import { HighlightedResume } from './HighlightedResume';
+import { OptimizationSetupConsole } from '../tactical/OptimizationSetupConsole';
+import { getJDTemplateById } from '@/data/jdTemplates';
+import { MaterialIcon } from '../ui/MaterialIcon';
 
-// --- Styles ---
-const styles = {
-    container: {
-        maxWidth: '1200px',
-        margin: '0 auto',
-        fontFamily: "'Inter', -apple-system, sans-serif",
-        color: '#0f172a'
-    },
-    hero: {
-        background: 'white',
-        borderRadius: '16px',
-        border: '1px solid #e2e8f0',
-        padding: '2.5rem',
-        marginBottom: '2rem',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
-        textAlign: 'center' as const,
-        position: 'relative' as const,
-        overflow: 'hidden'
-    },
-    heroAccent: {
-        position: 'absolute' as const,
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '4px',
-        background: 'linear-gradient(90deg, #8b5cf6 0%, #d8b4fe 100%)'
-    },
-    successIcon: {
-        width: '64px',
-        height: '64px',
-        background: '#f0fdf4',
-        color: '#16a34a',
-        borderRadius: '50%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        margin: '0 auto 1.5rem',
-        border: '1px solid #dcfce7'
-    },
-    heroTitle: {
-        fontSize: '2rem',
-        fontWeight: 700,
-        color: '#0f172a',
-        marginBottom: '0.75rem',
-        letterSpacing: '-0.02em'
-    },
-    heroSubtitle: {
-        fontSize: '1.05rem',
-        color: '#64748b',
-        maxWidth: '600px',
-        margin: '0 auto 2rem',
-        lineHeight: '1.6'
-    },
-    heroActions: {
-        display: 'flex',
-        gap: '1rem',
-        justifyContent: 'center',
-        flexWrap: 'wrap' as const
-    },
-    secondaryBtn: {
-        padding: '0.875rem 2rem',
-        background: 'white',
-        color: '#475569',
-        borderRadius: '9999px',
-        fontWeight: 600,
-        border: '1px solid #e2e8f0',
-        cursor: 'pointer',
-        transition: 'all 0.2s'
-    },
-    uploadContainer: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
-        gap: '2rem',
-        marginBottom: '2rem'
-    },
-    uploadBox: {
-        display: 'flex',
-        flexDirection: 'column' as const,
-        alignItems: 'center',
-        justifyContent: 'center',
-        border: '2px dashed #cbd5e1',
-        borderRadius: '16px',
-        padding: '3rem 2rem',
-        textAlign: 'center' as const,
-        background: '#f8fafc',
-        cursor: 'pointer',
-        transition: 'all 0.2s ease',
-        minHeight: '250px'
-    },
-    uploadBoxActive: {
-        borderColor: '#8b5cf6',
-        background: '#f5f3ff',
-        transform: 'translateY(-2px)'
-    },
-    textarea: {
-        width: '100%',
-        height: '250px',
-        padding: '1.25rem',
-        borderWidth: '1px',
-        borderStyle: 'solid',
-        borderColor: '#e2e8f0',
-        borderRadius: '16px',
-        fontSize: '0.95rem',
-        fontFamily: "'Inter', sans-serif",
-        resize: 'none' as const,
-        lineHeight: '1.6',
-        color: '#334155',
-        background: '#f8fafc',
-        transition: 'all 0.2s ease'
-    },
-    textareaFocus: {
-        outline: 'none',
-        borderColor: '#8b5cf6',
-        background: 'white',
-        boxShadow: '0 4px 12px rgba(139, 92, 246, 0.1)'
-    }
-};
+
+
 
 export const FullRewrite = () => {
-    const [resumeFile, setResumeFile] = useState<File | null>(null);
     const [jobDescription, setJobDescription] = useState('');
+    const [companyName, setCompanyName] = useState('');
     const [isRewriting, setIsRewriting] = useState(false);
     const [brutalResult, setBrutalResult] = useState<BrutalRewriteResult | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [isDragOver, setIsDragOver] = useState(false);
-    const [isTextareaFocused, setIsTextareaFocused] = useState(false);
+    const [targetRole, setTargetRole] = useState('software-engineer');
+    const [interviewAnswers, setInterviewAnswers] = useState<Record<number, string>>({});
+    const [interviewScores, setInterviewScores] = useState<Record<number, InterviewAnswerScoreResult>>({});
+    const [activeScoreIndex, setActiveScoreIndex] = useState<number | null>(null);
+    const rewriteAbortRef = useRef<AbortController | null>(null);
+    const cancelRequestedRef = useRef(false);
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            if (file.size > 5 * 1024 * 1024) {
-                setError('File size must be less than 5MB');
-                return;
-            }
-            setResumeFile(file);
-            setError(null);
+
+    const handleScoreInterviewAnswer = async (question: string, idx: number) => {
+        const answer = (interviewAnswers[idx] || '').trim();
+        if (!answer) return;
+        setActiveScoreIndex(idx);
+        try {
+            const response = await scoreInterviewAnswer({
+                question,
+                answer,
+                company_name: companyName.trim() || undefined,
+                target_role: targetRole,
+                job_description: jobDescription || undefined,
+            });
+            setInterviewScores((prev) => ({ ...prev, [idx]: response }));
+        } catch (err) {
+            setInterviewScores((prev) => ({
+                ...prev,
+                [idx]: {
+                    score: 0,
+                    band: 'weak',
+                    strengths: [],
+                    improvements: [err instanceof Error ? err.message : 'Could not score answer right now.'],
+                    improved_answer: '',
+                    evaluation_mode: 'heuristic',
+                },
+            }));
+        } finally {
+            setActiveScoreIndex(null);
         }
     };
 
-    const handleRewrite = async () => {
-        if (!resumeFile || !jobDescription.trim()) return;
+    const handleRewrite = async (file: File) => {
+        if (!file || !jobDescription.trim()) return;
+        rewriteAbortRef.current?.abort();
+        const controller = new AbortController();
+        rewriteAbortRef.current = controller;
+        cancelRequestedRef.current = false;
         setIsRewriting(true);
         setError(null);
         setBrutalResult(null);
 
         try {
-            const response = await rewriteWithBrutalFeedback(resumeFile, jobDescription);
+            const response = await rewriteWithBrutalFeedback(
+                file,
+                jobDescription,
+                companyName.trim() || undefined,
+                'anonymous',
+                controller.signal
+            );
             setBrutalResult(response);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to analyze resume');
+            const message = err instanceof Error ? err.message : 'Failed to analyze resume';
+            if (cancelRequestedRef.current || /canceled/i.test(message)) {
+                setError('Rewrite canceled. You can adjust inputs and run again.');
+            } else {
+                setError(message);
+            }
         } finally {
+            if (rewriteAbortRef.current === controller) {
+                rewriteAbortRef.current = null;
+            }
+            cancelRequestedRef.current = false;
             setIsRewriting(false);
         }
     };
 
+    const cancelRewriteRun = () => {
+        cancelRequestedRef.current = true;
+        rewriteAbortRef.current?.abort();
+    };
+
+    useEffect(() => {
+        if (!isRewriting) return;
+    }, [isRewriting]);
+
+
+    useEffect(() => {
+        return () => {
+            rewriteAbortRef.current?.abort();
+        };
+    }, []);
+
+
     // Render brutal review results
     if (brutalResult) {
         return (
-            <div style={styles.container}>
-                <div style={styles.hero}>
-                    <div style={styles.heroAccent} />
-                    <div style={styles.successIcon}>
+            <div className="max-w-5xl mx-auto space-y-6">
+                {/* Hero */}
+                <div className="zen-card p-10 text-center relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-primary to-teal-300" />
+                    <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 border border-emerald-100">
                         <CheckCircle size={32} />
                     </div>
-                    <h1 style={styles.heroTitle}>Resume Analysis Complete</h1>
-                    <p style={styles.heroSubtitle}>
-                        Your resume has been analyzed with brutally honest feedback from our AI hiring manager.
+                    <h1 className="text-3xl font-black text-brand-secondary tracking-tight mb-3">Resume Fix Complete</h1>
+                    <p className="text-base text-text-muted max-w-xl mx-auto mb-6 leading-relaxed">
+                        Your resume was rewritten with practical fixes and interview coaching.
                     </p>
-                    <div style={styles.heroActions}>
-                        <button
-                            style={styles.secondaryBtn}
-                            onClick={() => setBrutalResult(null)}
-                        >
-                            Analyze Another
-                        </button>
+
+                    {brutalResult.generation_mode && brutalResult.generation_mode !== 'ai' && (
+                        <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full border border-amber-200 bg-amber-50 text-amber-800 text-xs font-bold mb-4">
+                            Hybrid fallback mode: core fixes are applied even if full AI rewrite times out.
+                        </div>
+                    )}
+
+                    {brutalResult.warnings && brutalResult.warnings.length > 0 && (
+                        <div className="grid gap-1 p-3 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 text-sm font-semibold mb-4">
+                            {brutalResult.warnings.map((warning, idx) => (
+                                <div key={idx}>{warning}</div>
+                            ))}
+                        </div>
+                    )}
+
+                    <div className="flex gap-3 justify-center flex-wrap">
+                        <button className="btn-secondary" onClick={() => setBrutalResult(null)}>Start New Fix Session</button>
                     </div>
                 </div>
 
@@ -192,99 +150,117 @@ export const FullRewrite = () => {
                     companyExpectations={brutalResult.company_expectations}
                     harshReview={brutalResult.harsh_review}
                 />
+
+                {brutalResult.interview_prep && (
+                    <div className="zen-card p-8 space-y-5">
+                        <h3 className="text-xl font-black text-brand-secondary tracking-tight">Interview Drill and Scoring</h3>
+                        <p className="text-sm text-text-muted">
+                            Practice answers and score them instantly. Company context: {brutalResult.interview_prep.company}
+                        </p>
+                        <div className="grid gap-3">
+                            {brutalResult.interview_prep.likely_questions.map((item, idx) => (
+                                <div key={idx} className="p-4 rounded-xl border border-border-subtle bg-bg-muted space-y-2">
+                                    <div className="text-[10px] font-black tracking-widest uppercase text-text-subtle">
+                                        {item.category.replace(/_/g, ' ')}
+                                    </div>
+                                    <div className="font-semibold text-brand-secondary">{item.question}</div>
+                                    <div className="text-sm text-text-muted">Why asked: {item.why_asked}</div>
+                                    <div className="text-sm text-brand-primary">Prep tip: {item.prep_tip}</div>
+
+                                    {item.answer_framework && (
+                                        <div className="mt-1 text-sm text-brand-secondary bg-indigo-50 border border-indigo-200 rounded-lg p-2">
+                                            <strong>Answer framework:</strong> {item.answer_framework}
+                                        </div>
+                                    )}
+                                    {item.sample_answer && (
+                                        <div className="mt-1 text-sm text-text-main bg-bg-muted border border-border-subtle rounded-lg p-2">
+                                            <strong>Sample answer direction:</strong> {item.sample_answer}
+                                        </div>
+                                    )}
+
+                                    <div className="mt-2">
+                                        <textarea
+                                            value={interviewAnswers[idx] || ''}
+                                            onChange={(e) => setInterviewAnswers((prev) => ({ ...prev, [idx]: e.target.value }))}
+                                            placeholder="Write your mock answer here (STAR + metrics)"
+                                            className="soft-input min-h-[92px] text-sm"
+                                        />
+                                        <div className="mt-2 flex justify-between items-center gap-2 flex-wrap">
+                                            <button
+                                                onClick={() => handleScoreInterviewAnswer(item.question, idx)}
+                                                disabled={activeScoreIndex === idx || !(interviewAnswers[idx] || '').trim()}
+                                                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeScoreIndex === idx || !(interviewAnswers[idx] || '').trim()
+                                                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                                        : 'bg-brand-secondary text-white hover:bg-slate-800 cursor-pointer'
+                                                    }`}
+                                            >
+                                                {activeScoreIndex === idx ? 'Scoring...' : 'Score My Answer'}
+                                            </button>
+                                            {interviewScores[idx] && (
+                                                <span className={`text-xs font-bold ${interviewScores[idx].score >= 80 ? 'text-emerald-700'
+                                                        : interviewScores[idx].score >= 65 ? 'text-amber-700'
+                                                            : 'text-red-700'
+                                                    }`}>
+                                                    Score: {interviewScores[idx].score}/100 ({interviewScores[idx].band})
+                                                </span>
+                                            )}
+                                        </div>
+                                        {interviewScores[idx] && (
+                                            <div className="mt-2 border border-border-subtle rounded-lg p-3 bg-white space-y-1">
+                                                <div className="text-xs font-bold text-brand-secondary">
+                                                    Feedback ({interviewScores[idx].evaluation_mode})
+                                                </div>
+                                                <div className="text-xs text-brand-primary">
+                                                    Strengths: {interviewScores[idx].strengths.join(' | ') || '—'}
+                                                </div>
+                                                <div className="text-xs text-amber-700">
+                                                    Improve: {interviewScores[idx].improvements.join(' | ') || '—'}
+                                                </div>
+                                                {interviewScores[idx].improved_answer && (
+                                                    <div className="text-xs text-text-muted">
+                                                        Better answer draft: {interviewScores[idx].improved_answer}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <h4 className="text-base font-bold text-brand-secondary">Prep Plan</h4>
+                        <ul className="list-disc pl-5 text-sm text-text-main space-y-1">
+                            {brutalResult.interview_prep.prep_plan.map((step, i) => (
+                                <li key={i}>{step}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
             </div>
         );
     }
 
-    if (isRewriting) {
-        return (
-            <div style={{ padding: '4rem', textAlign: 'center' }}>
-                <Loader2 size={48} color="#8b5cf6" style={{ animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }} />
-                <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#0f172a', marginBottom: '0.5rem' }}>Analyzing your resume...</h3>
-                <p style={{ color: '#64748b' }}>Our AI hiring manager is reviewing your resume and preparing brutally honest feedback.</p>
-            </div>
-        );
-    }
 
     return (
-        <div style={styles.container}>
+        <div className="max-w-5xl mx-auto space-y-6">
             {error && (
-                <div style={{ padding: '1rem', background: '#fee2e2', color: '#991b1b', borderRadius: '8px', marginBottom: '1rem' }}>
-                    {error}
+                <div className="p-5 rounded-xl bg-red-50 border border-red-100 text-red-900 text-sm flex gap-4 animate-in fade-in slide-in-from-top-4">
+                    <MaterialIcon icon="warning" className="text-red-500 shrink-0" size={20} />
+                    <span className="font-medium">{error}</span>
                 </div>
             )}
 
-            <div style={styles.uploadContainer}>
-                <div>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem', color: '#1e293b' }}>Upload Resume</h3>
-                    <label
-                        style={{
-                            ...styles.uploadBox,
-                            ...(isDragOver || resumeFile ? styles.uploadBoxActive : {})
-                        }}
-                        onMouseEnter={() => setIsDragOver(true)}
-                        onMouseLeave={() => setIsDragOver(false)}
-                    >
-                        <input type="file" accept=".pdf,.docx" onChange={handleFileSelect} style={{ display: 'none' }} />
-                        <div style={{
-                            padding: '1rem',
-                            background: isDragOver || resumeFile ? '#fff' : '#f1f5f9',
-                            borderRadius: '50%',
-                            marginBottom: '1.5rem',
-                            transition: 'all 0.2s'
-                        }}>
-                            {resumeFile ? <CheckCircle size={32} color="#10b981" /> : <Sparkles size={32} color="#8b5cf6" />}
-                        </div>
-                        <p style={{ fontWeight: 600, marginBottom: '0.5rem', color: '#334155', fontSize: '1.05rem' }}>
-                            {resumeFile ? resumeFile.name : 'Drag & drop PDF or DOCX'}
-                        </p>
-                        <p style={{ fontSize: '0.9rem', color: '#94a3b8' }}>
-                            {resumeFile ? `${(resumeFile.size / 1024 / 1024).toFixed(2)} MB` : 'Max file size: 5MB'}
-                        </p>
-                    </label>
-                </div>
-
-                <div>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem', color: '#1e293b' }}>Target Job Description</h3>
-                    <textarea
-                        style={{
-                            ...styles.textarea,
-                            ...(isTextareaFocused ? styles.textareaFocus : {})
-                        }}
-                        placeholder="Paste the job description here to enable AI keyword matching..."
-                        value={jobDescription}
-                        onChange={(e) => setJobDescription(e.target.value)}
-                        onFocus={() => setIsTextareaFocused(true)}
-                        onBlur={() => setIsTextareaFocused(false)}
-                    />
-                </div>
-            </div>
-
-            <button
-                onClick={handleRewrite}
-                disabled={!resumeFile || !jobDescription.trim()}
-                style={{
-                    width: '100%',
-                    marginTop: '2rem',
-                    padding: '1rem',
-                    background: (!resumeFile || !jobDescription.trim()) ? '#cbd5e1' : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '9999px',
-                    fontSize: '1rem',
-                    fontWeight: 600,
-                    cursor: (!resumeFile || !jobDescription.trim()) ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem',
-                    boxShadow: (!resumeFile || !jobDescription.trim()) ? 'none' : '0 4px 12px rgba(139, 92, 246, 0.3)'
+            <OptimizationSetupConsole
+                onStartFix={handleRewrite}
+                isFixing={isRewriting}
+                onJdChange={setJobDescription}
+                onRoleChange={setTargetRole}
+                onCompanyChange={setCompanyName}
+                initialData={{
+                    targetRole,
+                    companyName,
+                    jobDescription
                 }}
-            >
-                <Sparkles size={20} />
-                Get Brutal Review
-            </button>
+            />
         </div>
     );
 };

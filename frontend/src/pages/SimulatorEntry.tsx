@@ -1,132 +1,155 @@
 import { useState } from 'react';
-import { Shell } from '@/components/layout/Shell';
-import { UploadCard } from '@/components/dashboard/UploadCard';
-import { JobDescriptionCard } from '@/components/dashboard/JobDescriptionCard';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { analyzeResume } from '@/services/api';
-import { Loader2 } from 'lucide-react';
-import type { AnalysisResult } from '@/types';
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { PageLayout } from '../components/layout/PageLayout';
+import { Navbar } from '../components/layout/Navbar';
+import { AnalysisSetupConsole } from '../components/tactical/AnalysisSetupConsole';
+import { analyzeResume } from '../services/api';
+import type { AnalysisResult } from '../types';
+import { PageGuide } from '../components/layout/PageGuide';
 
-interface SimulatorEntryProps {
-    onAnalysisComplete: (result: AnalysisResult) => void;
-}
+const StatusPulse = ({ status, color = 'emerald' }: { status: string; color?: 'emerald' | 'amber' | 'rose' }) => {
+    const colorClasses = {
+        emerald: 'bg-emerald-500',
+        amber: 'bg-amber-500',
+        rose: 'bg-rose-500'
+    };
 
-export const SimulatorEntry = ({ onAnalysisComplete }: SimulatorEntryProps) => {
-    const [file, setFile] = useState<File | null>(null);
+    return (
+        <div className="flex items-center gap-2 px-3 py-1 bg-white border border-border-subtle rounded-full shadow-sm w-fit mx-auto">
+            <span className="relative flex h-2 w-2">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${colorClasses[color]} opacity-75`}></span>
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${colorClasses[color]}`}></span>
+            </span>
+            <span className="text-[10px] font-black tracking-widest text-brand-secondary uppercase">{status.replace(/_/g, ' ')}</span>
+        </div>
+    );
+};
+
+export const SimulatorEntry = () => {
+    const navigate = useNavigate();
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [result, setResult] = useState<AnalysisResult | null>(null);
+
+    // Context states
+    const [role, setRole] = useState('software-engineer');
     const [jd, setJd] = useState('');
-    const [role, setRole] = useState('');
-    const [ats, setAts] = useState('');
-    const [isSimulating, setIsSimulating] = useState(false);
+    const [company, setCompany] = useState('');
+    const [mode, setMode] = useState<'jd_or_general' | 'jd_only' | 'general_only'>('jd_or_general');
+    const [tone, setTone] = useState<'brutal' | 'professional'>('brutal');
+    const [github, setGithub] = useState('');
+    const [linkedin, setLinkedin] = useState('');
 
-    const handleSimulation = async () => {
-        if (!file) return;
-
-        setIsSimulating(true);
+    const handleStartAnalysis = async (file: File) => {
+        setIsAnalyzing(true);
         try {
-            // Simulate "tactical" delay for effect
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            const result = await analyzeResume(file, jd || undefined);
-            onAnalysisComplete(result);
+            const data = await analyzeResume(file, jd, {
+                targetRole: role,
+                companyName: company,
+                feedbackTone: tone,
+                analysisMode: mode,
+                githubUsername: github,
+                linkedinText: linkedin
+            });
+            setResult(data);
         } catch (error) {
-            console.error('Simulation failed:', error);
+            console.error('Analysis failed:', error);
+            alert('Simulation failed. Please check inputs and retry.');
         } finally {
-            setIsSimulating(false);
+            setIsAnalyzing(false);
         }
     };
 
     return (
-        <Shell>
-            <div className="container mx-auto px-4 py-12 max-w-6xl">
-                {/* Hero Section */}
-                <div className="text-center mb-12 space-y-4">
-                    <h1 className="text-4xl md:text-5xl font-heading font-bold text-primary tracking-tight">
-                        Outsmart the ATS.
+        <PageLayout header={<Navbar />} maxWidth="xl">
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
+                {/* Hero Area */}
+                <div className="text-center space-y-6 pt-10">
+                    <StatusPulse status="SYSTEMS_READY" color="emerald" />
+                    <h1 className="text-6xl md:text-8xl font-black text-brand-secondary leading-[0.9] tracking-tighter">
+                        Resume <span className="text-brand-primary">Simulator.</span>
                     </h1>
-                    <p className="text-xl text-text-secondary max-w-2xl mx-auto">
-                        Build a resume that passes machines and impresses humans.
-                        Run a professional simulation against top ATS algorithms.
+                    <p className="text-xl text-text-muted max-w-2xl mx-auto font-medium">
+                        Run your resume through our advanced ATS simulation engine. Find the gaps before the recruiters do.
                     </p>
                 </div>
 
-                {/* Main Dashboard Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                    {/* Left: Upload */}
-                    <div className="h-full">
-                        <UploadCard onFileSelect={setFile} selectedFile={file} />
-                    </div>
+                <PageGuide
+                    badge="SIMULATOR GUIDE"
+                    title="Simulation Protocol"
+                    description="Run a full ATS simulation before you apply, then move to execution pages."
+                    whatThisPageDoes="Performs a complete diagnostic simulation using resume, role, and job context."
+                    bestUseCase="Best for pre-application checks when you want to catch blockers early."
+                    howToUse={[
+                        'Upload your latest resume in PDF or DOCX.',
+                        'Add target JD and company context for accurate role matching.',
+                        'Run simulation and review the report before rewriting.'
+                    ]}
+                    makeMostOfIt={[
+                        'Always include a real JD for role-fit diagnostics.',
+                        'Use the findings to prioritize fixes, not random edits.',
+                        'Move to Resume Fix Lab after this for concrete rewrites.'
+                    ]}
+                    primaryAction={{ label: 'Open Analysis', to: '/analysis' }}
+                    secondaryAction={{ label: 'Open Fix Lab', to: '/resume-fix-lab' }}
+                />
 
-                    {/* Right: Job Description */}
-                    <div className="h-full">
-                        <JobDescriptionCard value={jd} onChange={setJd} />
-                    </div>
-                </div>
-
-                {/* Configuration Bar */}
-                <div className="bg-surface border border-border-subtle rounded-xl p-6 shadow-sm mb-8">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-text-secondary">Intended Role</label>
-                            <Select value={role} onValueChange={setRole}>
-                                <SelectTrigger className="w-full bg-canvas border-border-subtle">
-                                    <SelectValue placeholder="Select Role..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="software-engineer">Software Engineer</SelectItem>
-                                    <SelectItem value="product-manager">Product Manager</SelectItem>
-                                    <SelectItem value="data-scientist">Data Scientist</SelectItem>
-                                    <SelectItem value="marketing">Marketing Manager</SelectItem>
-                                    <SelectItem value="sales">Sales Representative</SelectItem>
-                                </SelectContent>
-                            </Select>
+                {!result ? (
+                    <AnalysisSetupConsole
+                        onStartAnalysis={handleStartAnalysis}
+                        isAnalyzing={isAnalyzing}
+                        variant="full"
+                        onJdChange={setJd}
+                        onRoleChange={setRole}
+                        onModeChange={setMode}
+                        onToneChange={setTone}
+                        onCompanyChange={setCompany}
+                        onGithubChange={setGithub}
+                        onLinkedinChange={setLinkedin}
+                        initialData={{
+                            targetRole: role,
+                            analysisMode: mode,
+                            feedbackTone: tone,
+                            companyName: company,
+                            jobDescription: jd,
+                            githubUsername: github,
+                            linkedinText: linkedin
+                        }}
+                    />
+                ) : (
+                    <div className="zen-card p-12 text-center space-y-8 animate-in fade-in zoom-in-95 duration-500">
+                        <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                            <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                transition={{ type: 'spring', damping: 12 }}
+                            >
+                                <StatusPulse status="SCAN_COMPLETE" color="emerald" />
+                            </motion.div>
                         </div>
-
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-text-secondary">Target ATS</label>
-                            <Select value={ats} onValueChange={setAts}>
-                                <SelectTrigger className="w-full bg-canvas border-border-subtle">
-                                    <SelectValue placeholder="Select ATS Vendor..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="workday">Workday</SelectItem>
-                                    <SelectItem value="taleo">Taleo (Oracle)</SelectItem>
-                                    <SelectItem value="greenhouse">Greenhouse</SelectItem>
-                                    <SelectItem value="icims">iCIMS</SelectItem>
-                                    <SelectItem value="lever">Lever</SelectItem>
-                                </SelectContent>
-                            </Select>
+                        <div className="space-y-4">
+                            <h2 className="text-4xl font-black text-brand-secondary">Simulation Complete.</h2>
+                            <p className="text-text-muted max-w-lg mx-auto">
+                                The ATS emulator has finished processing your document. Reports are ready for review.
+                            </p>
                         </div>
-
-                        <Button
-                            size="lg"
-                            className="w-full font-heading font-bold text-lg h-11"
-                            disabled={!file || isSimulating}
-                            onClick={handleSimulation}
-                        >
-                            {isSimulating ? (
-                                <>
-                                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                                    Running Simulation...
-                                </>
-                            ) : (
-                                "Start Simulation"
-                            )}
-                        </Button>
+                        <div className="flex justify-center gap-4">
+                            <button
+                                onClick={() => setResult(null)}
+                                className="btn-secondary px-8 py-3"
+                            >
+                                Run New Simulation
+                            </button>
+                            <button
+                                onClick={() => navigate('/analysis', { state: { result } })}
+                                className="btn-primary px-8 py-3"
+                            >
+                                View Detailed Intel
+                            </button>
+                        </div>
                     </div>
-                </div>
-
-                {/* Trust Signals */}
-                <div className="text-center">
-                    <p className="text-sm text-text-muted mb-4">Trusted by candidates landing jobs at</p>
-                    <div className="flex justify-center items-center space-x-8 opacity-50 grayscale">
-                        {/* Placeholders for logos */}
-                        <span className="font-heading font-bold text-xl">Google</span>
-                        <span className="font-heading font-bold text-xl">Amazon</span>
-                        <span className="font-heading font-bold text-xl">Microsoft</span>
-                        <span className="font-heading font-bold text-xl">Netflix</span>
-                    </div>
-                </div>
-            </div>
-        </Shell>
+                )}
+            </main>
+        </PageLayout>
     );
 };

@@ -1,103 +1,18 @@
 import { useState } from 'react';
-import { X, Download, ExternalLink, Loader2 } from 'lucide-react';
+import { X, Download, ExternalLink, Loader2, Sparkles, ShieldCheck } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import type { ResumeTemplate } from '../../data/realisticTemplates';
 import { visualStyles, getVisualStyleForTemplate } from './visualStyles';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface PDFPreviewModalProps {
     template: ResumeTemplate;
     onClose: () => void;
 }
 
-const styles = {
-    overlay: {
-        position: 'fixed' as const,
-        inset: 0,
-        background: 'rgba(0,0,0,0.9)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 9999,
-        padding: '2rem'
-    },
-    modal: {
-        background: 'var(--bg-page)',
-        borderRadius: 'var(--radius-lg)',
-        border: '1px solid var(--border-subtle)',
-        maxWidth: '60rem',
-        width: '100%',
-        maxHeight: '90vh',
-        display: 'flex',
-        flexDirection: 'column' as const,
-        boxShadow: 'var(--shadow-soft)'
-    },
-    header: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '1.5rem 2rem',
-        borderBottom: '1px solid var(--border-subtle)'
-    },
-    title: {
-        fontFamily: 'var(--font-heading)',
-        fontSize: '1.25rem',
-        fontWeight: 600,
-        color: 'var(--text-main)'
-    },
-    subtitle: {
-        fontSize: '0.875rem',
-        color: 'var(--text-muted)',
-        marginTop: '0.25rem'
-    },
-    closeButton: {
-        padding: '0.5rem',
-        borderRadius: 'var(--radius-sm)',
-        border: 'none',
-        background: 'var(--bg-card)',
-        color: 'var(--text-main)',
-        cursor: 'pointer',
-        transition: 'all 0.2s'
-    },
-    content: {
-        flex: 1,
-        overflow: 'auto',
-        padding: '2rem',
-        background: 'var(--bg-elevated)'
-    },
-    footer: {
-        display: 'flex',
-        gap: '1rem',
-        padding: '1.5rem 2rem',
-        borderTop: '1px solid rgba(255,255,255,0.06)'
-    },
-    button: {
-        flex: 1,
-        padding: '0.75rem 1.5rem',
-        borderRadius: '0.5rem',
-        border: 'none',
-        fontWeight: 500,
-        cursor: 'pointer',
-        transition: 'all 0.2s',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '0.5rem'
-    },
-    downloadButton: {
-        background: '#60f2e3',
-        color: '#0f110d'
-    },
-    useButton: {
-        background: 'rgba(96,242,227,0.1)',
-        color: '#60f2e3',
-        border: '1px solid rgba(96,242,227,0.3)'
-    }
-};
-
 export const PDFPreviewModal = ({ template, onClose }: PDFPreviewModalProps) => {
     const { content, metadata } = template;
-
     const [isDownloading, setIsDownloading] = useState(false);
 
     // Get the visual style for this template
@@ -154,38 +69,67 @@ export const PDFPreviewModal = ({ template, onClose }: PDFPreviewModalProps) => 
     };
 
     return (
-        <div style={styles.overlay} onClick={onClose}>
-            <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-                <div style={styles.header}>
-                    <div>
-                        <h2 style={styles.title}>{metadata.template_name}</h2>
-                        <p style={styles.subtitle}>
-                            {metadata.role} • {metadata.experience_level} Level • {Math.round(metadata.ats_success_rate * 100)}% ATS Score
-                        </p>
+        <div
+            className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-brand-secondary/80 backdrop-blur-sm"
+            onClick={onClose}
+        >
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                className="relative max-w-6xl w-full max-h-[95vh] flex flex-col bg-white rounded-premium border border-white/20 shadow-2xl overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {/* Header */}
+                <div className="flex items-center justify-between p-6 border-b border-border-subtle bg-bg-surface/50 backdrop-blur-md">
+                    <div className="flex items-center gap-5">
+                        <div className="w-14 h-14 rounded-inner bg-brand-primary/10 text-brand-primary flex items-center justify-center">
+                            <Sparkles size={28} />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <h2 className="font-heading font-extrabold text-2xl text-brand-secondary leading-none">
+                                    {metadata.template_name}
+                                </h2>
+                                <span className="px-2 py-0.5 rounded bg-green-50 text-green-700 text-[10px] font-bold border border-green-100 flex items-center gap-1">
+                                    <ShieldCheck size={10} />
+                                    ATS {Math.round(metadata.ats_success_rate * 100)}%
+                                </span>
+                            </div>
+                            <p className="text-sm text-text-muted">
+                                {metadata.role} • <span className="capitalize">{metadata.experience_level}</span> Level
+                            </p>
+                        </div>
                     </div>
-                    <button style={styles.closeButton} onClick={onClose}>
-                        <X style={{ width: '1.25rem', height: '1.25rem' }} />
+                    <button
+                        onClick={onClose}
+                        className="p-2.5 rounded-full bg-white border border-border-subtle text-text-muted hover:text-brand-secondary hover:border-brand-secondary transition-all hover:scale-110 active:scale-95 shadow-sm"
+                    >
+                        <X className="w-5 h-5" />
                     </button>
                 </div>
 
-                <div style={styles.content}>
-                    <div id="resume-preview-content" style={{ ...resumeStyles.pdfContainer, borderRadius: 'var(--radius-sm)', maxWidth: '50rem', margin: '0 auto', boxShadow: 'var(--shadow-soft)' }}>
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50">
+                    <div
+                        id="resume-preview-content"
+                        className="mx-auto bg-white shadow-premium rounded-sm overflow-hidden"
+                        style={{ ...resumeStyles.pdfContainer, maxWidth: '210mm' }}
+                    >
                         {/* Resume Header */}
                         <div style={resumeStyles.resumeHeader}>
                             <h1 style={resumeStyles.name}>{content.personalInfo.name}</h1>
                             <div style={resumeStyles.contact}>
-                                <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', marginBottom: '0.25rem' }}>
+                                <div className="flex flex-wrap gap-x-6 gap-y-1 justify-center mb-1">
                                     <span>{content.personalInfo.location}</span>
                                     <span>{content.personalInfo.phone}</span>
                                     <span>{content.personalInfo.email}</span>
                                 </div>
-                                <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center' }}>
+                                <div className="flex flex-wrap gap-x-6 gap-y-1 justify-center">
                                     <span>{content.personalInfo.linkedin}</span>
                                     {content.personalInfo.github && <span>{content.personalInfo.github}</span>}
                                     {content.personalInfo.portfolio && <span>{content.personalInfo.portfolio}</span>}
                                 </div>
                             </div>
-
                         </div>
 
                         {/* Summary */}
@@ -209,16 +153,16 @@ export const PDFPreviewModal = ({ template, onClose }: PDFPreviewModalProps) => 
                         <div style={resumeStyles.section}>
                             <h2 style={resumeStyles.sectionTitle}>Professional Experience</h2>
                             {content.experience.map((exp, idx) => (
-                                <div key={idx} style={{ marginBottom: '1.25rem' }}>
-                                    <div style={{ fontWeight: 700, fontSize: '0.9375rem', marginBottom: '0.25rem' }}>
+                                <div key={idx} className="mb-5 last:mb-0">
+                                    <div className="font-bold text-[0.9375rem] mb-1 text-slate-900">
                                         {exp.title}
                                     </div>
-                                    <div style={{ fontSize: '0.875rem', color: '#555', marginBottom: '0.5rem' }}>
+                                    <div className="text-[0.875rem] text-slate-500 mb-2 font-medium">
                                         {exp.company} • {exp.location} • {exp.startDate} - {exp.endDate}
                                     </div>
                                     {exp.bullets.map((bullet, bidx) => (
                                         <div key={bidx} style={resumeStyles.bullet}>
-                                            <span style={{ position: 'absolute', left: 0 }}>•</span>
+                                            <span className="absolute left-0">•</span>
                                             {bullet}
                                         </div>
                                     ))}
@@ -231,12 +175,12 @@ export const PDFPreviewModal = ({ template, onClose }: PDFPreviewModalProps) => 
                             <div style={resumeStyles.section}>
                                 <h2 style={resumeStyles.sectionTitle}>Projects</h2>
                                 {content.projects.map((project, idx) => (
-                                    <div key={idx} style={{ marginBottom: '1rem' }}>
-                                        <div style={{ fontWeight: 700, fontSize: '0.9375rem', marginBottom: '0.25rem' }}>
+                                    <div key={idx} className="mb-4 last:mb-0">
+                                        <div className="font-bold text-[0.9375rem] mb-1 text-slate-900">
                                             {project.name}
                                         </div>
                                         <p style={resumeStyles.text}>{project.description}</p>
-                                        <div style={{ fontSize: '0.8125rem', color: '#555', fontStyle: 'italic' }}>
+                                        <div className="text-[0.8125rem] text-slate-400 italic">
                                             Technologies: {project.technologies.join(', ')}
                                         </div>
                                     </div>
@@ -248,15 +192,15 @@ export const PDFPreviewModal = ({ template, onClose }: PDFPreviewModalProps) => 
                         <div style={resumeStyles.section}>
                             <h2 style={resumeStyles.sectionTitle}>Education</h2>
                             {content.education.map((edu, idx) => (
-                                <div key={idx} style={{ marginBottom: '0.75rem' }}>
-                                    <div style={{ fontWeight: 700, fontSize: '0.9375rem' }}>
+                                <div key={idx} className="mb-3 last:mb-0">
+                                    <div className="font-bold text-[0.9375rem] text-slate-900">
                                         {edu.degree}
                                     </div>
-                                    <div style={{ fontSize: '0.875rem', color: '#555' }}>
+                                    <div className="text-[0.875rem] text-slate-500 font-medium">
                                         {edu.school} • {edu.location} • {edu.graduationDate}
                                     </div>
                                     {edu.details && (
-                                        <div style={{ fontSize: '0.8125rem', color: '#666', marginTop: '0.25rem' }}>
+                                        <div className="text-[0.8125rem] text-slate-400 mt-1">
                                             {edu.details}
                                         </div>
                                     )}
@@ -266,52 +210,49 @@ export const PDFPreviewModal = ({ template, onClose }: PDFPreviewModalProps) => 
 
                         {/* Certifications */}
                         {content.certifications && content.certifications.length > 0 && (
-                            <div style={resumeStyles.section}>
+                            <div style={resumeStyles.section} className="border-none">
                                 <h2 style={resumeStyles.sectionTitle}>Certifications</h2>
-                                {content.certifications.map((cert, idx) => (
-                                    <div key={idx} style={resumeStyles.bullet}>
-                                        <span style={{ position: 'absolute', left: 0 }}>•</span>
-                                        {cert}
-                                    </div>
-                                ))}
+                                <div className="grid grid-cols-2 gap-x-8">
+                                    {content.certifications.map((cert, idx) => (
+                                        <div key={idx} style={resumeStyles.bullet}>
+                                            <span className="absolute left-0">•</span>
+                                            {cert}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>
                 </div>
 
-                <div style={styles.footer}>
+                {/* Footer */}
+                <div className="p-6 border-t border-border-subtle bg-bg-surface/30 backdrop-blur-md flex gap-4">
                     <button
-                        style={{ ...styles.button, ...styles.downloadButton }}
+                        className="btn-secondary flex-1 py-3 group"
                         onClick={handleDownload}
                         disabled={isDownloading}
                     >
                         {isDownloading ? (
                             <>
-                                <Loader2 style={{ width: '1rem', height: '1rem', animation: 'spin 1s linear infinite' }} />
-                                Generating PDF...
+                                <Loader2 className="w-5 h-5 animate-spin text-brand-primary" />
+                                <span className="ml-2">Synthesizing PDF...</span>
                             </>
                         ) : (
                             <>
-                                <Download style={{ width: '1rem', height: '1rem' }} />
-                                Download PDF
+                                <Download className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                                <span className="ml-2 text-brand-secondary">Export to PDF</span>
                             </>
                         )}
                     </button>
                     <button
-                        style={{ ...styles.button, ...styles.useButton }}
+                        className="btn-primary flex-1 py-3 group"
                         onClick={handleUseTemplate}
                     >
-                        <ExternalLink style={{ width: '1rem', height: '1rem' }} />
-                        Use This Template
+                        <ExternalLink className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                        <span className="ml-2">Deploy to Editor</span>
                     </button>
                 </div>
-            </div>
-            <style>{`
-                @keyframes spin {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
-                }
-            `}</style>
+            </motion.div>
         </div>
     );
 };

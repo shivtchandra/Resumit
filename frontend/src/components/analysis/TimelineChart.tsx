@@ -1,4 +1,4 @@
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, ReferenceLine } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
 import { AlertTriangle } from 'lucide-react';
 
 interface TimelineData {
@@ -55,7 +55,7 @@ export const TimelineChart = ({ data }: TimelineChartProps) => {
                         barSize={20}
                     >
                         {data.map((entry, index) => (
-                            <cell
+                            <Cell
                                 key={`cell-${index}`}
                                 fill={entry.gap ? 'var(--color-signal-danger)' : 'var(--color-brand-blue)'}
                                 opacity={entry.gap ? 0.6 : 1}
