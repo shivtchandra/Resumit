@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -11,11 +12,45 @@ output_dir = Path("outputs")
 output_dir.mkdir(exist_ok=True)
 app.mount("/outputs", StaticFiles(directory=str(output_dir)), name="outputs")
 
+def _normalize_origin(origin: str) -> str:
+    return origin.strip().rstrip("/")
+
+
+def _build_cors_origins() -> list[str]:
+    origins = {
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "https://localhost:3000",
+        "https://localhost:5173",
+        "https://localhost:5174",
+    }
+
+    # Comma-separated list preferred for deployment environments.
+    raw_cors_origins = os.getenv("CORS_ORIGINS", "")
+    if raw_cors_origins:
+        for origin in raw_cors_origins.split(","):
+            cleaned = _normalize_origin(origin)
+            if cleaned:
+                origins.add(cleaned)
+
+    # Single-origin convenience envs.
+    for env_key in ("FRONTEND_URL", "FRONTEND_ORIGIN", "RENDER_EXTERNAL_URL"):
+        value = _normalize_origin(os.getenv(env_key, ""))
+        if value:
+            origins.add(value)
+
+    return sorted(origins)
+
+
+allow_all_origins = os.getenv("CORS_ALLOW_ALL", "false").lower() == "true"
+cors_origins = _build_cors_origins()
+
 # CORS middleware for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:3000"],
-    allow_credentials=True,
+    allow_origins=["*"] if allow_all_origins else cors_origins,
+    allow_credentials=not allow_all_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

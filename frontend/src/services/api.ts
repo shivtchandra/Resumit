@@ -1,8 +1,9 @@
 import axios from 'axios';
 import type { AnalysisResult, BackendAnalysisResponse, FullRewriteResult, BrutalRewriteResult, InterviewAnswerScoreResult } from '../types';
 
-const RAW_API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-const API_BASE_URL = RAW_API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+const DEFAULT_API_BASE_URL = import.meta.env.DEV ? 'http://localhost:8000' : '';
+const RAW_API_BASE_URL = (import.meta.env.VITE_API_URL || DEFAULT_API_BASE_URL).trim();
+const API_BASE_URL = RAW_API_BASE_URL ? RAW_API_BASE_URL.replace(/\/api\/v1\/?$/, '') : '';
 
 export const api = axios.create({
     baseURL: API_BASE_URL,
