@@ -6,8 +6,6 @@ Calculates Resume-Job Description Relevance Score using Semantic Similarity and 
 import numpy as np
 from pathlib import Path
 import joblib
-from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
 import logging
 
 logger = logging.getLogger(__name__)
@@ -32,7 +30,12 @@ class VisibilityScorer:
             
             # Load Semantic Model (download if not cached)
             # We use a small, fast model
-            self.semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
+            try:
+                from sentence_transformers import SentenceTransformer
+                self.semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
+            except ImportError:
+                logger.warning("sentence-transformers not installed. Semantic matching disabled.")
+                self.semantic_model = None
             
             # Load TF-IDF Vectorizer (if available)
             tfidf_path = models_dir / "tfidf_vectorizer.joblib"
@@ -63,10 +66,18 @@ class VisibilityScorer:
         # 1. Semantic Score
         semantic_score = 0.0
         if self.semantic_model:
-            embeddings = self.semantic_model.encode([resume_text, jd_text])
-            # Cosine similarity between the two embeddings
-            # embeddings[0] is resume, embeddings[1] is JD
-            semantic_score = float(cosine_similarity([embeddings[0]], [embeddings[1]])[0][0])
+            try:
+                from sklearn.metrics.pairwise import cosine_similarity
+                embeddings = self.semantic_model.encode([resume_text, jd_text])
+                # Cosine similarity between the two embeddings
+                # embeddings[0] is resume, embeddings[1] is JD
+                semantic_score = float(cosine_similarity([embeddings[0]], [embeddings[1]])[0][0])
+            except ImportError:
+                logger.warning("sklearn not installed. Semantic score calculation disabled.")
+                semantic_score = 0.0
+            except Exception as e:
+                logger.error(f"Semantic score calculation failed: {e}")
+                semantic_score = 0.0
             # Normalize -1 to 1 -> 0 to 1 (though usually it's 0-1 for text)
             semantic_score = max(0.0, semantic_score)
             
@@ -74,8 +85,12 @@ class VisibilityScorer:
         keyword_score = 0.0
         if self.tfidf_vectorizer:
             try:
+                from sklearn.metrics.pairwise import cosine_similarity
                 tfidf_matrix = self.tfidf_vectorizer.transform([resume_text, jd_text])
                 keyword_score = float(cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0])
+            except ImportError:
+                logger.warning("sklearn not installed. Keyword score calculation disabled.")
+                keyword_score = 0.0
             except Exception as e:
                 logger.warning(f"TF-IDF calculation failed: {e}")
                 keyword_score = semantic_score # Fallback

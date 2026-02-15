@@ -55,7 +55,9 @@ def get_feature_extractor():
 
 def get_friendliness_classifier():
     if 'friendliness_classifier' not in _services:
-        _services['friendliness_classifier'] = MLFriendlinessClassifier(use_ml=True)
+        # Disable ML models on Render Free tier to stay under 512MB
+        use_ml = os.getenv("RENDER") is None
+        _services['friendliness_classifier'] = MLFriendlinessClassifier(use_ml=use_ml)
     return _services['friendliness_classifier']
 
 def get_visibility_scorer():
