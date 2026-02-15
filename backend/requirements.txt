@@ -8,13 +8,14 @@ python-docx
 pytesseract
 Pillow
 numpy
-scikit-learn
-xgboost
 rank_bm25
-sentence-transformers
 python-levenshtein
 google-generativeai
 openai
 docxtpl
 weasyprint
-pandas
+# Heavy ML libraries excluded for Render Free tier
+# pandas
+# scikit-learn
+# xgboost
+# sentence-transformers

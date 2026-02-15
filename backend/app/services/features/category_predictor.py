@@ -18,8 +18,12 @@ class CategoryPredictor:
         try:
             model_path = Path(__file__).parent.parent.parent.parent / "data" / "models" / "category_classifier.joblib"
             if model_path.exists():
-                self.model = joblib.load(model_path)
-                logger.info("Category Classifier loaded successfully")
+                try:
+                    self.model = joblib.load(model_path)
+                    logger.info("Category Classifier loaded successfully")
+                except (ImportError, ModuleNotFoundError) as e:
+                    logger.warning(f"Could not load category model due to missing dependency (likely sklearn): {e}")
+                    self.model = None
             else:
                 logger.warning(f"Category Classifier not found at {model_path}")
         except Exception as e:

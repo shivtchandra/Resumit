@@ -3,7 +3,6 @@ NER Extractor (V3 Upgrade)
 Uses pre-trained BERT model for Skill and Entity Extraction.
 """
 
-from transformers import pipeline
 import logging
 import re
 import os
@@ -22,6 +21,7 @@ class NERExtractor:
         
     def _load_model(self):
         try:
+            from transformers import pipeline
             # Load pre-trained model for Resume NER
             # We use 'yashpwr/resume-ner-bert-v2' as identified in research
             self.ner_pipeline = pipeline(
@@ -30,6 +30,9 @@ class NERExtractor:
                 aggregation_strategy="simple"
             )
             logger.info("NER Model loaded successfully")
+        except ImportError:
+            logger.warning("transformers not installed. NER model disabled.")
+            self.ner_pipeline = None
         except Exception as e:
             logger.error(f"Failed to load NER model: {e}")
             
