@@ -1,8 +1,12 @@
-import numpy as np
 from rank_bm25 import BM25Okapi
-from sentence_transformers import SentenceTransformer, util
 import re
 import os
+
+try:
+    from sentence_transformers import SentenceTransformer, util  # type: ignore
+except ImportError:
+    SentenceTransformer = None
+    util = None
 
 # Lazy loading model to avoid startup delay if not used
 _semantic_model = None
@@ -15,6 +19,10 @@ def get_semantic_model():
     if _semantic_model is None:
         # Keep semantic embedding optional so the service works offline.
         if os.getenv("ENABLE_SEMANTIC_MODEL", "false").lower() != "true":
+            _semantic_model = False
+            return None
+
+        if SentenceTransformer is None:
             _semantic_model = False
             return None
 
@@ -53,7 +61,7 @@ class VisibilityRanker:
         # 2. Semantic Score (Vector Similarity)
         semantic_score = bm25_norm
         model = self.model or get_semantic_model()
-        if model is not None:
+        if model is not None and util is not None:
             try:
                 resume_emb = model.encode(resume_text, convert_to_tensor=True)
                 jd_emb = model.encode(jd_text, convert_to_tensor=True)

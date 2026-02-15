@@ -1,2 +1,15 @@
 backend/.env
 frontend/.env
+
+# Python cache/artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Local runtime outputs
+backend/outputs/
+
+# Generated scratch/debug files
+*.metadata.json
+*.resolved
+*.resolved.0

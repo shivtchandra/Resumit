@@ -1,8 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from app.api.v1.endpoints import analyze, rewrite, templates, export, github, settings
 
 app = FastAPI(title="ATS Emulator V2 API")
+
+# Expose rewritten files for download.
+output_dir = Path("outputs")
+output_dir.mkdir(exist_ok=True)
+app.mount("/outputs", StaticFiles(directory=str(output_dir)), name="outputs")
 
 # CORS middleware for frontend
 app.add_middleware(

@@ -1,0 +1,2 @@
+# Render build entrypoint (repo root).
+-r backend/requirements.txt

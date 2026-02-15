@@ -7,15 +7,11 @@ pymupdf
 python-docx
 pytesseract
 Pillow
-numpy
 rank_bm25
 python-levenshtein
 google-generativeai
 openai
-docxtpl
-weasyprint
-# Heavy ML libraries excluded for Render Free tier
-# pandas
-# scikit-learn
-# xgboost
-# sentence-transformers
+supabase
+PyGithub
+fpdf2
+joblib
