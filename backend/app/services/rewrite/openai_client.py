@@ -42,6 +42,7 @@ class OpenAIClient:
         max_retries: Optional[int] = None,
         max_tokens: Optional[int] = None,
         timeout_seconds: Optional[float] = None,
+        model_name: Optional[str] = None,
     ) -> str:
         """
         Call OpenAI API with retry logic.
@@ -58,11 +59,12 @@ class OpenAIClient:
         retries = max(1, retries)
         token_budget = max_tokens if max_tokens is not None else 2048
         timeout_budget = timeout_seconds if timeout_seconds is not None else self.timeout_seconds
+        selected_model = (model_name or self.model_name).strip() or self.model_name
 
         for attempt in range(retries):
             try:
                 response = self.client.chat.completions.create(
-                    model=self.model_name,
+                    model=selected_model,
                     messages=[
                         {"role": "system", "content": "You are an expert ATS resume consultant and career advisor."},
                         {"role": "user", "content": prompt}

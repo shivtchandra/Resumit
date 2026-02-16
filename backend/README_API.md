@@ -34,7 +34,10 @@ Required variables:
 Recommended for faster Match & Fix responses:
 - `OPENAI_MODEL=gpt-4o-mini`
 - `OPENAI_BRUTAL_MODEL=gpt-4o-mini` (or any faster model you prefer)
+- `OPENAI_ANALYZE_MODEL=gpt-4o-mini` (dedicated model for Analyze roast)
 - `OPENAI_BRUTAL_TIMEOUT_SECONDS=30`
+- `ANALYZE_AI_TIMEOUT_SECONDS=24`
+- `ANALYZE_AI_MODEL_TIMEOUT_SECONDS=16`
 - `REWRITE_BRUTAL_TIMEOUT_SECONDS=60`
 - `REWRITE_BRUTAL_FALLBACK_TIMEOUT_SECONDS=15`
 

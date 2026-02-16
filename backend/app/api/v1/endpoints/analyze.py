@@ -797,6 +797,23 @@ def _clean_str_list(raw: Any, limit: int, fallback: list[str]) -> list[str]:
     return cleaned[:limit]
 
 
+def _unique_non_empty(items: list[Any], limit: int) -> list[str]:
+    cleaned: list[str] = []
+    seen = set()
+    for item in items:
+        text = str(item or "").strip()
+        if not text:
+            continue
+        key = text.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(text)
+        if len(cleaned) >= limit:
+            break
+    return cleaned
+
+
 _ROLE_PLACEHOLDER_TOKENS = {
     "detected role",
     "role 1",
@@ -942,8 +959,8 @@ def _recommend_certs_from_resume_evidence(
 
         keywords = [str(k).strip() for k in cert.get("relevance_keywords", []) if str(k).strip()]
         matched_keywords = [kw for kw in keywords if kw.lower() in resume_lower]
-        # In no-JD mode, do not suggest certs unless resume already shows adjacent evidence.
-        if len(matched_keywords) < 2:
+        # In no-JD mode, keep cert suggestions evidence-based (at least one adjacent signal).
+        if len(matched_keywords) < 1:
             continue
 
         impact_score = int(cert.get("impact_score", 10))
@@ -1038,7 +1055,7 @@ def build_ai_roast_only(
     )
     has_jd = bool((job_description or "").strip())
     company = (company_name or "the company").strip()
-    evidence_lines = _sentences(resume_text)[:14]
+    evidence_lines = _sentences(resume_text)[:10]
 
     prompt_payload = {
         "target_role": target_role or "unknown",
@@ -1049,8 +1066,8 @@ def build_ai_roast_only(
         "jd_match_score": match_score,
         "risk_flags": risk_flags[:12],
         "missing_keywords": missing_keywords[:12],
-        "job_description_excerpt": (job_description or "")[:1800],
-        "resume_excerpt": (resume_text or "")[:3200],
+        "job_description_excerpt": (job_description or "")[:1200],
+        "resume_excerpt": (resume_text or "")[:2400],
         "evidence_lines": evidence_lines,
     }
 
@@ -1123,19 +1140,25 @@ Rules:
   - Max 3 suggestions.
   - If no high-confidence suggestion, return [].
 - Keep output practical:
-  - 3-6 items per section.
+  - 2-5 items per section.
   - concise sentences.
 
 INPUT:
 {json.dumps(prompt_payload, indent=2)}
 """
     try:
-        model_timeout = float(os.getenv("ANALYZE_AI_MODEL_TIMEOUT_SECONDS", "12"))
+        model_timeout = float(os.getenv("ANALYZE_AI_MODEL_TIMEOUT_SECONDS", "16"))
+        analyze_model = (
+            os.getenv("OPENAI_ANALYZE_MODEL")
+            or os.getenv("OPENAI_MODEL_FAST")
+            or ai_client.model_name
+        )
         ai_text = ai_client._call_gemini(
             prompt,
             max_retries=1,
-            max_tokens=1600,
+            max_tokens=1200,
             timeout_seconds=model_timeout,
+            model_name=analyze_model,
         )
         parsed = ai_client._parse_json_response(ai_text)
     except Exception as exc:
@@ -1256,23 +1279,55 @@ def build_roast_report(
     ats_extracted: dict,
     job_description: Optional[str],
     target_role: Optional[str] = None,
+    has_linkedin_signal: Optional[bool] = None,
+    has_github_signal: Optional[bool] = None,
 ) -> dict:
-    strengths = []
-    weaknesses = []
-    hard_truths = []
-    priority_fixes = []
+    strengths: list[str] = []
+    weaknesses: list[str] = []
+    hard_truths: list[str] = []
+    priority_fixes: list[str] = []
+
+    raw_text = ats_extracted.get("raw_text", "") or ""
+    skills_list = [str(s).strip() for s in (ats_extracted.get("skills", []) or []) if str(s).strip()]
+    job_titles = [str(t).strip() for t in (ats_extracted.get("job_titles", []) or []) if str(t).strip()]
+    quantified_bullets = _extract_quantified_bullets(raw_text)
+    section_state = _section_presence(raw_text)
+    summary_ok = _has_summary_with_signal(raw_text)
+    technical_role = _is_technical_role(target_role)
+    links = extract_profile_links(raw_text)
+    has_linkedin = bool(has_linkedin_signal) if has_linkedin_signal is not None else bool(links.get("linkedin_url"))
+    has_github = bool(has_github_signal) if has_github_signal is not None else bool(links.get("github_url"))
+    line_samples = [line.strip() for line in raw_text.splitlines() if line.strip()]
+    label_heavy_lines = [
+        line for line in line_samples
+        if re.match(r"(?i)^[•\-\*]?\s*(objective|description|key contributions|technologies used|outcome)\s*:", line)
+    ]
 
     if features.get("email_found"):
-        strengths.append("You included an email address, so ATS can at least route your application.")
+        strengths.append("You included an email address, so ATS can route your application correctly.")
     if features.get("phone_found"):
-        strengths.append("You included a phone number, which keeps recruiter follow-up friction low.")
-    if ats_extracted.get("skills"):
-        strengths.append(f"You have {len(ats_extracted.get('skills', []))} detectable skill keywords already.")
+        strengths.append("You included a phone number, which reduces recruiter follow-up friction.")
+    if skills_list:
+        strengths.append(f"You already have {len(skills_list)} detectable skill keywords, which helps ATS coverage.")
+    if len(quantified_bullets) >= 4:
+        strengths.append("You already have quantified impact bullets; this is recruiter-grade evidence.")
+    elif len(quantified_bullets) >= 2:
+        strengths.append("You have some measurable bullets; expanding this will quickly improve interview pull.")
 
     if features.get("word_count", 0) < 220:
-        weaknesses.append("Resume is thin on evidence; it likely reads like claims without proof.")
-        hard_truths.append("If your resume is this short, you are forcing recruiters to guess impact.")
-        priority_fixes.append("Add 4-6 quantified bullets with outcomes, scope, and tools used.")
+        weaknesses.append("Resume is thin on defensible outcomes; it reads more like claims than proof.")
+        hard_truths.append("If your resume is this short, recruiters will assume low ownership depth.")
+        priority_fixes.append("Add 4-6 quantified bullets with action + scope + metric + outcome.")
+
+    if len(quantified_bullets) < 4:
+        weaknesses.append("Too few bullets show measurable impact across projects/internships.")
+        hard_truths.append("Without metrics, even real work looks generic and low-impact in screening.")
+        priority_fixes.append("Rewrite top bullets to include numbers, latency/time improvements, or user/business outcomes.")
+
+    if not summary_ok:
+        weaknesses.append("Top summary lines are generic and do not immediately establish role-fit evidence.")
+        hard_truths.append("If your first 6 lines are vague, most recruiters stop reading there.")
+        priority_fixes.append("Replace summary with role focus + strongest proof line from experience/projects.")
 
     risk_flags = set(features.get("risk_flags", []))
     if "DETECTED_TEXT_TABLES" in risk_flags:
@@ -1283,64 +1338,168 @@ def build_roast_report(
         weaknesses.append("Section naming is non-standard for Workday parsing.")
         priority_fixes.append("Use standard headers: Summary, Experience, Projects, Skills, Education.")
 
+    if not section_state.get("experience"):
+        weaknesses.append("Experience section is weak/missing, making role-level assessment difficult.")
+        priority_fixes.append("Add a clean Experience section with role, stack, scope, and measurable outcomes.")
+    if technical_role and not section_state.get("projects"):
+        weaknesses.append("Technical profile lacks visible project depth in ATS-visible structure.")
+        priority_fixes.append("Add 2-3 projects with stack + metric + outcome for technical role credibility.")
+
+    if not has_linkedin:
+        weaknesses.append("LinkedIn signal is weak or missing from visible header text.")
+        priority_fixes.append("Add full LinkedIn URL in header for recruiter verification.")
+    if technical_role and not has_github:
+        weaknesses.append("GitHub proof signal is missing for a technical role.")
+        hard_truths.append("For technical roles, no GitHub proof makes skill claims harder to trust.")
+        priority_fixes.append("Add GitHub profile URL in header and showcase 2-3 strongest repos.")
+
     friendliness_score = friendliness_result.get("score", 0)
     if friendliness_score < 60:
-        hard_truths.append("Right now this resume is likely filtered before a human gives it real attention.")
-        priority_fixes.append("Fix ATS blockers first, then tune wording.")
+        hard_truths.append("Current ATS quality is likely too low for consistent callbacks.")
+        priority_fixes.append("Fix ATS blockers first, then optimize phrasing and impact bullets.")
     elif friendliness_score >= 80:
-        strengths.append("ATS baseline is strong enough that content quality is now the main lever.")
+        strengths.append("ATS baseline is already decent, so content quality is now your biggest lever.")
 
+    has_jd = bool((job_description or "").strip())
     if visibility_result:
         missing = visibility_result.get("missing_keywords", [])[:10]
         if missing:
-            weaknesses.append("You are missing role-defining JD keywords in core sections.")
-            priority_fixes.append(f"Naturally include these terms where truthful: {', '.join(missing[:6])}.")
+            weaknesses.append("JD-critical language is missing in core sections.")
+            priority_fixes.append(f"Naturally include these truthful role terms: {', '.join(missing[:6])}.")
         if visibility_result.get("score", 0) < 65:
-            hard_truths.append("Your resume language is not yet aligned to how this job is described.")
-    elif not job_description:
-        weaknesses.append("No JD provided, so optimization is generic rather than role-targeted.")
+            hard_truths.append("Current language alignment to the JD is not strong enough yet.")
+    elif has_jd:
+        weaknesses.append("JD was provided but keyword/semantic fit analysis was limited in this run.")
+        priority_fixes.append("Retry once with the same JD to get full role-match scoring.")
+    else:
+        strengths.append("Analyze mode is running in no-JD diagnostic mode by design (structure + signal focus).")
+        priority_fixes.append("After structural fixes, run Match & Fix with one target JD for role-specific tuning.")
 
-    # Build heuristic loopholes
-    resume_loopholes = []
-    raw_text = ats_extracted.get("raw_text", "")
-    skills_list = ats_extracted.get("skills", [])
-    job_titles = ats_extracted.get("job_titles", [])
-
-    if features.get("word_count", 0) < 300 and len(skills_list) > 10:
-        resume_loopholes.append("Your skills list is longer than your actual experience — recruiters notice this imbalance instantly.")
-    if "DETECTED_TEXT_TABLES" in risk_flags:
-        resume_loopholes.append("Fancy table formatting looks great on screen but gets mangled by ATS parsers — you're sabotaging yourself.")
-    if not features.get("email_found"):
-        resume_loopholes.append("No email detected — congratulations, you've made it impossible for recruiters to contact you.")
+    # Build loopholes with meaningful defaults (no blank/generic filler).
+    resume_loopholes: list[str] = []
+    if len(skills_list) >= 12 and len(quantified_bullets) < 3:
+        resume_loopholes.append("Skills list is dense but proof density is low; this looks like keyword stuffing to recruiters.")
+    if label_heavy_lines:
+        resume_loopholes.append("Bullets using labels like Objective/Description/Technologies reduce readability and waste prime real estate.")
+    if technical_role and not has_github:
+        resume_loopholes.append("Technical role target without GitHub proof lowers trust in implementation depth.")
+    if not section_state.get("projects"):
+        resume_loopholes.append("No clear projects block reduces evidence depth for early-career technical screening.")
     if not resume_loopholes:
-        resume_loopholes.append("Run with AI mode enabled for deeper loophole detection.")
+        resume_loopholes.append("Main gap is evidence compression: convert responsibilities into measurable, ownership-based bullets.")
 
-    # Build heuristic should_remove
-    should_remove = []
+    should_remove: list[str] = []
     if features.get("word_count", 0) > 800:
-        should_remove.append("Consider trimming — your resume is getting long. Cut anything older than 3-4 years unless it's exceptional.")
-    should_remove.append("Remove generic phrases like 'passionate', 'team player', 'excellent communication skills' — everyone says these.")
+        should_remove.append("Trim low-signal/old lines; keep content that proves current role fit and measurable impact.")
+    should_remove.append("Remove generic phrases like 'passionate', 'team player', 'excellent communication skills'.")
+    if label_heavy_lines:
+        should_remove.append("Remove repeated bullet labels like 'Objective:' and 'Description:'; write direct action-impact bullets.")
     if "WORKDAY_PARSING_RISK" in risk_flags:
-        should_remove.append("Remove non-standard section headers — use standard ones like Experience, Skills, Education.")
+        should_remove.append("Remove non-standard section headers; use Experience, Projects, Skills, Education.")
 
-    # Build heuristic role fit
     normalized_target_role = (target_role or "").replace("-", " ").replace("_", " ").strip().title()
-    fallback_best_roles = [normalized_target_role] if normalized_target_role else ["Software Engineer"]
+    skill_blob = " ".join(skills_list).lower()
+    inferred_best: list[str] = []
+    if normalized_target_role:
+        inferred_best.append(normalized_target_role)
+    if any(token in skill_blob for token in ["react", "frontend", "ui", "typescript", "javascript"]):
+        inferred_best.append("Frontend Developer")
+    if any(token in skill_blob for token in ["node", "express", "api", "sql", "postgres", "backend"]):
+        inferred_best.append("Backend Developer")
+    if any(token in skill_blob for token in ["machine learning", "tensorflow", "pytorch", "nlp", "llm"]):
+        inferred_best.append("Machine Learning Engineer")
+    if any(token in skill_blob for token in ["tableau", "power bi", "analytics", "pandas"]):
+        inferred_best.append("Data Analyst / Data Scientist")
+    if not inferred_best:
+        inferred_best = [job_titles[0]] if job_titles else ["Software Engineer"]
+
+    weak_fit_roles = ["Senior/Staff roles requiring deep specialization"]
+    if len(quantified_bullets) < 3:
+        weak_fit_roles.append("Impact-heavy product roles demanding strong metric ownership evidence")
+    if technical_role and not has_github:
+        weak_fit_roles.append("Code-first engineering roles where public project proof is expected")
+
     role_fit_verdict = {
-        "best_fit_roles": [t for t in job_titles[:2] if not _is_placeholder_role(str(t))] if job_titles else fallback_best_roles,
-        "weak_fit_roles": ["Senior/Staff roles requiring deep specialization"],
-        "verdict": "This resume has potential but needs sharper targeting to compete for specific roles.",
+        "best_fit_roles": _unique_non_empty(inferred_best, 3),
+        "weak_fit_roles": _unique_non_empty(weak_fit_roles, 3),
+        "verdict": "This resume can compete for entry-to-mid roles, but evidence density and role-targeting must tighten before interviews.",
     }
+
+    strengths = _unique_non_empty(strengths + [
+        "Your resume has usable raw material; the next gains come from sharper evidence presentation."
+    ], 6)
+    weaknesses = _unique_non_empty(weaknesses + [
+        "Current narrative still under-communicates ownership and measurable impact."
+    ], 8)
+    hard_truths = _unique_non_empty(hard_truths + [
+        "If a recruiter cannot quickly see ownership + metric + outcome, they move to the next resume."
+    ], 6)
+    priority_fixes = _unique_non_empty(priority_fixes + [
+        "Rewrite the top 5 bullets in action + scope + metric + outcome format.",
+        "Keep only role-relevant lines and remove low-signal filler.",
+    ], 8)
+    resume_loopholes = _unique_non_empty(resume_loopholes, 5)
+    should_remove = _unique_non_empty(should_remove, 5)
 
     return {
-        "strengths": strengths[:6],
-        "weaknesses": weaknesses[:8],
-        "hard_truths": hard_truths[:6],
-        "priority_fixes": priority_fixes[:8],
-        "resume_loopholes": resume_loopholes[:5],
-        "should_remove": should_remove[:5],
+        "strengths": strengths,
+        "weaknesses": weaknesses,
+        "hard_truths": hard_truths,
+        "priority_fixes": priority_fixes,
+        "resume_loopholes": resume_loopholes,
+        "should_remove": should_remove,
         "role_fit_verdict": role_fit_verdict,
     }
+
+
+def _merge_roast_reports(base: dict, candidate: Optional[dict]) -> dict:
+    if not isinstance(base, dict):
+        base = {}
+    if not isinstance(candidate, dict):
+        return base
+
+    merged = {
+        "strengths": _unique_non_empty(
+            (candidate.get("strengths", []) or []) + (base.get("strengths", []) or []),
+            6,
+        ),
+        "weaknesses": _unique_non_empty(
+            (candidate.get("weaknesses", []) or []) + (base.get("weaknesses", []) or []),
+            8,
+        ),
+        "hard_truths": _unique_non_empty(
+            (candidate.get("hard_truths", []) or []) + (base.get("hard_truths", []) or []),
+            6,
+        ),
+        "priority_fixes": _unique_non_empty(
+            (candidate.get("priority_fixes", []) or []) + (base.get("priority_fixes", []) or []),
+            8,
+        ),
+        "resume_loopholes": _unique_non_empty(
+            (candidate.get("resume_loopholes", []) or []) + (base.get("resume_loopholes", []) or []),
+            5,
+        ),
+        "should_remove": _unique_non_empty(
+            (candidate.get("should_remove", []) or []) + (base.get("should_remove", []) or []),
+            5,
+        ),
+    }
+
+    base_role = base.get("role_fit_verdict", {}) if isinstance(base.get("role_fit_verdict"), dict) else {}
+    cand_role = candidate.get("role_fit_verdict", {}) if isinstance(candidate.get("role_fit_verdict"), dict) else {}
+    merged["role_fit_verdict"] = {
+        "best_fit_roles": _unique_non_empty(
+            (cand_role.get("best_fit_roles", []) or []) + (base_role.get("best_fit_roles", []) or []),
+            3,
+        ),
+        "weak_fit_roles": _unique_non_empty(
+            (cand_role.get("weak_fit_roles", []) or []) + (base_role.get("weak_fit_roles", []) or []),
+            3,
+        ),
+        "verdict": str(cand_role.get("verdict") or base_role.get("verdict") or "").strip(),
+    }
+
+    return merged
 
 
 def build_content_decisions(
@@ -1690,10 +1849,20 @@ def build_comprehensive_guidance(
 ) -> dict:
     has_jd = bool((job_description or "").strip())
     analyzer = get_comprehensive_analyzer()
+    resume_lower = (resume_text or "").lower()
 
     if not has_jd:
+        baseline_role_signals = _extract_jd_interview_signals(_fallback_jd_for_role(target_role), limit=8)
+        no_jd_missing_tech = [
+            signal for signal in baseline_role_signals
+            if signal and signal.lower() not in resume_lower
+        ][:5]
         cert_recs = _recommend_certs_from_resume_evidence(analyzer, resume_text, target_role)
         actionable_lines = []
+        if no_jd_missing_tech:
+            actionable_lines.append(
+                f"No-JD role baseline gaps to consider: {', '.join(no_jd_missing_tech[:4])}."
+            )
         if cert_recs:
             top = cert_recs[0]
             actionable_lines.append(
@@ -1705,20 +1874,20 @@ def build_comprehensive_guidance(
             )
 
         action_plan = _build_detailed_action_plan(
-            missing_tech=[],
+            missing_tech=no_jd_missing_tech,
             missing_soft=[],
             certs=cert_recs,
             has_linkedin_url=has_linkedin_url,
             has_github_url=has_github_url,
         )
         return {
-            "missing_keywords": [],
-            "missing_technical_skills": [],
+            "missing_keywords": no_jd_missing_tech,
+            "missing_technical_skills": no_jd_missing_tech,
             "missing_soft_skills": [],
             "certification_recommendations": cert_recs,
             "actionable_recommendations": actionable_lines[:8],
             "action_plan": action_plan,
-            "sample_resume_upgrades": _build_sample_resume_upgrades([]),
+            "sample_resume_upgrades": _build_sample_resume_upgrades(no_jd_missing_tech),
         }
 
     try:
@@ -2000,11 +2169,13 @@ async def full_analysis(
             ats_extracted=ats_extracted,
             job_description=job_description,
             target_role=target_role,
+            has_linkedin_signal=bool(resolved_linkedin_url),
+            has_github_signal=bool(resolved_github),
         )
         missing_keywords = visibility_result.get("missing_keywords", [])[:10] if visibility_result else []
         risk_flags = features.get("risk_flags", [])
 
-        ai_timeout = float(os.getenv("ANALYZE_AI_TIMEOUT_SECONDS", "18"))
+        ai_timeout = float(os.getenv("ANALYZE_AI_TIMEOUT_SECONDS", "24"))
         github_timeout = float(os.getenv("ANALYZE_GITHUB_TIMEOUT_SECONDS", "12"))
 
         ai_task = asyncio.create_task(
@@ -2062,7 +2233,7 @@ async def full_analysis(
             })
 
         if ai_generated:
-            roast_report = ai_generated.get("roast_report", roast_report)
+            roast_report = _merge_roast_reports(roast_report, ai_generated.get("roast_report"))
             ai_generation_mode = "ai"
         else:
             ai_generation_mode = "heuristic"
@@ -2073,9 +2244,22 @@ async def full_analysis(
             except asyncio.TimeoutError:
                 logger.warning("GitHub intel timed out after %ss.", github_timeout)
                 github_intel = {
-                    "github_best_projects": [],
-                    "github_drop_projects": [],
-                    "github_summary": "GitHub analysis timed out. Retry with fewer repos or add a GitHub token.",
+                    "github_best_projects": [
+                        {
+                            "name": "Pin 2-3 strongest repos",
+                            "score": 60,
+                            "reason": "Use repos with clear README, architecture notes, and measurable outcomes.",
+                            "resume_bullet": "Built [project], solved [problem], improved [metric], and documented implementation choices.",
+                        }
+                    ],
+                    "github_drop_projects": [
+                        {
+                            "name": "Tutorial/fork-only repos",
+                            "score": 25,
+                            "reason": "Low ownership signal unless you document your unique contribution.",
+                        }
+                    ],
+                    "github_summary": "GitHub deep scan timed out. Applied quick fallback guidance; retry with token for repository-level ranking.",
                 }
                 recommendations.append({
                     "type": "quality",
@@ -2151,6 +2335,35 @@ async def full_analysis(
                 "type": "quality",
                 "message": "AI roast unavailable in this run; output uses heuristic fallback diagnostics.",
             })
+
+        # Final guardrails: never ship blank critical roast sections.
+        roast_report["hard_truths"] = _unique_non_empty(
+            (roast_report.get("hard_truths", []) or []) + [
+                "If ownership and measurable impact are unclear, callbacks drop sharply."
+            ],
+            6,
+        )
+        roast_report["priority_fixes"] = _unique_non_empty(
+            (roast_report.get("priority_fixes", []) or []) + [
+                "Rewrite top bullets with action + scope + metric + outcome.",
+                "Keep only role-relevant lines and remove generic filler language.",
+            ],
+            8,
+        )
+        role_verdict = roast_report.get("role_fit_verdict", {})
+        if not isinstance(role_verdict, dict):
+            role_verdict = {}
+        fallback_role = (target_role or "Software Engineer").replace("-", " ").replace("_", " ").title()
+        role_verdict["best_fit_roles"] = _unique_non_empty(role_verdict.get("best_fit_roles", []) or [fallback_role], 3)
+        role_verdict["weak_fit_roles"] = _unique_non_empty(
+            role_verdict.get("weak_fit_roles", []) or ["Senior/Staff roles requiring deep specialization"],
+            3,
+        )
+        role_verdict["verdict"] = str(
+            role_verdict.get("verdict")
+            or "This resume can compete for entry-to-mid opportunities, but impact evidence still needs tightening."
+        ).strip()
+        roast_report["role_fit_verdict"] = role_verdict
 
         overall_score = round(((friendliness_score or 0) * 0.6) + ((match_score or friendliness_score or 0) * 0.4), 1)
 
