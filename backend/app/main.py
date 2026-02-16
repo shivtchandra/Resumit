@@ -24,6 +24,8 @@ def _build_cors_origins() -> list[str]:
         "https://localhost:3000",
         "https://localhost:5173",
         "https://localhost:5174",
+        # Current production frontend origin (Vercel)
+        "https://resumit-kappa.vercel.app",
     }
 
     # Comma-separated list preferred for deployment environments.
@@ -45,11 +47,13 @@ def _build_cors_origins() -> list[str]:
 
 allow_all_origins = os.getenv("CORS_ALLOW_ALL", "false").lower() == "true"
 cors_origins = _build_cors_origins()
+cors_origin_regex = os.getenv("CORS_ORIGIN_REGEX", "").strip() or None
 
 # CORS middleware for frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"] if allow_all_origins else cors_origins,
+    allow_origin_regex=None if allow_all_origins else cors_origin_regex,
     allow_credentials=not allow_all_origins,
     allow_methods=["*"],
     allow_headers=["*"],
