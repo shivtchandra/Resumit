@@ -46,6 +46,13 @@ export interface AnalysisResult {
         weaknesses: string[];
         hard_truths: string[];
         priority_fixes: string[];
+        resume_loopholes?: string[];
+        should_remove?: string[];
+        role_fit_verdict?: {
+            best_fit_roles: string[];
+            weak_fit_roles: string[];
+            verdict: string;
+        };
     };
     content_decisions?: {
         keep: string[];

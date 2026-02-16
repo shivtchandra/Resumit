@@ -254,6 +254,97 @@ export const Analysis = () => {
                             </div>
                         )}
 
+                        {/* Resume Loopholes */}
+                        {result.roast_report?.resume_loopholes && result.roast_report.resume_loopholes.length > 0 && (
+                            <div className="zen-card p-6 border-l-4 border-l-amber-400" style={{ background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)' }}>
+                                <h3 className="text-xs font-black tracking-[0.2em] uppercase text-amber-700 flex items-center gap-2 mb-4">
+                                    <MaterialIcon icon="policy" size={16} className="text-amber-600" />
+                                    Resume Loopholes Detected
+                                </h3>
+                                <p className="text-[11px] text-amber-600 mb-4 font-medium">
+                                    These are inconsistencies, red flags, or gaps that a recruiter would catch instantly.
+                                </p>
+                                <ul className="space-y-3 list-none p-0 m-0">
+                                    {result.roast_report?.resume_loopholes?.map((loophole, idx) => (
+                                        <li key={idx} className="flex items-start gap-3 p-3 rounded-xl bg-white/70 border border-amber-200">
+                                            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-[11px] font-black mt-0.5">
+                                                {idx + 1}
+                                            </span>
+                                            <span className="text-sm text-amber-900 leading-relaxed">{loophole}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
+                        {/* Cut These Lines */}
+                        {result.roast_report?.should_remove && result.roast_report.should_remove.length > 0 && (
+                            <div className="zen-card p-6 border-l-4 border-l-red-400" style={{ background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)' }}>
+                                <h3 className="text-xs font-black tracking-[0.2em] uppercase text-red-700 flex items-center gap-2 mb-4">
+                                    <MaterialIcon icon="delete_sweep" size={16} className="text-red-500" />
+                                    Cut These From Your Resume
+                                </h3>
+                                <p className="text-[11px] text-red-500 mb-4 font-medium">
+                                    These phrases, lines, or sections are actively hurting your resume. Remove them.
+                                </p>
+                                <ul className="space-y-3 list-none p-0 m-0">
+                                    {result.roast_report?.should_remove?.map((item, idx) => (
+                                        <li key={idx} className="flex items-start gap-3 p-3 rounded-xl bg-white/70 border border-red-200">
+                                            <MaterialIcon icon="remove_circle" size={16} className="text-red-400 flex-shrink-0 mt-0.5" />
+                                            <span className="text-sm text-red-900 leading-relaxed" style={{ textDecorationColor: '#fca5a5' }}>
+                                                {item}
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
+                        {/* Role Fit Verdict */}
+                        {result.roast_report?.role_fit_verdict && (
+                            <div className="zen-card p-6 border-l-4 border-l-indigo-400" style={{ background: 'linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)' }}>
+                                <h3 className="text-xs font-black tracking-[0.2em] uppercase text-indigo-700 flex items-center gap-2 mb-4">
+                                    <MaterialIcon icon="gavel" size={16} className="text-indigo-500" />
+                                    Role Fit Verdict
+                                </h3>
+
+                                <div className="p-4 rounded-xl bg-white/80 border border-indigo-200 mb-5">
+                                    <p className="text-sm font-semibold text-indigo-900 italic leading-relaxed">
+                                        "{result.roast_report?.role_fit_verdict?.verdict}"
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-3">
+                                        <div className="text-[10px] font-black uppercase tracking-widest text-emerald-600 flex items-center gap-1.5">
+                                            <MaterialIcon icon="thumb_up" size={12} />
+                                            This Resume Works For
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {result.roast_report?.role_fit_verdict?.best_fit_roles?.map((role, idx) => (
+                                                <span key={idx} className="px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                                    {role}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="space-y-3">
+                                        <div className="text-[10px] font-black uppercase tracking-widest text-red-500 flex items-center gap-1.5">
+                                            <MaterialIcon icon="thumb_down" size={12} />
+                                            Would Struggle For
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {result.roast_report?.role_fit_verdict?.weak_fit_roles?.map((role, idx) => (
+                                                <span key={idx} className="px-3 py-1.5 rounded-full text-xs font-bold bg-red-50 text-red-600 border border-red-200">
+                                                    {role}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="zen-card p-8 space-y-8">
                             <h3 className="text-xs font-black tracking-[0.2em] uppercase text-brand-secondary flex items-center gap-2">
                                 <MaterialIcon icon="travel_explore" size={16} className="text-brand-primary" />
@@ -607,6 +698,6 @@ export const Analysis = () => {
                     </motion.div>
                 )}
             </main>
-        </PageLayout>
+        </PageLayout >
     );
 };
