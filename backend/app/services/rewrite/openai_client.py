@@ -21,12 +21,18 @@ class OpenAIClient:
             raise ValueError("OPENAI_API_KEY not found in environment variables")
         
         self.model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        self.brutal_model_name = (
+            os.getenv("OPENAI_BRUTAL_MODEL")
+            or os.getenv("OPENAI_MODEL_FAST")
+            or self.model_name
+        )
         self.temperature = float(os.getenv("OPENAI_TEMPERATURE", "0.0"))
         self.timeout_seconds = float(os.getenv("OPENAI_TIMEOUT_SECONDS", "25"))
         self.client = OpenAI(api_key=self.api_key)
         
         logger.info(
             f"Initialized OpenAI client with model: {self.model_name}, "
+            f"brutal_model: {self.brutal_model_name}, "
             f"temperature: {self.temperature}, timeout={self.timeout_seconds}s"
         )
     
@@ -398,22 +404,30 @@ Explanation must be under 60 characters total. Use "✓" bullets. NO paragraphs.
             "Return strict JSON only. Never invent experience. Be blunt but practical."
         )
         company_context = company_name.strip() if company_name else "the company"
-        brutal_timeout = float(os.getenv("OPENAI_BRUTAL_TIMEOUT_SECONDS", str(max(45.0, self.timeout_seconds))))
-        brutal_max_tokens = int(os.getenv("OPENAI_BRUTAL_MAX_TOKENS", "2200"))
+        brutal_timeout = float(
+            os.getenv(
+                "OPENAI_BRUTAL_TIMEOUT_SECONDS",
+                str(max(20.0, min(35.0, self.timeout_seconds + 5.0))),
+            )
+        )
+        brutal_max_tokens = int(os.getenv("OPENAI_BRUTAL_MAX_TOKENS", "1500"))
+        resume_excerpt_limit = int(os.getenv("OPENAI_BRUTAL_RESUME_CHARS", "6500"))
+        jd_excerpt_limit = int(os.getenv("OPENAI_BRUTAL_JD_CHARS", "2200"))
 
         payload = {
             "company": company_context,
-            "resume_excerpt": original_resume_text[:9000],
-            "job_description_excerpt": job_description[:3000],
+            "resume_excerpt": original_resume_text[:resume_excerpt_limit],
+            "job_description_excerpt": job_description[:jd_excerpt_limit],
         }
 
-        user_prompt = f"""Rewrite and review the resume for this role.
+        user_prompt = f"""Rewrite and review this resume for the target role.
 
 Rules:
 - Preserve truthful claims. Do not fabricate companies, dates, metrics, or tools.
 - Keep format close to original.
 - In marked_up_resume, wrap additions with <ADD>, removals with <DEL>, rewrites with <REWRITE>.
-- Provide concrete fixes and practical coaching.
+- Keep output concise and practical.
+- Focus on highest-impact fixes only.
 
 Return JSON with this exact top-level shape:
 {{
@@ -431,12 +445,12 @@ Return JSON with this exact top-level shape:
   ],
   "company_expectations": {{
     "role_summary": "1 sentence",
-    "what_the_company_cares_about": ["3-6 items"],
-    "ideal_candidate_snapshot": ["3-6 items"]
+    "what_the_company_cares_about": ["3-5 items"],
+    "ideal_candidate_snapshot": ["3-5 items"]
   }},
   "harsh_review": {{
     "overall_verdict": "1 sentence",
-    "strengths": ["4-6 items"],
+    "strengths": ["3-5 items"],
     "weaknesses": ["4-8 items"],
     "missing_or_weak_skills": [
       {{
@@ -446,7 +460,6 @@ Return JSON with this exact top-level shape:
         "success_story": "short practical example"
       }}
     ],
-    "risk_flags": ["codes"],
     "would_I_interview_you": "yes|no|maybe",
     "rationale": "decision rationale",
     "top_3_actions": [
@@ -458,36 +471,27 @@ Return JSON with this exact top-level shape:
         "what_helped_others": "short evidence"
       }}
     ]
-  }},
-  "interview_prep": {{
-    "company": "{company_context}",
-    "likely_questions": [
-      {{
-        "category": "resume_deep_dive|jd_alignment|company_fit|behavioral|technical",
-        "question": "question text",
-        "why_asked": "reason",
-        "prep_tip": "tip",
-        "answer_framework": "how to answer",
-        "sample_answer": "short sample answer"
-      }}
-    ],
-    "prep_plan": ["4-6 steps"]
   }}
 }}
+
+Constraints:
+- Return 4-10 total change items.
+- Keep each list focused and non-repetitive.
+- Keep each string under 220 characters when possible.
 
 Input JSON:
 {json.dumps(payload)}"""
 
-        # Call OpenAI with extended max_tokens for longer response
+        # Call OpenAI with a tighter budget for faster turnaround.
         try:
             try:
                 response = self.client.chat.completions.create(
-                    model=self.model_name,
+                    model=self.brutal_model_name,
                     messages=[
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt}
                     ],
-                    temperature=0.2,
+                    temperature=0.1,
                     response_format={"type": "json_object"},
                     max_tokens=brutal_max_tokens,
                     timeout=brutal_timeout,
@@ -498,13 +502,13 @@ Input JSON:
                     structured_exc,
                 )
                 response = self.client.chat.completions.create(
-                    model=self.model_name,
+                    model=self.brutal_model_name,
                     messages=[
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt}
                     ],
-                    temperature=0.2,
-                    max_tokens=min(brutal_max_tokens, 1800),
+                    temperature=0.1,
+                    max_tokens=min(brutal_max_tokens, 1200),
                     timeout=brutal_timeout,
                 )
             

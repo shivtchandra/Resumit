@@ -31,6 +31,13 @@ Required variables:
 - `SUPABASE_SERVICE_KEY`: Supabase service key
 - `GEMINI_API_KEY` or `OPENAI_API_KEY`: AI provider key
 
+Recommended for faster Match & Fix responses:
+- `OPENAI_MODEL=gpt-4o-mini`
+- `OPENAI_BRUTAL_MODEL=gpt-4o-mini` (or any faster model you prefer)
+- `OPENAI_BRUTAL_TIMEOUT_SECONDS=30`
+- `REWRITE_BRUTAL_TIMEOUT_SECONDS=60`
+- `REWRITE_BRUTAL_FALLBACK_TIMEOUT_SECONDS=15`
+
 ### 3. Set Up Supabase Database
 1. Go to your Supabase project SQL Editor
 2. Run the SQL from `supabase_schema.sql`

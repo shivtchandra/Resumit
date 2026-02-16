@@ -412,7 +412,8 @@ export const rewriteWithBrutalFeedback = async (
         headers: {
             'Content-Type': 'multipart/form-data',
         },
-        timeout: 90000,
+        // Render cold starts + AI rewrite can exceed 90s on first hit.
+        timeout: 150000,
         signal,
     });
     return response.data;

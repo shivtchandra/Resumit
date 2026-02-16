@@ -395,7 +395,8 @@ async def rewrite_with_brutal_feedback(
         rewriter = get_rewriter()
         
         # Call brutal review with AI when available, fallback otherwise
-        brutal_timeout = float(os.getenv("REWRITE_BRUTAL_TIMEOUT_SECONDS", "85"))
+        brutal_timeout = max(20.0, float(os.getenv("REWRITE_BRUTAL_TIMEOUT_SECONDS", "60")))
+        fallback_timeout = max(5.0, float(os.getenv("REWRITE_BRUTAL_FALLBACK_TIMEOUT_SECONDS", "15")))
         try:
             brutal_result = await asyncio.wait_for(
                 run_in_threadpool(
@@ -411,13 +412,58 @@ async def rewrite_with_brutal_feedback(
             warnings.append(
                 "AI rewrite timed out. Returned deterministic fallback rewrite with practical fixes."
             )
-            brutal_result = await run_in_threadpool(
-                rewriter._fallback_brutal_review,
-                original_text,
-                job_description,
-                company_name,
-            )
-            if isinstance(brutal_result, dict):
+            try:
+                brutal_result = await asyncio.wait_for(
+                    run_in_threadpool(
+                        rewriter._fallback_brutal_review,
+                        original_text,
+                        job_description,
+                        company_name,
+                    ),
+                    timeout=fallback_timeout,
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Fallback brutal rewrite also timed out after %ss. Returning minimal payload.",
+                    fallback_timeout,
+                )
+                warnings.append(
+                    "Fallback rewrite was slow. Returned minimal practical output; retry once for a richer result."
+                )
+                brutal_result = {
+                    "plain_text": original_text,
+                    "marked_up_resume": original_text,
+                    "changes": [],
+                    "company_expectations": {
+                        "role_summary": "Role-fit signal could not be fully generated in time.",
+                        "what_the_company_cares_about": [],
+                        "ideal_candidate_snapshot": [],
+                    },
+                    "harsh_review": {
+                        "overall_verdict": "Partial output due to timeout.",
+                        "strengths": [],
+                        "weaknesses": [
+                            "Generation timed out before deep rewrite completed."
+                        ],
+                        "missing_or_weak_skills": [],
+                        "risk_flags": ["timeout_partial_output"],
+                        "would_I_interview_you": "maybe",
+                        "rationale": "Retry once with the same JD for a complete AI rewrite.",
+                        "top_3_actions": [
+                            {
+                                "action": "Retry the same run once",
+                                "how_to_do_it": "Use the same resume and JD to reuse warm caches.",
+                                "resources": [],
+                                "time_estimate": "1 minute",
+                                "what_helped_others": "Second run usually returns the full payload on warm instances.",
+                            }
+                        ],
+                    },
+                    "interview_prep": {},
+                    "generation_mode": "fallback_timeout_minimal",
+                }
+
+            if isinstance(brutal_result, dict) and "generation_mode" not in brutal_result:
                 brutal_result["generation_mode"] = "fallback_timeout"
 
         return {
