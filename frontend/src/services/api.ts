@@ -187,7 +187,8 @@ export const analyzeResume = async (
         headers: {
             'Content-Type': 'multipart/form-data',
         },
-        timeout: 90000,
+        // Render cold starts + AI enrichment can exceed 90s.
+        timeout: 180000,
     });
 
     const data = response.data;
@@ -377,7 +378,7 @@ api.interceptors.response.use(
             throw new Error('Request canceled by user.');
         }
         if (error.code === 'ECONNABORTED') {
-            throw new Error('Request timed out. Please retry with a shorter JD or try again in a moment.');
+            throw new Error('Request timed out. Please retry in a moment.');
         }
         if (error.response) {
             const message = error.response.data?.detail || error.response.statusText;
