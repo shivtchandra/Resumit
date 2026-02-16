@@ -797,6 +797,171 @@ def _clean_str_list(raw: Any, limit: int, fallback: list[str]) -> list[str]:
     return cleaned[:limit]
 
 
+_ROLE_PLACEHOLDER_TOKENS = {
+    "detected role",
+    "role 1",
+    "role 2",
+    "role a",
+    "role b",
+    "strong fit role",
+    "weak fit role",
+    "n/a",
+    "na",
+    "none",
+    "unknown",
+}
+
+
+def _coerce_point_items(
+    raw: Any,
+    limit: int,
+    fallback: list[str],
+    primary_keys: list[str],
+    secondary_keys: Optional[list[str]] = None,
+) -> list[str]:
+    if not isinstance(raw, list):
+        return fallback[:limit]
+
+    secondary_keys = secondary_keys or []
+    cleaned: list[str] = []
+    seen = set()
+
+    for item in raw:
+        text = ""
+        detail = ""
+        if isinstance(item, dict):
+            for key in primary_keys:
+                candidate = str(item.get(key, "")).strip()
+                if candidate:
+                    text = candidate
+                    break
+            for key in secondary_keys:
+                candidate = str(item.get(key, "")).strip()
+                if candidate:
+                    detail = candidate
+                    break
+        else:
+            text = str(item).strip()
+
+        if not text:
+            continue
+
+        combined = f"{text} (Evidence: {detail})" if detail else text
+        dedupe_key = combined.lower()
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        cleaned.append(combined)
+        if len(cleaned) >= limit:
+            break
+
+    return cleaned or fallback[:limit]
+
+
+def _is_placeholder_role(value: str) -> bool:
+    lowered = (value or "").strip().lower()
+    if not lowered:
+        return True
+    if lowered in _ROLE_PLACEHOLDER_TOKENS:
+        return True
+    return lowered.startswith("detected role")
+
+
+def _normalize_role_bucket(raw: Any, limit: int, fallback: list[str]) -> list[str]:
+    if not isinstance(raw, list):
+        return fallback[:limit]
+
+    cleaned: list[str] = []
+    seen = set()
+
+    for item in raw:
+        role = ""
+        confidence = None
+        reasons: list[str] = []
+
+        if isinstance(item, dict):
+            role = str(item.get("role", "")).strip()
+            confidence = item.get("confidence")
+            reasons_raw = item.get("reasons", [])
+            if isinstance(reasons_raw, list):
+                reasons = [str(r).strip() for r in reasons_raw if str(r).strip()]
+        else:
+            role = str(item).strip()
+
+        if _is_placeholder_role(role):
+            continue
+
+        label = role
+        if isinstance(confidence, (int, float)):
+            label = f"{role} ({int(round(float(confidence)))}% confidence)"
+        if reasons:
+            label = f"{label} - {reasons[0]}"
+
+        dedupe_key = label.lower()
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        cleaned.append(label)
+        if len(cleaned) >= limit:
+            break
+
+    return cleaned or fallback[:limit]
+
+
+def _normalize_role_key(role: Optional[str]) -> str:
+    return (role or "").strip().lower().replace("-", "_").replace(" ", "_")
+
+
+def _recommend_certs_from_resume_evidence(
+    analyzer: ComprehensiveAnalyzer,
+    resume_text: str,
+    target_role: Optional[str],
+) -> list[dict]:
+    resume_lower = (resume_text or "").lower()
+    if not resume_lower:
+        return []
+
+    cert_db = getattr(analyzer, "cert_data", {}) or {}
+    role_key = _normalize_role_key(target_role)
+    role_certs = cert_db.get("certifications_by_role", {}).get(role_key, [])
+
+    if not role_certs:
+        return []
+
+    recommendations = []
+    for cert in role_certs:
+        if not isinstance(cert, dict):
+            continue
+        cert_name = str(cert.get("name", "")).strip()
+        cert_provider = str(cert.get("provider", "")).strip()
+        cert_url = str(cert.get("url", "")).strip()
+        if not cert_name:
+            continue
+        if cert_name.lower() in resume_lower:
+            continue
+
+        keywords = [str(k).strip() for k in cert.get("relevance_keywords", []) if str(k).strip()]
+        matched_keywords = [kw for kw in keywords if kw.lower() in resume_lower]
+        # In no-JD mode, do not suggest certs unless resume already shows adjacent evidence.
+        if len(matched_keywords) < 2:
+            continue
+
+        impact_score = int(cert.get("impact_score", 10))
+        recommendations.append({
+            "name": cert_name,
+            "provider": cert_provider,
+            "relevance": f"Evidence-based for your profile ({', '.join(matched_keywords[:2])})",
+            "impact": f"+{impact_score}% signal",
+            "url": cert_url,
+            "why_this_person_needs_it": f"Your resume already signals {', '.join(matched_keywords[:2])}; this cert adds recruiter trust.",
+            "gap_it_closes": "Converts implied skill into externally verified proof.",
+            "time_to_complete": "2-6 weeks",
+            "proof_project_to_build_after_cert": "Build one role-relevant project and publish the repo + README before adding the cert.",
+        })
+
+    return recommendations[:3]
+
+
 def _clean_questions(raw: Any) -> list[dict]:
     if not isinstance(raw, list):
         return []
@@ -867,58 +1032,99 @@ def build_ai_roast_only(
         return None
 
     tone_instruction = (
-        "You are the Simon Cowell of resume reviews. Be brutally honest but FUNNY. "
-        "Use witty analogies, sharp sarcasm, and pop-culture references. "
-        "Roast like a brutally honest friend at a bar, not a corporate chatbot. "
-        "Make the candidate laugh while they cry. Every bullet should sting AND be useful."
+        "Be blunt, practical, and specific. Critique hard but stay respectful."
         if feedback_tone == "brutal"
-        else "Be direct and professional but add dry humor. Think Gordon Ramsay reviewing a dish — tough but fair."
+        else "Be direct, practical, and professional."
     )
+    has_jd = bool((job_description or "").strip())
     company = (company_name or "the company").strip()
+    evidence_lines = _sentences(resume_text)[:14]
 
     prompt_payload = {
         "target_role": target_role or "unknown",
         "company_name": company,
         "feedback_tone": feedback_tone,
+        "has_job_description": has_jd,
         "ats_friendliness_score": friendliness_score,
         "jd_match_score": match_score,
         "risk_flags": risk_flags[:12],
         "missing_keywords": missing_keywords[:12],
         "job_description_excerpt": (job_description or "")[:1800],
-        "resume_excerpt": (resume_text or "")[:3600],
+        "resume_excerpt": (resume_text or "")[:3200],
+        "evidence_lines": evidence_lines,
     }
 
-    prompt = f"""You are a veteran hiring manager who has reviewed 10,000+ resumes and moonlights as a stand-up comedian.
+    prompt = f"""You are a senior hiring manager and resume diagnostician.
 {tone_instruction}
-Give practical, specific, and entertaining feedback.
+Your goal is to produce a deeply personalized diagnostic report from the provided evidence.
+No generic filler.
 
 Return STRICT JSON only with this exact shape:
 {{
-  "roast_report": {{
-    "strengths": ["..."],
-    "weaknesses": ["..."],
-    "hard_truths": ["..."],
-    "priority_fixes": ["..."],
-    "resume_loopholes": ["..."],
-    "should_remove": ["..."],
-    "role_fit_verdict": {{
-      "best_fit_roles": ["Role 1", "Role 2"],
-      "weak_fit_roles": ["Role A", "Role B"],
-      "verdict": "One witty sentence summarizing what job this resume actually lands."
+  "executive_snapshot": {{
+    "overall_verdict": "",
+    "roast_score_0_to_100": 0,
+    "biggest_blocker": "",
+    "fastest_win": ""
+  }},
+  "what_is_good": [
+    {{"point": "", "evidence": ""}}
+  ],
+  "what_is_bad": [
+    {{"point": "", "evidence": "", "impact": ""}}
+  ],
+  "hard_truths": [
+    {{"point": "", "why_it_hurts": ""}}
+  ],
+  "priority_fixes": [
+    {{"fix": "", "effort": "low|medium|high", "impact": "low|medium|high", "exact_edit_example": ""}}
+  ],
+  "resume_loopholes": [
+    {{"issue": "", "why_it_matters": ""}}
+  ],
+  "remove_from_resume": [
+    {{"line": "", "reason": "", "better_replacement": ""}}
+  ],
+  "role_fit": {{
+    "strong_fit": [
+      {{"role": "", "confidence": 0, "reasons": [""]}}
+    ],
+    "conditional_fit": [
+      {{"role": "", "confidence": 0, "reasons": [""], "must_fix": [""]}}
+    ],
+    "weak_fit": [
+      {{"role": "", "confidence": 0, "reasons": [""]}}
+    ]
+  }},
+  "certification_suggestions": [
+    {{
+      "name": "",
+      "provider": "",
+      "why_this_person_needs_it": "",
+      "gap_it_closes": "",
+      "resume_impact": "",
+      "time_to_complete": "",
+      "proof_project_to_build_after_cert": "",
+      "url": ""
     }}
-  }}
+  ]
 }}
 
 Rules:
-- Use concrete feedback tied to the provided resume/JD context.
-- Make each bullet witty and memorable — boring feedback gets ignored.
-- "hard_truths" should hit hard with humor. Think: "Your summary says 'passionate' but your resume says 'copy-pasted from a template'."
-- "resume_loopholes" = inconsistencies, gaps, red flags, or tricks a recruiter would instantly catch. Be specific. Example: "You claim 3 years of React but your only project is a todo app."
-- "should_remove" = exact phrases, sections, or lines that are HURTING the resume. Quote them directly when possible. Example: "'Passionate team player with excellent communication skills' — this sentence has never gotten anyone hired."
-- "role_fit_verdict" = judge which roles this resume is actually competitive for, and which it would bomb. Be honest and specific.
-- 4-6 items per section (strengths, weaknesses, hard_truths, priority_fixes).
-- 3-5 items for resume_loopholes and should_remove.
-- Include at least 2 fixes that mention profile proof (GitHub/LinkedIn) or measurable evidence.
+- Every item must use evidence from input (resume lines, risk flags, profile signals).
+- If job_description is empty:
+  - Do NOT invent JD keyword gap output.
+  - Do NOT produce generic cert recommendations.
+- Role fit must be explicit:
+  - STRONG_FIT = competitive now
+  - CONDITIONAL_FIT = needs 1-2 fixes
+  - WEAK_FIT = currently not competitive
+- Certification suggestions:
+  - Max 3 suggestions.
+  - If no high-confidence suggestion, return [].
+- Keep output practical:
+  - 3-6 items per section.
+  - concise sentences.
 
 INPUT:
 {json.dumps(prompt_payload, indent=2)}
@@ -928,7 +1134,7 @@ INPUT:
         ai_text = ai_client._call_gemini(
             prompt,
             max_retries=1,
-            max_tokens=1400,
+            max_tokens=1600,
             timeout_seconds=model_timeout,
         )
         parsed = ai_client._parse_json_response(ai_text)
@@ -936,61 +1142,111 @@ INPUT:
         logger.warning("OpenAI roast generation failed: %s", exc)
         return None
 
-    roast_raw = parsed.get("roast_report", {}) if isinstance(parsed, dict) else {}
+    if not isinstance(parsed, dict):
+        parsed = {}
 
-    # Parse role_fit_verdict safely
-    role_fit_raw = roast_raw.get("role_fit_verdict", {}) if isinstance(roast_raw, dict) else {}
+    executive_snapshot = parsed.get("executive_snapshot", {})
+    role_fit_raw = parsed.get("role_fit", {})
     if not isinstance(role_fit_raw, dict):
         role_fit_raw = {}
-    role_fit_verdict = {
-        "best_fit_roles": _clean_str_list(
-            role_fit_raw.get("best_fit_roles"),
-            limit=3,
-            fallback=["General Software Engineer"],
-        ),
-        "weak_fit_roles": _clean_str_list(
-            role_fit_raw.get("weak_fit_roles"),
-            limit=3,
-            fallback=["Senior/Staff-level positions requiring deep specialization"],
-        ),
-        "verdict": str(role_fit_raw.get("verdict", "This resume needs more specificity before it can compete for targeted roles.")).strip(),
-    }
+
+    strong_roles = _normalize_role_bucket(
+        role_fit_raw.get("strong_fit"),
+        limit=3,
+        fallback=[target_role.replace("-", " ").title()] if target_role else ["General Software Engineer"],
+    )
+    weak_roles = _normalize_role_bucket(
+        role_fit_raw.get("weak_fit"),
+        limit=3,
+        fallback=["Senior/Staff roles requiring deeper specialization"],
+    )
+    conditional_roles = _normalize_role_bucket(
+        role_fit_raw.get("conditional_fit"),
+        limit=2,
+        fallback=[],
+    )
+
+    overview = ""
+    if isinstance(executive_snapshot, dict):
+        overview = str(executive_snapshot.get("overall_verdict", "")).strip()
+    if not overview:
+        overview = "This resume has potential but needs sharper evidence and targeting."
+    if conditional_roles:
+        overview = f"{overview} Conditional fit: {', '.join(conditional_roles)}."
 
     roast_report = {
-        "strengths": _clean_str_list(
-            roast_raw.get("strengths") if isinstance(roast_raw, dict) else None,
+        "strengths": _coerce_point_items(
+            parsed.get("what_is_good"),
             limit=6,
             fallback=["Your resume has useful raw material, but the positioning needs tightening."],
+            primary_keys=["point"],
+            secondary_keys=["evidence"],
         ),
-        "weaknesses": _clean_str_list(
-            roast_raw.get("weaknesses") if isinstance(roast_raw, dict) else None,
+        "weaknesses": _coerce_point_items(
+            parsed.get("what_is_bad"),
             limit=8,
             fallback=["The document still reads more like responsibilities than quantified outcomes."],
+            primary_keys=["point"],
+            secondary_keys=["impact"],
         ),
-        "hard_truths": _clean_str_list(
-            roast_raw.get("hard_truths") if isinstance(roast_raw, dict) else None,
+        "hard_truths": _coerce_point_items(
+            parsed.get("hard_truths"),
             limit=6,
             fallback=["If your impact is not measurable, interviewers assume it was small."],
+            primary_keys=["point"],
+            secondary_keys=["why_it_hurts"],
         ),
-        "priority_fixes": _clean_str_list(
-            roast_raw.get("priority_fixes") if isinstance(roast_raw, dict) else None,
+        "priority_fixes": _coerce_point_items(
+            parsed.get("priority_fixes"),
             limit=8,
             fallback=["Rewrite top bullets using action + scope + metric + business impact."],
+            primary_keys=["fix", "action"],
+            secondary_keys=["exact_edit_example"],
         ),
-        "resume_loopholes": _clean_str_list(
-            roast_raw.get("resume_loopholes") if isinstance(roast_raw, dict) else None,
+        "resume_loopholes": _coerce_point_items(
+            parsed.get("resume_loopholes"),
             limit=5,
             fallback=["Could not detect specific loopholes — re-run with your resume for detailed analysis."],
+            primary_keys=["issue"],
+            secondary_keys=["why_it_matters"],
         ),
-        "should_remove": _clean_str_list(
-            roast_raw.get("should_remove") if isinstance(roast_raw, dict) else None,
+        "should_remove": _coerce_point_items(
+            parsed.get("remove_from_resume"),
             limit=5,
             fallback=["Review your summary for generic filler phrases like 'passionate' or 'team player'."],
+            primary_keys=["line"],
+            secondary_keys=["better_replacement"],
         ),
-        "role_fit_verdict": role_fit_verdict,
+        "role_fit_verdict": {
+            "best_fit_roles": strong_roles,
+            "weak_fit_roles": weak_roles,
+            "verdict": overview,
+        },
     }
 
-    return {"roast_report": roast_report}
+    certification_suggestions = []
+    for cert in parsed.get("certification_suggestions", []) if isinstance(parsed.get("certification_suggestions"), list) else []:
+        if not isinstance(cert, dict):
+            continue
+        name = str(cert.get("name", "")).strip()
+        provider = str(cert.get("provider", "")).strip()
+        if not name:
+            continue
+        certification_suggestions.append({
+            "name": name,
+            "provider": provider,
+            "relevance": str(cert.get("gap_it_closes", "Targeted gap closure")).strip() or "Targeted gap closure",
+            "impact": str(cert.get("resume_impact", "Signal boost")).strip() or "Signal boost",
+            "url": str(cert.get("url", "")).strip(),
+            "why_this_person_needs_it": str(cert.get("why_this_person_needs_it", "")).strip(),
+            "time_to_complete": str(cert.get("time_to_complete", "")).strip(),
+            "proof_project_to_build_after_cert": str(cert.get("proof_project_to_build_after_cert", "")).strip(),
+        })
+
+    return {
+        "roast_report": roast_report,
+        "certification_suggestions": certification_suggestions[:3],
+    }
 
 
 def build_roast_report(
@@ -999,6 +1255,7 @@ def build_roast_report(
     visibility_result: Optional[dict],
     ats_extracted: dict,
     job_description: Optional[str],
+    target_role: Optional[str] = None,
 ) -> dict:
     strengths = []
     weaknesses = []
@@ -1067,8 +1324,10 @@ def build_roast_report(
         should_remove.append("Remove non-standard section headers — use standard ones like Experience, Skills, Education.")
 
     # Build heuristic role fit
+    normalized_target_role = (target_role or "").replace("-", " ").replace("_", " ").strip().title()
+    fallback_best_roles = [normalized_target_role] if normalized_target_role else ["Software Engineer"]
     role_fit_verdict = {
-        "best_fit_roles": [t for t in job_titles[:2]] if job_titles else ["General Software Role"],
+        "best_fit_roles": [t for t in job_titles[:2] if not _is_placeholder_role(str(t))] if job_titles else fallback_best_roles,
         "weak_fit_roles": ["Senior/Staff roles requiring deep specialization"],
         "verdict": "This resume has potential but needs sharper targeting to compete for specific roles.",
     }
@@ -1429,9 +1688,41 @@ def build_comprehensive_guidance(
     has_linkedin_url: bool = False,
     has_github_url: bool = False,
 ) -> dict:
+    has_jd = bool((job_description or "").strip())
+    analyzer = get_comprehensive_analyzer()
+
+    if not has_jd:
+        cert_recs = _recommend_certs_from_resume_evidence(analyzer, resume_text, target_role)
+        actionable_lines = []
+        if cert_recs:
+            top = cert_recs[0]
+            actionable_lines.append(
+                f"Certification to consider only if role-aligned evidence exists: {top['name']} -> Build proof project before adding to resume."
+            )
+        else:
+            actionable_lines.append(
+                "No certification recommendation in no-JD mode. Prioritize quantified bullets + GitHub proof first."
+            )
+
+        action_plan = _build_detailed_action_plan(
+            missing_tech=[],
+            missing_soft=[],
+            certs=cert_recs,
+            has_linkedin_url=has_linkedin_url,
+            has_github_url=has_github_url,
+        )
+        return {
+            "missing_keywords": [],
+            "missing_technical_skills": [],
+            "missing_soft_skills": [],
+            "certification_recommendations": cert_recs,
+            "actionable_recommendations": actionable_lines[:8],
+            "action_plan": action_plan,
+            "sample_resume_upgrades": _build_sample_resume_upgrades([]),
+        }
+
     try:
-        jd_context = (job_description or "").strip() or _fallback_jd_for_role(target_role)
-        analyzer = get_comprehensive_analyzer()
+        jd_context = (job_description or "").strip()
         raw = analyzer.analyze_comprehensive(resume_text=resume_text, jd_text=jd_context)
     except Exception as exc:
         logger.warning("Comprehensive guidance generation failed: %s", exc)
@@ -1708,6 +1999,7 @@ async def full_analysis(
             visibility_result=visibility_result,
             ats_extracted=ats_extracted,
             job_description=job_description,
+            target_role=target_role,
         )
         missing_keywords = visibility_result.get("missing_keywords", [])[:10] if visibility_result else []
         risk_flags = features.get("risk_flags", [])
@@ -1801,6 +2093,26 @@ async def full_analysis(
             has_linkedin_url=bool(resolved_linkedin_url),
             has_github_url=bool(resolved_github),
         )
+
+        ai_cert_suggestions = []
+        if isinstance(ai_generated, dict):
+            ai_cert_suggestions = ai_generated.get("certification_suggestions", []) or []
+        if ai_cert_suggestions:
+            # Prefer AI-personalized cert guidance when available.
+            comprehensive_guidance["certification_recommendations"] = ai_cert_suggestions[:3]
+            for cert in ai_cert_suggestions[:2]:
+                if not isinstance(cert, dict):
+                    continue
+                cert_name = str(cert.get("name", "")).strip()
+                why = str(cert.get("why_this_person_needs_it", "")).strip()
+                proof = str(cert.get("proof_project_to_build_after_cert", "")).strip()
+                if cert_name:
+                    actionable_line = f"Cert path: {cert_name}"
+                    if why:
+                        actionable_line += f" -> {why}"
+                    if proof:
+                        actionable_line += f" -> Proof project: {proof}"
+                    comprehensive_guidance.setdefault("actionable_recommendations", []).append(actionable_line)
 
         normalized_role = (target_role or "").strip().lower().replace("-", " ").replace("_", " ")
         profile_actions = []
