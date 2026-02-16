@@ -98,11 +98,15 @@ class ComprehensiveAnalyzer:
         jd_lower = jd_text.lower()
         
         role_patterns = {
-            "data_scientist": ["data scientist", "machine learning", "ml engineer", "ai engineer"],
-            "devops_engineer": ["devops", "site reliability", "sre", "infrastructure engineer"],
+            "cybersecurity": ["cybersecurity", "security", "infosec", "penetration", "ethical hacking", "soc", "compliance", "cissp", "siem"],
+            "ai_ml_engineer": ["machine learning", "deep learning", "nlp", "computer vision", "llm", "neural networks", "tensor", "pytorch"],
+            "data_scientist": ["data scientist", "data analysis", "statistics", "pandas", "data visualization"],
+            "devops_engineer": ["devops", "sre", "infrastructure", "terraform", "ansible", "jenkins", "kubernetes", "k8s"],
+            "frontend_engineer": ["frontend", "front-end", "react", "vue", "angular", "ui/ux", "styling", "css", "html"],
+            "backend_engineer": ["backend", "back-end", "server-side", "node.js", "django", "flask", "spring boot", "postgresql", "redis"],
             "full_stack_developer": ["full stack", "fullstack", "full-stack"],
-            "cloud_engineer": ["cloud engineer", "cloud architect", "cloud infrastructure"],
-            "software_engineer": ["software engineer", "backend engineer", "frontend engineer"]
+            "cloud_engineer": ["cloud architect", "cloud infrastructure", "aws", "gcp", "azure"],
+            "software_engineer": ["software engineer", "developer", "engineer"]
         }
         
         for role, patterns in role_patterns.items():
@@ -119,44 +123,61 @@ class ComprehensiveAnalyzer:
         
         recommendations = []
         
-        # Get role-specific certifications
+        # 1. First, get certifications for the specifically detected role
         role_certs = self.cert_data.get("certifications_by_role", {}).get(role, [])
-        
         for cert in role_certs:
-            # Check if certification keywords appear in JD
-            keyword_matches = sum(1 for kw in cert["relevance_keywords"] if kw.lower() in jd_lower)
+            keyword_matches = [kw for kw in cert["relevance_keywords"] if kw.lower() in jd_lower]
+            already_has = cert["name"].lower() in resume_lower or any(kw.lower() in resume_lower for kw in cert["relevance_keywords"] if len(kw) > 3)
             
-            # Check if already mentioned in resume
-            already_has = cert["name"].lower() in resume_lower
-            
-            if keyword_matches > 0 and not already_has:
-                relevance = "High" if keyword_matches >= 2 else "Medium"
+            if not already_has:
+                # Strong boost for specialized role certs
+                score = cert['impact_score'] + (len(keyword_matches) * 5) + (10 if role != "software_engineer" else 0)
                 recommendations.append({
                     "name": cert["name"],
                     "provider": cert["provider"],
-                    "relevance": f"{relevance} - mentioned {keyword_matches}x in JD",
-                    "impact": f"+{cert['impact_score']}% match rate",
-                    "url": cert.get("url", "")
+                    "relevance": "High (Domain Specialist)" if role != "software_engineer" else "High",
+                    "impact": f"+{cert['impact_score']}% hiring ROI",
+                    "url": cert.get("url", ""),
+                    "score": score
                 })
-        
-        # Add general certifications if relevant
+
+        # 2. Add 'safe/generic' software engineer certs ONLY if we don't have enough specialized ones
+        # and they are actually relevant to the JD text
+        if role != "software_engineer":
+            swe_certs = self.cert_data.get("certifications_by_role", {}).get("software_engineer", [])
+            for cert in swe_certs:
+                keyword_matches = [kw for kw in cert["relevance_keywords"] if kw.lower() in jd_lower]
+                already_has = cert["name"].lower() in resume_lower
+                
+                if keyword_matches and not already_has:
+                    # Lower priority for generic certs when in a specialized role
+                    recommendations.append({
+                        "name": cert["name"],
+                        "provider": cert["provider"],
+                        "relevance": "Supporting Infrastructure",
+                        "impact": f"+{cert['impact_score']}% signal",
+                        "url": cert.get("url", ""),
+                        "score": cert['impact_score'] + len(keyword_matches)
+                    })
+
+        # 3. Add general certifications only if explicitly relevant
         for cert in self.cert_data.get("general_certifications", []):
-            keyword_matches = sum(1 for kw in cert["relevance_keywords"] if kw.lower() in jd_lower)
-            already_has = cert["name"].lower() in resume_lower
-            
-            if keyword_matches > 0 and not already_has:
+            keyword_matches = [kw for kw in cert["relevance_keywords"] if kw.lower() in jd_lower]
+            if keyword_matches and cert["name"].lower() not in resume_lower:
                 recommendations.append({
                     "name": cert["name"],
                     "provider": cert["provider"],
-                    "relevance": f"Medium - {keyword_matches}x in JD",
-                    "impact": f"+{cert['impact_score']}% match rate",
-                    "url": cert.get("url", "")
+                    "relevance": "Process & Leadership",
+                    "impact": f"+{cert['impact_score']}% signal",
+                    "url": cert.get("url", ""),
+                    "score": cert['impact_score']
                 })
         
-        # Sort by impact score (extract number from impact string)
-        recommendations.sort(key=lambda x: int(re.search(r'\d+', x['impact']).group()), reverse=True)
+        # Sort and return top 5
+        recommendations.sort(key=lambda x: x['score'], reverse=True)
+        for r in recommendations: r.pop('score', None)
         
-        return recommendations[:5]  # Top 5
+        return recommendations[:5]
     
     def analyze_comprehensive(self, resume_text: str, jd_text: str) -> Dict[str, Any]:
         """

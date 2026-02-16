@@ -867,9 +867,12 @@ def build_ai_roast_only(
         return None
 
     tone_instruction = (
-        "Be blunt and practical. Roast the resume with tough but fair language."
+        "You are the Simon Cowell of resume reviews. Be brutally honest but FUNNY. "
+        "Use witty analogies, sharp sarcasm, and pop-culture references. "
+        "Roast like a brutally honest friend at a bar, not a corporate chatbot. "
+        "Make the candidate laugh while they cry. Every bullet should sting AND be useful."
         if feedback_tone == "brutal"
-        else "Be direct and professional. Avoid harsh phrasing."
+        else "Be direct and professional but add dry humor. Think Gordon Ramsay reviewing a dish — tough but fair."
     )
     company = (company_name or "the company").strip()
 
@@ -885,9 +888,9 @@ def build_ai_roast_only(
         "resume_excerpt": (resume_text or "")[:3600],
     }
 
-    prompt = f"""You are a senior recruiter + hiring manager.
+    prompt = f"""You are a veteran hiring manager who has reviewed 10,000+ resumes and moonlights as a stand-up comedian.
 {tone_instruction}
-Give practical, specific feedback with no fluff.
+Give practical, specific, and entertaining feedback.
 
 Return STRICT JSON only with this exact shape:
 {{
@@ -895,14 +898,26 @@ Return STRICT JSON only with this exact shape:
     "strengths": ["..."],
     "weaknesses": ["..."],
     "hard_truths": ["..."],
-    "priority_fixes": ["..."]
+    "priority_fixes": ["..."],
+    "resume_loopholes": ["..."],
+    "should_remove": ["..."],
+    "role_fit_verdict": {{
+      "best_fit_roles": ["Role 1", "Role 2"],
+      "weak_fit_roles": ["Role A", "Role B"],
+      "verdict": "One witty sentence summarizing what job this resume actually lands."
+    }}
   }}
 }}
 
 Rules:
 - Use concrete feedback tied to the provided resume/JD context.
-- "hard_truths" should be concise and candid, not abusive.
-- 4-6 items per roast section.
+- Make each bullet witty and memorable — boring feedback gets ignored.
+- "hard_truths" should hit hard with humor. Think: "Your summary says 'passionate' but your resume says 'copy-pasted from a template'."
+- "resume_loopholes" = inconsistencies, gaps, red flags, or tricks a recruiter would instantly catch. Be specific. Example: "You claim 3 years of React but your only project is a todo app."
+- "should_remove" = exact phrases, sections, or lines that are HURTING the resume. Quote them directly when possible. Example: "'Passionate team player with excellent communication skills' — this sentence has never gotten anyone hired."
+- "role_fit_verdict" = judge which roles this resume is actually competitive for, and which it would bomb. Be honest and specific.
+- 4-6 items per section (strengths, weaknesses, hard_truths, priority_fixes).
+- 3-5 items for resume_loopholes and should_remove.
 - Include at least 2 fixes that mention profile proof (GitHub/LinkedIn) or measurable evidence.
 
 INPUT:
@@ -913,7 +928,7 @@ INPUT:
         ai_text = ai_client._call_gemini(
             prompt,
             max_retries=1,
-            max_tokens=900,
+            max_tokens=1400,
             timeout_seconds=model_timeout,
         )
         parsed = ai_client._parse_json_response(ai_text)
@@ -922,6 +937,24 @@ INPUT:
         return None
 
     roast_raw = parsed.get("roast_report", {}) if isinstance(parsed, dict) else {}
+
+    # Parse role_fit_verdict safely
+    role_fit_raw = roast_raw.get("role_fit_verdict", {}) if isinstance(roast_raw, dict) else {}
+    if not isinstance(role_fit_raw, dict):
+        role_fit_raw = {}
+    role_fit_verdict = {
+        "best_fit_roles": _clean_str_list(
+            role_fit_raw.get("best_fit_roles"),
+            limit=3,
+            fallback=["General Software Engineer"],
+        ),
+        "weak_fit_roles": _clean_str_list(
+            role_fit_raw.get("weak_fit_roles"),
+            limit=3,
+            fallback=["Senior/Staff-level positions requiring deep specialization"],
+        ),
+        "verdict": str(role_fit_raw.get("verdict", "This resume needs more specificity before it can compete for targeted roles.")).strip(),
+    }
 
     roast_report = {
         "strengths": _clean_str_list(
@@ -944,6 +977,17 @@ INPUT:
             limit=8,
             fallback=["Rewrite top bullets using action + scope + metric + business impact."],
         ),
+        "resume_loopholes": _clean_str_list(
+            roast_raw.get("resume_loopholes") if isinstance(roast_raw, dict) else None,
+            limit=5,
+            fallback=["Could not detect specific loopholes — re-run with your resume for detailed analysis."],
+        ),
+        "should_remove": _clean_str_list(
+            roast_raw.get("should_remove") if isinstance(roast_raw, dict) else None,
+            limit=5,
+            fallback=["Review your summary for generic filler phrases like 'passionate' or 'team player'."],
+        ),
+        "role_fit_verdict": role_fit_verdict,
     }
 
     return {"roast_report": roast_report}
@@ -999,16 +1043,44 @@ def build_roast_report(
     elif not job_description:
         weaknesses.append("No JD provided, so optimization is generic rather than role-targeted.")
 
-    if not strengths:
-        strengths.append("Your resume has recoverable fundamentals, but it needs sharper evidence and targeting.")
-    if not priority_fixes:
-        priority_fixes.append("Rewrite the top third of the resume to show role fit in 10 seconds.")
+    # Build heuristic loopholes
+    resume_loopholes = []
+    raw_text = ats_extracted.get("raw_text", "")
+    skills_list = ats_extracted.get("skills", [])
+    job_titles = ats_extracted.get("job_titles", [])
+
+    if features.get("word_count", 0) < 300 and len(skills_list) > 10:
+        resume_loopholes.append("Your skills list is longer than your actual experience — recruiters notice this imbalance instantly.")
+    if "DETECTED_TEXT_TABLES" in risk_flags:
+        resume_loopholes.append("Fancy table formatting looks great on screen but gets mangled by ATS parsers — you're sabotaging yourself.")
+    if not features.get("email_found"):
+        resume_loopholes.append("No email detected — congratulations, you've made it impossible for recruiters to contact you.")
+    if not resume_loopholes:
+        resume_loopholes.append("Run with AI mode enabled for deeper loophole detection.")
+
+    # Build heuristic should_remove
+    should_remove = []
+    if features.get("word_count", 0) > 800:
+        should_remove.append("Consider trimming — your resume is getting long. Cut anything older than 3-4 years unless it's exceptional.")
+    should_remove.append("Remove generic phrases like 'passionate', 'team player', 'excellent communication skills' — everyone says these.")
+    if "WORKDAY_PARSING_RISK" in risk_flags:
+        should_remove.append("Remove non-standard section headers — use standard ones like Experience, Skills, Education.")
+
+    # Build heuristic role fit
+    role_fit_verdict = {
+        "best_fit_roles": [t for t in job_titles[:2]] if job_titles else ["General Software Role"],
+        "weak_fit_roles": ["Senior/Staff roles requiring deep specialization"],
+        "verdict": "This resume has potential but needs sharper targeting to compete for specific roles.",
+    }
 
     return {
         "strengths": strengths[:6],
         "weaknesses": weaknesses[:8],
         "hard_truths": hard_truths[:6],
         "priority_fixes": priority_fixes[:8],
+        "resume_loopholes": resume_loopholes[:5],
+        "should_remove": should_remove[:5],
+        "role_fit_verdict": role_fit_verdict,
     }
 
 
