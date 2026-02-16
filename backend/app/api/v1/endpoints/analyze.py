@@ -881,8 +881,8 @@ def build_ai_roast_only(
         "jd_match_score": match_score,
         "risk_flags": risk_flags[:12],
         "missing_keywords": missing_keywords[:12],
-        "job_description_excerpt": (job_description or "")[:3500],
-        "resume_excerpt": (resume_text or "")[:7000],
+        "job_description_excerpt": (job_description or "")[:1800],
+        "resume_excerpt": (resume_text or "")[:3600],
     }
 
     prompt = f"""You are a senior recruiter + hiring manager.
@@ -909,7 +909,13 @@ INPUT:
 {json.dumps(prompt_payload, indent=2)}
 """
     try:
-        ai_text = ai_client._call_gemini(prompt, max_retries=1)
+        model_timeout = float(os.getenv("ANALYZE_AI_MODEL_TIMEOUT_SECONDS", "12"))
+        ai_text = ai_client._call_gemini(
+            prompt,
+            max_retries=1,
+            max_tokens=900,
+            timeout_seconds=model_timeout,
+        )
         parsed = ai_client._parse_json_response(ai_text)
     except Exception as exc:
         logger.warning("OpenAI roast generation failed: %s", exc)
@@ -1122,7 +1128,18 @@ def build_github_intel(
         github_client = GitHubClient(access_token=github_token)
         analyzer = RepositoryAnalyzer()
         username = github_client.extract_username_from_url(github_username)
-        repositories = github_client.get_user_repositories(username)
+        analyze_max_repos = int(os.getenv("ANALYZE_GITHUB_MAX_REPOS", "18"))
+        analyze_readme_scan_limit = int(os.getenv("ANALYZE_GITHUB_README_SCAN_LIMIT", "8"))
+        analyze_readme_content_limit = int(os.getenv("ANALYZE_GITHUB_README_CONTENT_LIMIT", "3"))
+        if github_token:
+            analyze_max_repos = max(analyze_max_repos, 24)
+
+        repositories = github_client.get_user_repositories(
+            username,
+            max_repos=analyze_max_repos,
+            readme_scan_limit=analyze_readme_scan_limit,
+            readme_content_limit=analyze_readme_content_limit,
+        )
 
         analyzed = analyzer.analyze_repositories(
             repositories=repositories,
@@ -1623,9 +1640,11 @@ async def full_analysis(
         missing_keywords = visibility_result.get("missing_keywords", [])[:10] if visibility_result else []
         risk_flags = features.get("risk_flags", [])
 
-        ai_timeout = float(os.getenv("ANALYZE_AI_TIMEOUT_SECONDS", "35"))
-        try:
-            ai_generated = await asyncio.wait_for(
+        ai_timeout = float(os.getenv("ANALYZE_AI_TIMEOUT_SECONDS", "18"))
+        github_timeout = float(os.getenv("ANALYZE_GITHUB_TIMEOUT_SECONDS", "12"))
+
+        ai_task = asyncio.create_task(
+            asyncio.wait_for(
                 run_in_threadpool(
                     build_ai_roast_only,
                     resume_text,
@@ -1640,6 +1659,36 @@ async def full_analysis(
                 ),
                 timeout=ai_timeout,
             )
+        )
+
+        github_task = None
+        if resolved_github:
+            github_task = asyncio.create_task(
+                asyncio.wait_for(
+                    run_in_threadpool(
+                        build_github_intel,
+                        resolved_github,
+                        target_role,
+                        job_description,
+                        github_token,
+                        "user_input" if (github_username or "").strip() else "resume_text",
+                        detected_profiles.get("github_url"),
+                    ),
+                    timeout=github_timeout,
+                )
+            )
+        else:
+            github_intel = build_github_intel(
+                None,
+                target_role,
+                job_description,
+                github_token,
+                "resume_text",
+                detected_profiles.get("github_url"),
+            )
+
+        try:
+            ai_generated = await ai_task
         except asyncio.TimeoutError:
             logger.warning("AI roast timed out after %ss. Using heuristic fallback.", ai_timeout)
             ai_generated = None
@@ -1647,37 +1696,27 @@ async def full_analysis(
                 "type": "quality",
                 "message": "AI roast timed out in this run; using fallback diagnostics.",
             })
+
         if ai_generated:
             roast_report = ai_generated.get("roast_report", roast_report)
             ai_generation_mode = "ai"
         else:
             ai_generation_mode = "heuristic"
 
-        github_timeout = float(os.getenv("ANALYZE_GITHUB_TIMEOUT_SECONDS", "20"))
-        try:
-            github_intel = await asyncio.wait_for(
-                run_in_threadpool(
-                    build_github_intel,
-                    resolved_github,
-                    target_role,
-                    job_description,
-                    github_token,
-                    "user_input" if (github_username or "").strip() else "resume_text",
-                    detected_profiles.get("github_url"),
-                ),
-                timeout=github_timeout,
-            )
-        except asyncio.TimeoutError:
-            logger.warning("GitHub intel timed out after %ss.", github_timeout)
-            github_intel = {
-                "github_best_projects": [],
-                "github_drop_projects": [],
-                "github_summary": "GitHub analysis timed out. Retry with fewer repos or add a GitHub token.",
-            }
-            recommendations.append({
-                "type": "quality",
-                "message": "GitHub intel timed out; retry with token or fewer repositories.",
-            })
+        if github_task:
+            try:
+                github_intel = await github_task
+            except asyncio.TimeoutError:
+                logger.warning("GitHub intel timed out after %ss.", github_timeout)
+                github_intel = {
+                    "github_best_projects": [],
+                    "github_drop_projects": [],
+                    "github_summary": "GitHub analysis timed out. Retry with fewer repos or add a GitHub token.",
+                }
+                recommendations.append({
+                    "type": "quality",
+                    "message": "GitHub intel timed out; retry with token or fewer repositories.",
+                })
         linkedin_intel = build_linkedin_intel(
             linkedin_text=linkedin_text,
             resume_text=resume_text,

@@ -34,7 +34,13 @@ class GitHubClient:
             self.client = Github()
             logger.warning("GitHub client initialized without authentication (60 req/hour limit)")
     
-    def get_user_repositories(self, username: str) -> List[Dict[str, Any]]:
+    def get_user_repositories(
+        self,
+        username: str,
+        max_repos: Optional[int] = None,
+        readme_scan_limit: Optional[int] = None,
+        readme_content_limit: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
         """
         Fetch all public repositories for a given username.
         
@@ -47,9 +53,17 @@ class GitHubClient:
         try:
             user = self.client.get_user(username)
             repos = []
-            max_repos = int(os.getenv("GITHUB_MAX_REPOS", "60"))
-            readme_scan_limit = int(os.getenv("GITHUB_README_SCAN_LIMIT", "24"))
-            readme_content_limit = int(os.getenv("GITHUB_README_CONTENT_LIMIT", "8"))
+            max_repos = max_repos if max_repos is not None else int(os.getenv("GITHUB_MAX_REPOS", "30"))
+            readme_scan_limit = (
+                readme_scan_limit
+                if readme_scan_limit is not None
+                else int(os.getenv("GITHUB_README_SCAN_LIMIT", "12"))
+            )
+            readme_content_limit = (
+                readme_content_limit
+                if readme_content_limit is not None
+                else int(os.getenv("GITHUB_README_CONTENT_LIMIT", "4"))
+            )
             
             # Prioritize recently active repositories to keep response fast and relevant.
             for idx, repo in enumerate(user.get_repos(sort="updated", direction="desc")):

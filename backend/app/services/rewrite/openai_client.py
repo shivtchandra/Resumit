@@ -30,7 +30,13 @@ class OpenAIClient:
             f"temperature: {self.temperature}, timeout={self.timeout_seconds}s"
         )
     
-    def _call_gemini(self, prompt: str, max_retries: Optional[int] = None) -> str:
+    def _call_gemini(
+        self,
+        prompt: str,
+        max_retries: Optional[int] = None,
+        max_tokens: Optional[int] = None,
+        timeout_seconds: Optional[float] = None,
+    ) -> str:
         """
         Call OpenAI API with retry logic.
         Named _call_gemini for compatibility with existing code.
@@ -44,6 +50,8 @@ class OpenAIClient:
         """
         retries = max_retries if max_retries is not None else int(os.getenv("OPENAI_MAX_RETRIES", "1"))
         retries = max(1, retries)
+        token_budget = max_tokens if max_tokens is not None else 2048
+        timeout_budget = timeout_seconds if timeout_seconds is not None else self.timeout_seconds
 
         for attempt in range(retries):
             try:
@@ -54,8 +62,8 @@ class OpenAIClient:
                         {"role": "user", "content": prompt}
                     ],
                     temperature=self.temperature,
-                    max_tokens=2048,
-                    timeout=self.timeout_seconds,
+                    max_tokens=token_budget,
+                    timeout=timeout_budget,
                 )
                 
                 text = response.choices[0].message.content
