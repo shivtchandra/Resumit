@@ -251,7 +251,7 @@ export const Landing = () => {
 
                             {[
                                 { step: '01', title: 'Upload & Analyze', text: 'Diagnostic mode. Find out exactly why you\'re not getting calls.', icon: Search, to: '/analysis' },
-                                { step: '02', title: 'Fix & Rewrite', text: 'Rewrite weak bullet points and choose a pro template.', icon: Sparkles, to: '/resume-fix-lab' },
+                                { step: '02', title: 'Match & Fix', text: 'Rewrite weak bullet points and choose a pro template.', icon: Sparkles, to: '/resume-fix-lab' },
                                 { step: '03', title: 'Practice & Apply', text: 'Generate answer frameworks and apply with confidence.', icon: Target, to: '/templates' },
                             ].map((item, i) => (
                                 <Link key={i} to={item.to} className="relative z-10 space-y-6 group no-underline">

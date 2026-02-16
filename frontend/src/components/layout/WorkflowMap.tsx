@@ -29,7 +29,7 @@ const WORKFLOW_STEPS: Array<{
         },
         {
             id: 'fix',
-            label: 'Resume Fix Lab',
+            label: 'Match & Fix',
             description: 'Rewrite and practice answers',
             to: '/resume-fix-lab',
         },

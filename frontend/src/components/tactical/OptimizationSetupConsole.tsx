@@ -171,18 +171,20 @@ export const OptimizationSetupConsole = ({
                         </div>
 
                         <div className="space-y-2">
-                            <h3 className="text-2xl font-heading font-black text-brand-secondary">
-                                {isFixing ? 'FIX ENGINE ACTIVE' : selectedFile ? 'RESUME PREPARED' : 'INITIATE FIX Lab'}
+                            <h3 className="text-2xl font-heading font-black text-brand-secondary uppercase tracking-tight">
+                                {isFixing ? 'ALIGNMENT ENGINE ACTIVE' : selectedFile ? 'RESUME PREPARED' : 'Match & Fix Intelligence'}
                             </h3>
-                            <p className="text-text-muted max-w-md mx-auto font-medium">
+                            <p className="text-text-muted max-w-xl mx-auto font-medium">
                                 {selectedFile
-                                    ? `${selectedFile.name} ready for optimization.`
-                                    : 'Upload your resume to begin the guided fix protocol.'}
+                                    ? `${selectedFile.name} ready for deep alignment analysis.`
+                                    : 'Upload your resume to calibrate it against a specific job description.'}
                             </p>
                             {!selectedFile && !isFixing && (
-                                <span className="inline-block mt-4 px-4 py-1.5 rounded-lg border border-border-subtle bg-bg-page text-[10px] font-black tracking-widest text-text-subtle">
-                                    SUPPORTED: PDF, DOCX
-                                </span>
+                                <div className="flex flex-col items-center gap-2 mt-4">
+                                    <span className="inline-block px-4 py-1.5 rounded-lg border border-border-subtle bg-bg-page text-[10px] font-black tracking-widest text-text-subtle">
+                                        SUPPORTED: PDF, DOCX
+                                    </span>
+                                </div>
                             )}
                         </div>
                     </label>
@@ -199,7 +201,7 @@ export const OptimizationSetupConsole = ({
                                     <div className="flex justify-between items-center text-[10px] font-black tracking-[0.2em] text-brand-primary">
                                         <div className="flex items-center gap-2">
                                             <Clock3 size={14} />
-                                            ELAPSED {String(elapsedSeconds).padStart(2, '0')}s
+                                            ANALYZING {String(elapsedSeconds).padStart(2, '0')}s
                                         </div>
                                         <div className="animate-pulse">{LIVE_SIGNALS[signalCursor]}...</div>
                                     </div>
@@ -210,10 +212,10 @@ export const OptimizationSetupConsole = ({
                                             style={{ boxShadow: '0 0 10px var(--brand-primary)' }}
                                         />
                                     </div>
-                                    <div className="text-right text-xs font-black text-brand-secondary">{Math.round(progress)}% COMPLETE</div>
+                                    <div className="text-right text-xs font-black text-brand-secondary">{Math.round(progress)}% ALIGNED</div>
                                     {elapsedSeconds >= 20 && (
                                         <div className="text-[10px] text-amber-700 font-bold text-left">
-                                            Deep AI pass running. Large resumes/JDs can take up to ~60 seconds.
+                                            Deep matching in progress. Comparing skills, tone, and experience gaps...
                                         </div>
                                     )}
                                 </div>
@@ -242,16 +244,16 @@ export const OptimizationSetupConsole = ({
                 <div className="p-10 space-y-10">
                     <div className="flex items-center gap-3">
                         <div className="p-2.5 rounded-xl bg-brand-primary/10 text-brand-primary">
-                            <Sparkles size={20} />
+                            <Target size={20} />
                         </div>
-                        <h3 className="text-sm font-black text-brand-secondary tracking-[0.2em] uppercase">Target Intelligence</h3>
+                        <h3 className="text-sm font-black text-brand-secondary tracking-[0.2em] uppercase">Target Alignment Config</h3>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div className="space-y-6">
                             <div className="space-y-3">
                                 <label className="text-[10px] font-black text-text-subtle uppercase tracking-[0.2em] flex items-center gap-2">
-                                    <Target size={14} className="text-brand-primary" />
+                                    <Search size={14} className="text-brand-primary" />
                                     Target Role
                                 </label>
                                 <select
@@ -287,9 +289,9 @@ export const OptimizationSetupConsole = ({
                         <div className="space-y-6">
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center">
-                                    <label className="text-[10px] font-black text-text-subtle uppercase tracking-[0.2em] flex items-center gap-2">
-                                        <MaterialIcon icon="description" size={14} className="text-brand-primary" />
-                                        Job Description Intel
+                                    <label className="text-[10px] font-black text-brand-primary uppercase tracking-[0.2em] flex items-center gap-2">
+                                        <MaterialIcon icon="description" size={14} />
+                                        Job Description (COMPULSORY) *
                                     </label>
                                     <div className="flex gap-2">
                                         <select
@@ -337,8 +339,8 @@ export const OptimizationSetupConsole = ({
                             <div className="flex items-center gap-3">
                                 <Sparkles className="text-brand-primary" size={24} />
                                 <div>
-                                    <div className="text-[9px] font-black tracking-widest uppercase text-slate-400">Fix Protocol Ready</div>
-                                    <div className="text-sm font-black italic">OPTIMIZATION_READY</div>
+                                    <div className="text-[9px] font-black tracking-widest uppercase text-slate-400">Alignment Protocol Ready</div>
+                                    <div className="text-sm font-black italic">READY_FOR_MATCH_UP</div>
                                 </div>
                             </div>
                             <button
@@ -347,7 +349,7 @@ export const OptimizationSetupConsole = ({
                                 className={`w-full py-4 rounded-xl flex items-center justify-center gap-3 font-black tracking-widest uppercase transition-all ${(!selectedFile || !initialData.jobDescription.trim()) ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-brand-primary text-white hover:scale-[1.02] active:scale-95 shadow-lg shadow-brand-primary/20'}`}
                             >
                                 <Scan size={20} />
-                                {isFixing ? 'Fixing...' : 'Initiate Guided Fix'}
+                                {isFixing ? 'Analyzing...' : 'Initiate Match & Fix'}
                             </button>
                             {(!selectedFile || !initialData.jobDescription.trim()) && (
                                 <div className="text-[10px] text-center text-slate-400 font-medium">

@@ -41,7 +41,7 @@ export const GitHubPage = () => {
                         'Mirror important GitHub wins inside your resume Experience/Projects sections.'
                     ]}
                     primaryAction={{ label: 'Run Resume Analysis', to: '/analysis' }}
-                    secondaryAction={{ label: 'Go to Resume Fix Lab', to: '/resume-fix-lab' }}
+                    secondaryAction={{ label: 'Go to Match & Fix', to: '/resume-fix-lab' }}
                 />
 
                 <WorkflowMap currentStep="github" title="Workflow With GitHub As Proof Layer" />

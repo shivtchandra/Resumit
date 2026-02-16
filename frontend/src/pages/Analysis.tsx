@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { PageLayout } from '../components/layout/PageLayout';
 import { Navbar } from '../components/layout/Navbar';
@@ -106,13 +106,38 @@ const RoastColumn = ({
 };
 
 export const Analysis = () => {
+    const SESSION_KEY = 'resumit_analysis_result';
+
     const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [result, setResult] = useState<AnalysisResult | null>(null);
+    const [result, setResult] = useState<AnalysisResult | null>(() => {
+        try {
+            const stored = sessionStorage.getItem(SESSION_KEY);
+            return stored ? JSON.parse(stored) : null;
+        } catch {
+            return null;
+        }
+    });
     const [error, setError] = useState<string | null>(null);
     const [targetRole, setTargetRole] = useState('software-engineer');
     const [feedbackTone, setFeedbackTone] = useState<'brutal' | 'professional'>('brutal');
     const [githubUsername, setGithubUsername] = useState('');
     const [linkedinText, setLinkedinText] = useState('');
+
+    // Persist result to sessionStorage whenever it changes
+    useEffect(() => {
+        if (result) {
+            try {
+                sessionStorage.setItem(SESSION_KEY, JSON.stringify(result));
+            } catch {
+                // sessionStorage full or unavailable — silently ignore
+            }
+        }
+    }, [result]);
+
+    const clearResult = useCallback(() => {
+        setResult(null);
+        sessionStorage.removeItem(SESSION_KEY);
+    }, []);
 
     const handleUpload = async (file: File) => {
         setIsAnalyzing(true);
@@ -173,14 +198,14 @@ export const Analysis = () => {
                         'Upload your resume; no JD needed here.',
                         'Keep tone as Brutal for no-fluff feedback.',
                         'Review roast, GitHub/LinkedIn proof, and certification guidance.',
-                        'Move to Resume Fix Lab to actually rewrite and prep interview answers.',
+                        'Move to Match & Fix to actually rewrite and prep interview answers.',
                     ]}
                     makeMostOfIt={[
                         'Ensure your resume header has real LinkedIn and GitHub URLs.',
                         'Use target role selection for relevant certification guidance.',
-                        'Treat recommendations as execution tasks for Resume Fix Lab.',
+                        'Treat recommendations as execution tasks for Match & Fix.',
                     ]}
-                    primaryAction={{ label: 'Go to Resume Fix Lab', to: '/resume-fix-lab' }}
+                    primaryAction={{ label: 'Go to Match & Fix', to: '/resume-fix-lab' }}
                     secondaryAction={{ label: 'Browse Templates', to: '/templates' }}
                 />
 
@@ -325,24 +350,55 @@ export const Analysis = () => {
                             </h3>
                             {certRecs.length > 0 ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                                    {certRecs.map((cert, idx) => (
-                                        <div key={idx} className="p-4 rounded-xl border border-border-subtle bg-white space-y-2">
-                                            <div className="text-sm font-black text-brand-secondary">{cert.name}</div>
-                                            <div className="text-xs text-text-muted">{cert.provider}</div>
-                                            <div className="text-xs text-text-muted">Relevance: {cert.relevance}</div>
-                                            <div className="text-xs font-bold text-brand-primary">Impact: {cert.impact}</div>
-                                            {cert.url && (
-                                                <a
-                                                    href={cert.url}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="inline-block text-xs font-bold text-brand-primary hover:underline"
-                                                >
-                                                    View certification
-                                                </a>
-                                            )}
-                                        </div>
-                                    ))}
+                                    {certRecs.map((cert, idx) => {
+                                        const isSpecialist = cert.relevance?.includes('Domain') || cert.relevance?.includes('High');
+                                        const isSupporting = cert.relevance?.includes('Supporting') || cert.relevance?.includes('Infrastructure');
+                                        const badgeClass = isSpecialist
+                                            ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                            : isSupporting
+                                                ? 'bg-blue-100 text-blue-700 border-blue-200'
+                                                : 'bg-slate-100 text-slate-600 border-slate-200';
+                                        const borderClass = isSpecialist
+                                            ? 'border-emerald-200/60 hover:border-emerald-400'
+                                            : 'border-border-subtle hover:border-brand-primary/30';
+
+                                        return (
+                                            <div key={idx} className={`p-5 rounded-2xl border ${borderClass} bg-white space-y-3 transition-all hover:shadow-md group`}>
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="text-sm font-black text-brand-secondary leading-snug">{cert.name}</div>
+                                                    {isSpecialist && (
+                                                        <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                                                            <MaterialIcon icon="verified" size={12} className="text-emerald-600" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="text-xs text-text-subtle font-semibold">{cert.provider}</div>
+
+                                                <div className="flex flex-wrap gap-2">
+                                                    <span className={`text-[10px] font-black tracking-wider uppercase px-2.5 py-1 rounded-full border ${badgeClass}`}>
+                                                        {cert.relevance}
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex items-center gap-2 pt-1">
+                                                    <MaterialIcon icon="trending_up" size={14} className="text-brand-primary" />
+                                                    <span className="text-xs font-bold text-brand-primary">{cert.impact}</span>
+                                                </div>
+
+                                                {cert.url && (
+                                                    <a
+                                                        href={cert.url}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-primary hover:underline mt-1"
+                                                    >
+                                                        <MaterialIcon icon="open_in_new" size={12} />
+                                                        View certification →
+                                                    </a>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             ) : (
                                 <div className="text-sm text-text-muted italic">
@@ -401,25 +457,129 @@ export const Analysis = () => {
 
                         {sampleUpgrades.length > 0 && (
                             <div className="zen-card p-8 space-y-6">
-                                <h3 className="text-xs font-black tracking-[0.2em] uppercase text-brand-secondary flex items-center gap-2">
-                                    <MaterialIcon icon="edit_note" size={16} className="text-brand-primary" />
-                                    Practical Rewrite Examples
-                                </h3>
-                                <div className="space-y-4">
-                                    {sampleUpgrades.map((item, idx) => (
-                                        <div key={idx} className="p-4 rounded-xl border border-border-subtle bg-white space-y-2">
-                                            <div className="text-[11px] font-black tracking-widest uppercase text-brand-secondary">{item.area}</div>
-                                            <div className="text-xs text-red-700 bg-red-50 border border-red-100 rounded-lg p-2">
-                                                <span className="font-bold">Before:</span> {item.before}
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-xs font-black tracking-[0.2em] uppercase text-brand-secondary flex items-center gap-2">
+                                        <MaterialIcon icon="edit_note" size={16} className="text-brand-primary" />
+                                        Resume Rewrite Guide
+                                    </h3>
+                                    <span className="text-[10px] font-black tracking-widest uppercase px-3 py-1.5 rounded-full bg-brand-primary/10 text-brand-primary border border-brand-primary/20">
+                                        {sampleUpgrades.length} Fix{sampleUpgrades.length > 1 ? 'es' : ''}
+                                    </span>
+                                </div>
+
+                                <p className="text-sm text-text-muted leading-relaxed -mt-2">
+                                    Below are specific lines in your resume that need rewriting. Each shows exactly <strong>what to remove</strong>, <strong>what to write instead</strong>, and <strong>where it goes</strong> in your document.
+                                </p>
+
+                                <div className="space-y-5">
+                                    {sampleUpgrades.map((item, idx) => {
+                                        const placementMap: Record<string, string> = {
+                                            'summary': '📄 Summary / Objective Section',
+                                            'experience bullet': '💼 Experience → Bullet Points',
+                                            'experience': '💼 Experience Section',
+                                            'skills': '🛠 Skills Section',
+                                            'skills to project link': '🔗 Skills → Project Evidence',
+                                            'projects': '🚀 Projects Section',
+                                            'education': '🎓 Education Section',
+                                            'certifications': '📜 Certifications Section',
+                                        };
+                                        const placement = item.placement
+                                            || placementMap[item.area.toLowerCase()]
+                                            || `📄 ${item.area} Section`;
+
+                                        return (
+                                            <div
+                                                key={idx}
+                                                className="rounded-2xl border border-border-subtle overflow-hidden bg-white hover:shadow-lg transition-shadow duration-300 group"
+                                            >
+                                                {/* Header bar */}
+                                                <div className="px-6 py-4 bg-slate-50 border-b border-border-subtle flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-7 h-7 rounded-lg bg-brand-secondary text-white flex items-center justify-center text-xs font-black">
+                                                            {idx + 1}
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-sm font-black text-brand-secondary">{item.area}</div>
+                                                            <div className="text-[10px] font-bold text-text-subtle tracking-wider uppercase mt-0.5">
+                                                                {placement}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700">
+                                                        <MaterialIcon icon="auto_fix_high" size={12} />
+                                                        <span className="text-[10px] font-black tracking-widest uppercase">Rewrite</span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Simulated resume diff */}
+                                                <div className="px-6 py-5 space-y-4">
+                                                    {/* Current resume line (struck out) */}
+                                                    <div className="relative">
+                                                        <div className="text-[10px] font-black tracking-widest uppercase text-red-500 mb-2 flex items-center gap-1.5">
+                                                            <MaterialIcon icon="remove_circle" size={12} />
+                                                            CURRENT (REMOVE)
+                                                        </div>
+                                                        <div className="font-mono text-sm leading-relaxed p-4 rounded-xl bg-red-50/70 border border-red-200/60 text-red-800 relative">
+                                                            <span className="line-through decoration-red-400 decoration-2 opacity-80">{item.before}</span>
+                                                            <div className="absolute top-2 right-2">
+                                                                <MaterialIcon icon="close" size={14} className="text-red-400" />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Arrow */}
+                                                    <div className="flex justify-center">
+                                                        <div className="w-8 h-8 rounded-full bg-brand-primary/10 flex items-center justify-center">
+                                                            <MaterialIcon icon="arrow_downward" size={16} className="text-brand-primary" />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Recommended replacement */}
+                                                    <div className="relative">
+                                                        <div className="text-[10px] font-black tracking-widest uppercase text-emerald-600 mb-2 flex items-center gap-1.5">
+                                                            <MaterialIcon icon="add_circle" size={12} />
+                                                            REPLACE WITH
+                                                        </div>
+                                                        <div className="font-mono text-sm leading-relaxed p-4 rounded-xl bg-emerald-50/70 border-2 border-emerald-300/60 text-emerald-900 relative shadow-sm shadow-emerald-100">
+                                                            <span className="font-semibold">{item.after}</span>
+                                                            <div className="absolute top-2 right-2">
+                                                                <MaterialIcon icon="check_circle" size={14} className="text-emerald-500" />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Why this works - rationale */}
+                                                <div className="px-6 py-4 bg-gradient-to-r from-blue-50/50 to-indigo-50/30 border-t border-border-subtle">
+                                                    <div className="flex gap-3">
+                                                        <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                                                            <MaterialIcon icon="lightbulb" size={14} />
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-[10px] font-black tracking-widest uppercase text-blue-700 mb-1">Why This Is Better</div>
+                                                            <p className="text-sm text-slate-700 leading-relaxed">{item.reason}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div className="text-xs text-emerald-800 bg-emerald-50 border border-emerald-100 rounded-lg p-2">
-                                                <span className="font-bold">After:</span> {item.after}
-                                            </div>
-                                            <div className="text-xs text-text-muted">
-                                                <span className="font-bold">Why this works:</span> {item.reason}
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Copy-to-resume instructions */}
+                                <div className="p-5 rounded-xl bg-brand-secondary/5 border border-brand-secondary/10 flex items-start gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-brand-primary/15 flex items-center justify-center shrink-0">
+                                        <MaterialIcon icon="content_paste" size={20} className="text-brand-primary" />
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-black text-brand-secondary mb-1">How to Apply These Fixes</div>
+                                        <ol className="text-sm text-text-muted leading-relaxed space-y-1 list-decimal pl-4">
+                                            <li>Open your resume in your editor (Google Docs, Word, etc.)</li>
+                                            <li>Find the <strong>exact section</strong> indicated by the placement tag above each fix</li>
+                                            <li>Replace the <span className="text-red-600 font-semibold line-through">red strikethrough text</span> with the <span className="text-emerald-600 font-semibold">green replacement text</span></li>
+                                            <li>Re-run analysis to verify your score improves</li>
+                                        </ol>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -429,7 +589,7 @@ export const Analysis = () => {
                                 onClick={() => (window.location.href = '/resume-fix-lab')}
                                 className="btn-primary py-3 text-sm"
                             >
-                                Go to Resume Fix Lab
+                                Go to Match & Fix
                             </button>
                             <button
                                 onClick={() => (window.location.href = '/templates')}
@@ -438,7 +598,7 @@ export const Analysis = () => {
                                 Browse Templates
                             </button>
                             <button
-                                onClick={() => setResult(null)}
+                                onClick={clearResult}
                                 className="btn-secondary py-3 text-sm"
                             >
                                 Run New Roast

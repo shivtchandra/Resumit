@@ -13,7 +13,7 @@ export const OptimizationHub = () => {
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
                 <div className="text-center space-y-6 pt-10">
                     <h1 className="page-hero-title text-6xl md:text-8xl leading-[0.9] tracking-tighter">
-                        Resume <span className="text-brand-primary">Fix Lab.</span>
+                        Resume <span className="text-brand-primary">Match & Fix.</span>
                     </h1>
                     <p className="text-xl text-text-muted max-w-2xl mx-auto font-medium">
                         A structured fix workflow: choose a template, run guided rewrite, and get interview-ready coaching.
@@ -21,7 +21,7 @@ export const OptimizationHub = () => {
                 </div>
 
                 <PageGuide
-                    badge="RESUME FIX LAB GUIDE"
+                    badge="RESUME MATCH & FIX GUIDE"
                     title="Turn Diagnostics Into Final Resume Output"
                     description="This page is execution mode. Use it to rewrite weak content, apply sharper language, and practice interview answers."
                     whatThisPageDoes="Combines template selection, resume rewrite workflow, and answer scoring so you leave with practical, job-ready content."
@@ -73,7 +73,7 @@ export const OptimizationHub = () => {
                                 className="inline-flex items-center gap-2 px-6 py-3 text-sm font-black uppercase tracking-widest rounded-lg transition-all"
                             >
                                 <Sparkles size={16} />
-                                Resume Fix Studio
+                                Match & Fix
                             </TabsTrigger>
                         </TabsList>
 
@@ -98,7 +98,7 @@ export const OptimizationHub = () => {
                                     <div className="w-10 h-10 rounded-xl bg-brand-primary/10 text-brand-secondary flex items-center justify-center">
                                         <Sparkles size={20} />
                                     </div>
-                                    Resume Fix Studio
+                                    Match & Fix
                                 </h2>
                                 <p className="text-lg text-text-muted leading-relaxed max-w-3xl">
                                     Upload resume + JD, then get a practical rewrite with what-to-keep, what-to-cut, and interview preparation.

@@ -137,6 +137,7 @@ export interface AnalysisResult {
             before: string;
             after: string;
             reason: string;
+            placement?: string;
         }>;
     };
     missing_keywords?: string[];

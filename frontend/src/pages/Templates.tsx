@@ -160,7 +160,7 @@ export const Templates = () => {
                         'Avoid complex multi-column layouts if applying to legacy companies.',
                         'Ensure your most important skills appear in the top 30% of the page.'
                     ]}
-                    primaryAction={{ label: 'Go to Fix Lab', to: '/resume-fix-lab' }}
+                    primaryAction={{ label: 'Go to Match & Fix', to: '/resume-fix-lab' }}
                     secondaryAction={{ label: 'Back to Analysis', to: '/analysis' }}
                 />
 
@@ -203,8 +203,8 @@ export const Templates = () => {
                                     key={p.id}
                                     onClick={() => applyPreset(p.id as any)}
                                     className={`text-left p-6 rounded-2xl border-2 transition-all duration-300 group relative overflow-hidden ${preset === p.id
-                                            ? `${p.activeBorder} bg-gradient-to-br ${p.gradient} shadow-md`
-                                            : 'border-border-subtle bg-white hover:border-brand-primary/30 hover:shadow-lg hover:-translate-y-0.5'
+                                        ? `${p.activeBorder} bg-gradient-to-br ${p.gradient} shadow-md`
+                                        : 'border-border-subtle bg-white hover:border-brand-primary/30 hover:shadow-lg hover:-translate-y-0.5'
                                         }`}
                                 >
                                     <div className="flex items-center justify-between mb-3">

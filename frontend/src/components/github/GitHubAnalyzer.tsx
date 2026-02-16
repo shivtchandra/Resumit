@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import {
     Github,
@@ -20,6 +20,9 @@ import {
 } from 'lucide-react';
 import { analyzeGitHubRepos } from '@/services/api';
 import type { GitHubAnalysisResult, GitHubRepository } from '@/types/github';
+
+const SESSION_KEY = 'resumit_github_result';
+const SESSION_FORM_KEY = 'resumit_github_form';
 
 const JOB_ROLES = [
     { value: 'software-engineer', label: 'Software Engineer' },
@@ -90,10 +93,18 @@ const styles = {
 };
 
 export const GitHubAnalyzer = () => {
-    const [githubInput, setGithubInput] = useState('');
-    const [jobRole, setJobRole] = useState('software-engineer');
-    const [jobDescription, setJobDescription] = useState('');
-    const [pinnedRepos, setPinnedRepos] = useState('');
+    // Restore form state from sessionStorage
+    const savedForm = (() => {
+        try {
+            const stored = sessionStorage.getItem(SESSION_FORM_KEY);
+            return stored ? JSON.parse(stored) : null;
+        } catch { return null; }
+    })();
+
+    const [githubInput, setGithubInput] = useState(savedForm?.githubInput || '');
+    const [jobRole, setJobRole] = useState(savedForm?.jobRole || 'software-engineer');
+    const [jobDescription, setJobDescription] = useState(savedForm?.jobDescription || '');
+    const [pinnedRepos, setPinnedRepos] = useState(savedForm?.pinnedRepos || '');
     const [githubToken, setGithubToken] = useState('');
     const [useAI, setUseAI] = useState(false);
     const [showAdvanced, setShowAdvanced] = useState(false);
@@ -101,8 +112,30 @@ export const GitHubAnalyzer = () => {
     const [loadingSignal, setLoadingSignal] = useState(0);
 
     const [loading, setLoading] = useState(false);
-    const [result, setResult] = useState<GitHubAnalysisResult | null>(null);
+    const [result, setResult] = useState<GitHubAnalysisResult | null>(() => {
+        try {
+            const stored = sessionStorage.getItem(SESSION_KEY);
+            return stored ? JSON.parse(stored) : null;
+        } catch { return null; }
+    });
     const [error, setError] = useState<string | null>(null);
+
+    // Persist result to sessionStorage
+    useEffect(() => {
+        if (result) {
+            try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(result)); }
+            catch { /* ignore */ }
+        }
+    }, [result]);
+
+    // Persist form inputs
+    useEffect(() => {
+        try {
+            sessionStorage.setItem(SESSION_FORM_KEY, JSON.stringify({
+                githubInput, jobRole, jobDescription, pinnedRepos
+            }));
+        } catch { /* ignore */ }
+    }, [githubInput, jobRole, jobDescription, pinnedRepos]);
 
     useEffect(() => {
         if (!loading) {

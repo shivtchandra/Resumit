@@ -37,8 +37,8 @@ export const Footer = () => {
                         <ul className="space-y-3">
                             <li><Link to="/analysis" className="text-sm text-text-muted hover:text-brand-primary no-underline font-medium transition-colors">Resume Analysis</Link></li>
                             <li><Link to="/templates" className="text-sm text-text-muted hover:text-brand-primary no-underline font-medium transition-colors">ATS Templates</Link></li>
-                            <li><Link to="/resume-fix-lab" className="text-sm text-text-muted hover:text-brand-primary no-underline font-medium transition-colors">Fix Lab</Link></li>
-                            <li><Link to="/github" className="text-sm text-text-muted hover:text-brand-primary no-underline font-medium transition-colors">GitHub Audit</Link></li>
+                            <li><Link to="/resume-fix-lab" className="text-sm text-text-muted hover:text-brand-primary no-underline font-medium transition-colors">Match & Fix</Link></li>
+                            {/* <li><Link to="/github" className="text-sm text-text-muted hover:text-brand-primary no-underline font-medium transition-colors">GitHub Audit</Link></li> */}
                         </ul>
                     </div>
 

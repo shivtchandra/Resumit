@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle, XCircle, TrendingDown, Target, Lightbulb, Search, Clock } from 'lucide-react';
+import { AlertTriangle, CheckCircle, XCircle, TrendingDown, Target, Lightbulb, Search, Clock, Zap, MessageSquareQuote } from 'lucide-react';
 import type { HarshReview, CompanyExpectations } from '@/types';
 
 interface BrutalFitReviewProps {
@@ -6,309 +6,199 @@ interface BrutalFitReviewProps {
     harshReview: HarshReview;
 }
 
-const styles = {
-    container: {
-        background: 'white',
-        borderRadius: '16px',
-        border: '1px solid #e2e8f0',
-        padding: '2rem',
-        marginBottom: '2rem'
-    },
-    header: {
-        marginBottom: '2rem',
-        paddingBottom: '1.5rem',
-        borderBottom: '2px solid #fbbf24'
-    },
-    title: {
-        fontSize: '1.5rem',
-        fontWeight: 700,
-        color: '#0f172a',
-        marginBottom: '0.5rem',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.75rem'
-    },
-    subtitle: {
-        fontSize: '0.95rem',
-        color: '#64748b',
-        fontStyle: 'italic'
-    },
-    section: {
-        marginBottom: '2rem'
-    },
-    sectionTitle: {
-        fontSize: '1.1rem',
-        fontWeight: 600,
-        color: '#1e293b',
-        marginBottom: '1rem',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem'
-    },
-    verdict: {
-        padding: '1.5rem',
-        background: '#fef3c7',
-        borderLeft: '4px solid #f59e0b',
-        borderRadius: '8px',
-        marginBottom: '1.5rem'
-    },
-    verdictText: {
-        fontSize: '1.05rem',
-        color: '#92400e',
-        lineHeight: '1.6',
-        fontWeight: 500
-    },
-    list: {
-        listStyle: 'none',
-        padding: 0,
-        margin: 0
-    },
-    listItem: {
-        padding: '0.75rem 1rem',
-        background: '#f8fafc',
-        borderRadius: '8px',
-        marginBottom: '0.5rem',
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: '0.75rem'
-    },
-    strengthItem: {
-        background: '#ecfdf5',
-        border: '1px solid #a7f3d0'
-    },
-    weaknessItem: {
-        background: '#fef2f2',
-        border: '1px solid #fecaca'
-    },
-    skillCard: {
-        padding: '1rem',
-        background: '#fff7ed',
-        border: '1px solid #fed7aa',
-        borderRadius: '8px',
-        marginBottom: '1rem'
-    },
-    skillName: {
-        fontWeight: 600,
-        color: '#9a3412',
-        marginBottom: '0.5rem'
-    },
-    skillDetail: {
-        fontSize: '0.9rem',
-        color: '#7c2d12',
-        marginBottom: '0.25rem'
-    },
-    interviewVerdict: {
-        padding: '1.5rem',
-        borderRadius: '12px',
-        marginBottom: '1.5rem',
-        textAlign: 'center' as const
-    },
-    verdictYes: {
-        background: '#ecfdf5',
-        border: '2px solid #10b981'
-    },
-    verdictNo: {
-        background: '#fef2f2',
-        border: '2px solid #ef4444'
-    },
-    verdictMaybe: {
-        background: '#fef3c7',
-        border: '2px solid #f59e0b'
-    },
-    actionItem: {
-        padding: '1rem 1.25rem',
-        background: 'white',
-        border: '2px solid #0f766e',
-        borderRadius: '8px',
-        marginBottom: '0.75rem',
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: '1rem'
-    },
-    actionNumber: {
-        width: '32px',
-        height: '32px',
-        background: '#0f766e',
-        color: 'white',
-        borderRadius: '50%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontWeight: 700,
-        flexShrink: 0
-    }
-};
-
 export const BrutalFitReview = ({ companyExpectations, harshReview }: BrutalFitReviewProps) => {
-    const getVerdictStyle = () => {
-        switch (harshReview.would_I_interview_you) {
-            case 'yes': return styles.verdictYes;
-            case 'no': return styles.verdictNo;
-            default: return styles.verdictMaybe;
-        }
-    };
+    const verdictColor =
+        harshReview.would_I_interview_you === 'yes' ? 'text-emerald-600' :
+            harshReview.would_I_interview_you === 'no' ? 'text-red-600' : 'text-amber-600';
 
-    const getVerdictIcon = () => {
-        switch (harshReview.would_I_interview_you) {
-            case 'yes': return <CheckCircle size={32} color="#10b981" />;
-            case 'no': return <XCircle size={32} color="#ef4444" />;
-            default: return <AlertTriangle size={32} color="#f59e0b" />;
-        }
-    };
+    const verdictBg =
+        harshReview.would_I_interview_you === 'yes' ? 'bg-emerald-50' :
+            harshReview.would_I_interview_you === 'no' ? 'bg-red-50' : 'bg-amber-50';
+
+    const verdictBorder =
+        harshReview.would_I_interview_you === 'yes' ? 'border-emerald-100' :
+            harshReview.would_I_interview_you === 'no' ? 'border-red-100' : 'border-amber-100';
 
     return (
-        <div style={styles.container}>
-            {/* Header */}
-            <div style={styles.header}>
-                <h2 style={styles.title}>
-                    <Search size={20} style={{ display: 'inline-block', marginRight: '0.5rem', verticalAlign: 'middle' }} />
-                    Brutal Fit Review (AI as a hiring manager)
-                </h2>
-                <p style={styles.subtitle}>
-                    Unfiltered feedback on how you look for this job
-                </p>
-            </div>
-
-            {/* Overall Verdict */}
-            <div style={styles.verdict}>
-                <p style={styles.verdictText}>{harshReview.overall_verdict}</p>
-            </div>
-
-            {/* Company Expectations */}
-            <div style={styles.section}>
-                <h3 style={styles.sectionTitle}>
-                    <Target size={20} color="#0f766e" />
-                    What This Company Cares About
-                </h3>
-                <p style={{ fontSize: '0.95rem', color: '#475569', marginBottom: '1rem', lineHeight: '1.6' }}>
-                    {companyExpectations.role_summary}
-                </p>
-                <ul style={styles.list}>
-                    {companyExpectations.what_the_company_cares_about.map((item, i) => (
-                        <li key={i} style={styles.listItem}>
-                            <span style={{ color: '#0f766e' }}>•</span>
-                            <span style={{ color: '#334155' }}>{item}</span>
-                        </li>
-                    ))}
-                </ul>
-            </div>
-
-            {/* Strengths */}
-            {harshReview.strengths.length > 0 && (
-                <div style={styles.section}>
-                    <h3 style={styles.sectionTitle}>
-                        <CheckCircle size={20} color="#10b981" />
-                        Your Strengths
-                    </h3>
-                    <ul style={styles.list}>
-                        {harshReview.strengths.map((strength, i) => (
-                            <li key={i} style={{ ...styles.listItem, ...styles.strengthItem }}>
-                                <CheckCircle size={18} color="#10b981" style={{ flexShrink: 0, marginTop: '2px' }} />
-                                <span style={{ color: '#065f46' }}>{strength}</span>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            )}
-
-            {/* Weaknesses */}
-            {harshReview.weaknesses.length > 0 && (
-                <div style={styles.section}>
-                    <h3 style={styles.sectionTitle}>
-                        <TrendingDown size={20} color="#ef4444" />
-                        Where You're Weak
-                    </h3>
-                    <ul style={styles.list}>
-                        {harshReview.weaknesses.map((weakness, i) => (
-                            <li key={i} style={{ ...styles.listItem, ...styles.weaknessItem }}>
-                                <XCircle size={18} color="#ef4444" style={{ flexShrink: 0, marginTop: '2px' }} />
-                                <span style={{ color: '#991b1b' }}>{weakness}</span>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            )}
-
-            {/* Missing Skills */}
-            {harshReview.missing_or_weak_skills.length > 0 && (
-                <div style={styles.section}>
-                    <h3 style={styles.sectionTitle}>
-                        <AlertTriangle size={20} color="#f59e0b" />
-                        Missing or Weak Skills
-                    </h3>
-                    {harshReview.missing_or_weak_skills.map((skill, i) => (
-                        <div key={i} style={styles.skillCard}>
-                            <div style={styles.skillName}>{skill.skill}</div>
-                            <div style={styles.skillDetail}>
-                                <strong>Why it matters:</strong> {skill.why_it_matters}
+        <div className="space-y-8">
+            {/* Verdict Hero Card */}
+            <div className={`zen-card p-10 relative overflow-hidden ${verdictBorder} ${verdictBg}`}>
+                <div className="flex flex-col md:flex-row gap-8 items-center md:items-start text-center md:text-left">
+                    <div className="shrink-0">
+                        {harshReview.would_I_interview_you === 'yes' ? (
+                            <div className="w-20 h-20 rounded-3xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                                <CheckCircle size={40} />
                             </div>
-                            <div style={styles.skillDetail}>
-                                <strong>How to build it:</strong> {skill.how_to_build_it}
+                        ) : harshReview.would_I_interview_you === 'no' ? (
+                            <div className="w-20 h-20 rounded-3xl bg-red-500 text-white flex items-center justify-center shadow-lg shadow-red-500/20">
+                                <XCircle size={40} />
                             </div>
-                            {skill.success_story && (
-                                <div style={{ ...styles.skillDetail, marginTop: '0.5rem', fontStyle: 'italic', color: '#059669', display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
-                                    <Lightbulb size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
-                                    <span><strong>Success story:</strong> {skill.success_story}</span>
-                                </div>
-                            )}
+                        ) : (
+                            <div className="w-20 h-20 rounded-3xl bg-amber-500 text-white flex items-center justify-center shadow-lg shadow-amber-500/20">
+                                <AlertTriangle size={40} />
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex-1 space-y-4">
+                        <div className="space-y-1">
+                            <h2 className="text-3xl font-black text-brand-secondary tracking-tight">
+                                Verdict: {harshReview.would_I_interview_you.toUpperCase()}
+                            </h2>
+                            <p className={`font-bold tracking-widest text-[10px] uppercase ${verdictColor}`}>
+                                AI Hiring Manager Simulation
+                            </p>
                         </div>
-                    ))}
-                </div>
-            )}
-
-            {/* Interview Verdict */}
-            <div style={{ ...styles.interviewVerdict, ...getVerdictStyle() }}>
-                <div style={{ marginBottom: '1rem' }}>{getVerdictIcon()}</div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.75rem', color: '#0f172a' }}>
-                    Would I Interview You? {harshReview.would_I_interview_you.toUpperCase()}
-                </h3>
-                <p style={{ fontSize: '0.95rem', color: '#475569', lineHeight: '1.6' }}>
-                    {harshReview.rationale}
-                </p>
-            </div>
-
-            {/* Top 3 Actions */}
-            <div style={styles.section}>
-                <h3 style={styles.sectionTitle}>
-                    <Lightbulb size={20} color="#0f766e" />
-                    Top 3 Things to Fix Next
-                </h3>
-                {harshReview.top_3_actions.map((actionItem, i) => (
-                    <div key={i} style={styles.actionItem}>
-                        <div style={styles.actionNumber}>{i + 1}</div>
-                        <div style={{ flex: 1 }}>
-                            <p style={{ margin: 0, fontWeight: 600, color: '#1e293b', marginBottom: '0.5rem' }}>
-                                {actionItem.action}
+                        <p className="text-lg text-text-muted leading-relaxed font-medium italic">
+                            "{harshReview.overall_verdict}"
+                        </p>
+                        <div className="p-5 bg-white/50 backdrop-blur-sm rounded-2xl border border-white/60">
+                            <p className="text-sm text-text-main leading-relaxed">
+                                <strong>Rationale:</strong> {harshReview.rationale}
                             </p>
-                            <p style={{ margin: 0, color: '#475569', fontSize: '0.9rem', lineHeight: '1.6', marginBottom: '0.75rem' }}>
-                                {actionItem.how_to_do_it}
-                            </p>
-                            {actionItem.resources && actionItem.resources.length > 0 && (
-                                <div style={{ marginBottom: '0.5rem' }}>
-                                    <strong style={{ fontSize: '0.85rem', color: '#64748b' }}>Resources:</strong>
-                                    <ul style={{ margin: '0.25rem 0 0 0', paddingLeft: '1.25rem', fontSize: '0.85rem', color: '#64748b' }}>
-                                        {actionItem.resources.map((resource, idx) => (
-                                            <li key={idx}>{resource}</li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-                            <div style={{ display: 'flex', gap: '1rem', fontSize: '0.85rem', color: '#64748b', marginTop: '0.5rem' }}>
-                                {actionItem.time_estimate && (
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                        <Clock size={14} /> <strong>Time:</strong> {actionItem.time_estimate}
-                                    </span>
-                                )}
-                            </div>
-                            {actionItem.what_helped_others && (
-                                <p style={{ margin: '0.75rem 0 0 0', fontSize: '0.85rem', color: '#059669', fontStyle: 'italic', background: '#ecfdf5', padding: '0.5rem', borderRadius: '4px', display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
-                                    <Lightbulb size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
-                                    <span>{actionItem.what_helped_others}</span>
-                                </p>
-                            )}
                         </div>
                     </div>
-                ))}
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Strengths - The "Green" Side */}
+                <div className="zen-card p-8 border-emerald-100 bg-emerald-50/20">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2 rounded-lg bg-emerald-100 text-emerald-600">
+                            <Zap size={20} />
+                        </div>
+                        <h3 className="text-sm font-black text-brand-secondary tracking-widest uppercase">Target Alignment Strengths</h3>
+                    </div>
+                    <div className="space-y-4">
+                        {harshReview.strengths.map((strength, i) => (
+                            <div key={i} className="flex gap-4 p-4 rounded-xl bg-white border border-emerald-50 shadow-sm transition-all hover:border-emerald-200">
+                                <CheckCircle size={18} className="text-emerald-500 shrink-0 mt-1" />
+                                <span className="text-sm text-text-main font-medium">{strength}</span>
+                            </div>
+                        ))}
+                        {harshReview.strengths.length === 0 && (
+                            <p className="text-sm text-text-muted italic">No distinct strengths identified for this specific JD.</p>
+                        )}
+                    </div>
+                </div>
+
+                {/* Weaknesses - The "Warning" Side */}
+                <div className="zen-card p-8 border-amber-100 bg-amber-50/20">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2 rounded-lg bg-amber-100 text-amber-600">
+                            <TrendingDown size={20} />
+                        </div>
+                        <h3 className="text-sm font-black text-brand-secondary tracking-widest uppercase">Strategic Weak Points</h3>
+                    </div>
+                    <div className="space-y-4">
+                        {harshReview.weaknesses.map((weakness, i) => (
+                            <div key={i} className="flex gap-4 p-4 rounded-xl bg-white border border-amber-50 shadow-sm transition-all hover:border-amber-200">
+                                <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-1" />
+                                <span className="text-sm text-text-main font-medium">{weakness}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Missing Skills Deep-Dive */}
+            {harshReview.missing_or_weak_skills.length > 0 && (
+                <div className="zen-card p-8">
+                    <div className="flex items-center gap-3 mb-8">
+                        <div className="p-2 rounded-lg bg-red-100 text-red-600">
+                            <Lightbulb size={20} />
+                        </div>
+                        <h3 className="text-sm font-black text-brand-secondary tracking-widest uppercase">Gaps to Bridge (Skill Deficit)</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {harshReview.missing_or_weak_skills.map((skill, i) => (
+                            <div key={i} className="p-6 rounded-2xl border border-border-subtle bg-bg-muted space-y-4 hover:border-brand-primary/30 transition-all group">
+                                <div className="flex justify-between items-start">
+                                    <h4 className="font-black text-brand-secondary text-base group-hover:text-brand-primary transition-colors">{skill.skill}</h4>
+                                    <XCircle size={16} className="text-red-400" />
+                                </div>
+                                <div className="space-y-3">
+                                    <div className="text-xs">
+                                        <div className="text-text-subtle font-black uppercase tracking-widest text-[9px] mb-1">Impact</div>
+                                        <p className="text-text-main">{skill.why_it_matters}</p>
+                                    </div>
+                                    <div className="text-xs">
+                                        <div className="text-text-subtle font-black uppercase tracking-widest text-[9px] mb-1">Bridge Strategy</div>
+                                        <p className="text-amber-700 font-medium">{skill.how_to_build_it}</p>
+                                    </div>
+                                    {skill.success_story && (
+                                        <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-100">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <MessageSquareQuote size={12} className="text-emerald-600" />
+                                                <div className="text-emerald-800 font-bold text-[9px] uppercase tracking-widest">Story Starter</div>
+                                            </div>
+                                            <p className="text-xs text-emerald-700 italic leading-relaxed">{skill.success_story}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Company Intelligence */}
+            <div className="zen-card p-8 bg-brand-secondary text-white space-y-6">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-slate-800 text-brand-primary">
+                        <Target size={20} />
+                    </div>
+                    <h3 className="text-sm font-black tracking-widest uppercase">Company Expectations Intel</h3>
+                </div>
+                <div className="space-y-4">
+                    <p className="text-slate-300 text-base leading-relaxed">
+                        {companyExpectations.role_summary}
+                    </p>
+                    <div className="flex flex-wrap gap-2 pt-2">
+                        {companyExpectations.what_the_company_cares_about.map((item, i) => (
+                            <span key={i} className="px-3 py-1 rounded-lg bg-slate-800 border border-slate-700 text-xs font-medium text-slate-200">
+                                {item}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Top 3 Strategic Fixes */}
+            <div className="zen-card p-8 overflow-hidden relative">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-brand-primary/5 rounded-full -mr-16 -mt-16 blur-3xl" />
+                <div className="flex items-center gap-3 mb-8">
+                    <div className="p-2 rounded-lg bg-teal-100 text-teal-600">
+                        <Search size={20} />
+                    </div>
+                    <h3 className="text-sm font-black text-brand-secondary tracking-widest uppercase">Top 3 Critical Actions</h3>
+                </div>
+                <div className="space-y-6">
+                    {harshReview.top_3_actions.map((actionItem, i) => (
+                        <div key={i} className="flex flex-col md:flex-row gap-6 p-6 rounded-2xl border border-border-subtle bg-white relative hover:shadow-md transition-all">
+                            <div className="w-12 h-12 rounded-full bg-brand-secondary text-white flex items-center justify-center font-black text-xl shrink-0">
+                                {i + 1}
+                            </div>
+                            <div className="flex-1 space-y-4">
+                                <div>
+                                    <h4 className="text-lg font-black text-brand-secondary mb-2">{actionItem.action}</h4>
+                                    <p className="text-sm text-text-muted leading-relaxed">{actionItem.how_to_do_it}</p>
+                                </div>
+                                <div className="flex items-center gap-4 flex-wrap">
+                                    <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-bg-muted text-[10px] font-bold text-text-subtle uppercase tracking-widest">
+                                        <Clock size={12} /> {actionItem.time_estimate}
+                                    </div>
+                                    {actionItem.what_helped_others && (
+                                        <div className="flex items-center gap-2 text-emerald-600 text-xs font-bold italic">
+                                            <Lightbulb size={14} /> {actionItem.what_helped_others}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     );
