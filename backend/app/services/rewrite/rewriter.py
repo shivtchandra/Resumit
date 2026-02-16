@@ -8,6 +8,7 @@ from typing import Dict, Any, List, Optional, Tuple
 import logging
 from copy import deepcopy
 import re
+from difflib import SequenceMatcher
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +128,8 @@ JD_TECH_SIGNAL_PATTERNS: List[Tuple[str, str]] = [
     ("Tableau", r"\btableau\b"),
     ("Power BI", r"\bpower\s*bi\b"),
 ]
+
+_BULLET_PATTERN = r"[•●◦▪\-\*]"
 
 
 class ResumeRewriter:
@@ -782,7 +785,7 @@ class ResumeRewriter:
         return missing
 
     def _extract_evidence_lines(self, resume_text: str, limit: int = 5) -> List[str]:
-        lines = [line.strip("•- ").strip() for line in (resume_text or "").splitlines() if line.strip()]
+        lines = [line.strip("•●◦▪- ").strip() for line in (resume_text or "").splitlines() if line.strip()]
         candidates: List[str] = []
         for line in lines:
             lower = line.lower()
@@ -844,6 +847,23 @@ class ResumeRewriter:
             return False
         return bool(re.fullmatch(r"[A-Z][A-Z0-9\s&/\-]{2,}", stripped))
 
+    def _normalize_compare_text(self, text: str) -> str:
+        normalized = re.sub(r"\s+", " ", str(text or "")).strip().lower()
+        return normalized
+
+    def _is_materially_different(self, candidate: str, baseline: str, min_delta: float = 0.015) -> bool:
+        candidate_norm = self._normalize_compare_text(candidate)
+        baseline_norm = self._normalize_compare_text(baseline)
+        if not candidate_norm and not baseline_norm:
+            return False
+        if candidate_norm != baseline_norm and (not candidate_norm or not baseline_norm):
+            return True
+        similarity = SequenceMatcher(None, candidate_norm, baseline_norm).ratio()
+        return similarity < (1.0 - max(0.001, min_delta))
+
+    def _has_markup_tags(self, text: str) -> bool:
+        return bool(re.search(r"</?(ADD|DEL|REWRITE)>", text or ""))
+
     def _build_deterministic_rewrite(
         self,
         original_resume_text: str,
@@ -857,8 +877,8 @@ class ResumeRewriter:
         )
         resume_lower = original_resume_text.lower()
 
-        has_linkedin = "linkedin.com/" in resume_lower or re.search(r"\blinkedin\b", resume_lower) is not None
-        has_github = "github.com/" in resume_lower or re.search(r"\bgithub\b", resume_lower) is not None
+        has_linkedin = bool(re.search(r"(?:https?://)?(?:www\.)?linkedin\.com/(?:in|pub)/", resume_lower))
+        has_github = bool(re.search(r"(?:https?://)?(?:www\.)?github\.com/[a-z0-9-]+", resume_lower))
 
         updated_lines: List[str] = []
         marked_lines: List[str] = []
@@ -881,6 +901,38 @@ class ResumeRewriter:
 
             is_header_band = idx < 8
             if is_header_band and stripped and ("@" in stripped or "|" in stripped):
+                replaced_placeholder = False
+                placeholder_line = raw
+                if not has_linkedin and re.search(r"\blinkedin\b", placeholder_line, re.IGNORECASE):
+                    placeholder_line = re.sub(
+                        r"(?i)\blinkedin\b",
+                        "LinkedIn: linkedin.com/in/yourname",
+                        placeholder_line,
+                        count=1,
+                    )
+                    has_linkedin = True
+                    replaced_placeholder = True
+                if not has_github and re.search(r"\bgithub\b", placeholder_line, re.IGNORECASE):
+                    placeholder_line = re.sub(
+                        r"(?i)\bgithub\b",
+                        "GitHub: github.com/yourname",
+                        placeholder_line,
+                        count=1,
+                    )
+                    has_github = True
+                    replaced_placeholder = True
+                if replaced_placeholder and placeholder_line != raw:
+                    plain_line = placeholder_line
+                    marked_line = f"<REWRITE>{placeholder_line}</REWRITE>"
+                    changes.append({
+                        "section": "Header",
+                        "type": "rewrite",
+                        "before": raw,
+                        "after": placeholder_line,
+                        "reason": "Replaced placeholder profile labels with actionable profile URLs.",
+                        "jd_signal": "Recruiters need clickable LinkedIn/GitHub proof in the header.",
+                    })
+
                 additions: List[str] = []
                 if not has_linkedin:
                     additions.append("LinkedIn: linkedin.com/in/yourname")
@@ -888,13 +940,14 @@ class ResumeRewriter:
                     additions.append("GitHub: github.com/yourname")
                 if additions:
                     addition_text = " | " + " | ".join(additions)
-                    plain_line = f"{raw}{addition_text}"
-                    marked_line = f"{raw}<ADD>{addition_text}</ADD>"
+                    base_line = plain_line
+                    plain_line = f"{base_line}{addition_text}"
+                    marked_line = f"{base_line}<ADD>{addition_text}</ADD>"
                     profile_hint_added = True
                     changes.append({
                         "section": "Header",
                         "type": "add",
-                        "before": raw,
+                        "before": base_line,
                         "after": plain_line,
                         "reason": "Added missing profile links expected in technical resumes.",
                         "jd_signal": "Recruiters verify candidate credibility through LinkedIn/GitHub.",
@@ -902,7 +955,7 @@ class ResumeRewriter:
                     has_linkedin = True
                     has_github = True
 
-            bullet_match = re.match(r"^(\s*[•\-\*]\s*)(.+)$", raw)
+            bullet_match = re.match(rf"^(\s*{_BULLET_PATTERN}\s*)(.+)$", raw)
             if bullet_match and rewritten_bullets < 12:
                 bullet_prefix = bullet_match.group(1)
                 bullet_body = bullet_match.group(2).strip()
@@ -1036,6 +1089,21 @@ class ResumeRewriter:
         stable["marked_up_resume"] = marked
         stable["changes"] = changes
 
+        # Guardrail: ensure the "optimized resume" actually contains meaningful edits.
+        if (
+            not self._is_materially_different(stable.get("plain_text", ""), original_resume_text, min_delta=0.01)
+            or not self._has_markup_tags(stable.get("marked_up_resume", ""))
+        ):
+            fallback_plain, fallback_marked, fallback_changes = self._build_deterministic_rewrite(
+                original_resume_text=original_resume_text,
+                job_description=job_description,
+            )
+            if self._is_materially_different(fallback_plain, original_resume_text, min_delta=0.005):
+                stable["plain_text"] = fallback_plain
+                stable["marked_up_resume"] = fallback_marked
+                if len(stable.get("changes", [])) < 4:
+                    stable["changes"] = fallback_changes
+
         harsh_review = stable.get("harsh_review", {})
         if not isinstance(harsh_review, dict):
             harsh_review = {}
@@ -1058,12 +1126,28 @@ class ResumeRewriter:
         ai_plain_text = str(ai_result.get("plain_text") or "").strip()
         ai_marked = str(ai_result.get("marked_up_resume") or "").strip()
         ai_changes = self._normalize_brutal_changes(ai_result.get("changes"))
+        fallback_plain = str(fallback_result.get("plain_text") or "").strip()
+        fallback_marked = str(fallback_result.get("marked_up_resume") or "").strip()
 
-        if ai_plain_text and len(ai_plain_text) > 80:
+        use_ai_plain = bool(
+            ai_plain_text
+            and len(ai_plain_text) > 80
+            and self._is_materially_different(ai_plain_text, fallback_plain, min_delta=0.008)
+        )
+        use_ai_marked = bool(
+            ai_marked
+            and len(ai_marked) > 80
+            and (
+                self._has_markup_tags(ai_marked)
+                or self._is_materially_different(ai_marked, fallback_marked, min_delta=0.008)
+            )
+        )
+
+        if use_ai_plain:
             merged["plain_text"] = ai_plain_text
-        if ai_marked and len(ai_marked) > 80:
+        if use_ai_marked:
             merged["marked_up_resume"] = ai_marked
-        if ai_changes:
+        if ai_changes and (use_ai_plain or use_ai_marked or len(ai_changes) >= 5):
             merged["changes"] = ai_changes
 
         ai_company = ai_result.get("company_expectations")

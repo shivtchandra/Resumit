@@ -3,6 +3,7 @@ import type { Change } from '@/types';
 
 interface HighlightedResumeProps {
     markedUpText: string;
+    plainText?: string;
     changes: Change[];
 }
 
@@ -95,12 +96,15 @@ const styles = {
     }
 };
 
-export const HighlightedResume = ({ markedUpText, changes }: HighlightedResumeProps) => {
+export const HighlightedResume = ({ markedUpText, plainText, changes }: HighlightedResumeProps) => {
     const [viewMode, setViewMode] = useState<'clean' | 'changes'>('changes');
 
     // Parse marked-up text and render with highlights
     const renderHighlightedText = () => {
         if (viewMode === 'clean') {
+            if (plainText && plainText.trim()) {
+                return plainText;
+            }
             // Remove all tags for clean view
             return markedUpText
                 .replace(/<ADD>/g, '')

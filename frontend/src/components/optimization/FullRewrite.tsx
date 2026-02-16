@@ -134,6 +134,7 @@ export const FullRewrite = () => {
                         <h2 className="text-sm font-black text-brand-secondary tracking-widest uppercase">The Recalibrated Resume</h2>
                     </div>
                     <HighlightedResume
+                        plainText={brutalResult.plain_text}
                         markedUpText={brutalResult.marked_up_resume}
                         changes={brutalResult.changes}
                     />
