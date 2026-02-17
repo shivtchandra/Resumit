@@ -10,6 +10,7 @@ export interface AnalysisResult {
         mode: string;
         tone: string;
         generation_mode?: 'ai' | 'heuristic' | string;
+        candidate_name?: string;
         overall_score: number;
         ats_score: number;
         jd_fit_score?: number | null;
@@ -145,6 +146,12 @@ export interface AnalysisResult {
             after: string;
             reason: string;
             placement?: string;
+        }>;
+        project_domain_coverage?: Array<{
+            project: string;
+            domains: string[];
+            evidence?: string;
+            positioning_tip?: string;
         }>;
     };
     missing_keywords?: string[];

@@ -168,6 +168,8 @@ export const Analysis = () => {
     const extractedProfileUrls = result?.external_profile_intel?.extracted_profile_urls || [];
     const actionPlan = result?.comprehensive_analysis?.action_plan || [];
     const sampleUpgrades = result?.comprehensive_analysis?.sample_resume_upgrades || [];
+    const projectDomains = result?.comprehensive_analysis?.project_domain_coverage || [];
+    const candidateName = result?.analysis_summary?.candidate_name || 'Candidate';
 
     return (
         <PageLayout header={<Navbar />} maxWidth="xl">
@@ -312,6 +314,9 @@ export const Analysis = () => {
                                     <p className="text-sm font-semibold text-indigo-900 italic leading-relaxed">
                                         "{result.roast_report?.role_fit_verdict?.verdict}"
                                     </p>
+                                    <p className="text-xs text-indigo-600 mt-2">
+                                        Candidate profile: <span className="font-black">{candidateName}</span>
+                                    </p>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -341,6 +346,38 @@ export const Analysis = () => {
                                             ))}
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {projectDomains.length > 0 && (
+                            <div className="zen-card p-6 border-l-4 border-l-cyan-400" style={{ background: 'linear-gradient(135deg, #ecfeff 0%, #cffafe 100%)' }}>
+                                <h3 className="text-xs font-black tracking-[0.2em] uppercase text-cyan-700 flex items-center gap-2 mb-4">
+                                    <MaterialIcon icon="hub" size={16} className="text-cyan-600" />
+                                    Project Domain Coverage
+                                </h3>
+                                <p className="text-[11px] text-cyan-700 mb-4 font-medium">
+                                    Domain map built from your project section so recommendations are role-specific, not generic.
+                                </p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {projectDomains.map((item, idx) => (
+                                        <div key={idx} className="p-4 rounded-xl bg-white/80 border border-cyan-200 space-y-2">
+                                            <div className="text-sm font-black text-brand-secondary">{item.project}</div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {item.domains?.map((domain, domainIdx) => (
+                                                    <span key={domainIdx} className="px-2 py-1 rounded-full text-[10px] font-black tracking-wider uppercase bg-cyan-100 text-cyan-700 border border-cyan-200">
+                                                        {domain}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                            {item.evidence && (
+                                                <p className="text-xs text-text-muted leading-relaxed">{item.evidence}</p>
+                                            )}
+                                            {item.positioning_tip && (
+                                                <p className="text-xs text-cyan-700 font-semibold">Tip: {item.positioning_tip}</p>
+                                            )}
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         )}

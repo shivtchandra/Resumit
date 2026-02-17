@@ -11,6 +11,7 @@ import os
 import json
 import logging
 import re
+from difflib import SequenceMatcher
 
 from app.services.ingestion.pdf_parser import PDFParser
 from app.services.ingestion.docx_parser import DOCXParser
@@ -814,6 +815,169 @@ def _unique_non_empty(items: list[Any], limit: int) -> list[str]:
     return cleaned
 
 
+def _unique_non_empty_fuzzy(items: list[Any], limit: int, threshold: float = 0.9) -> list[str]:
+    cleaned: list[str] = []
+    seen: list[str] = []
+    for item in items:
+        text = str(item or "").strip()
+        if not text:
+            continue
+        key = re.sub(r"\s+", " ", text).strip().lower()
+        if any(SequenceMatcher(None, key, prev).ratio() >= threshold for prev in seen):
+            continue
+        seen.append(key)
+        cleaned.append(text)
+        if len(cleaned) >= limit:
+            break
+    return cleaned
+
+
+def _extract_candidate_name(resume_text: str, filename: Optional[str] = None) -> str:
+    lines = [line.strip() for line in (resume_text or "").splitlines() if line.strip()]
+    blocked_tokens = {"summary", "education", "experience", "skills", "projects", "certifications", "participation", "volunteer"}
+
+    for line in lines[:16]:
+        lower = line.lower()
+        if "@" in line or "linkedin" in lower or "github" in lower:
+            continue
+        if re.search(r"\d{3,}", line):
+            continue
+        if len(line) < 3 or len(line) > 48:
+            continue
+        if any(token == lower for token in blocked_tokens):
+            continue
+        if re.fullmatch(r"[A-Za-z][A-Za-z .'\-]{2,}", line):
+            parts = [p for p in re.split(r"\s+", line) if p]
+            if 2 <= len(parts) <= 5:
+                if line.isupper():
+                    return " ".join(p.capitalize() for p in parts)
+                return line
+
+    if filename:
+        base = re.sub(r"\.[A-Za-z0-9]+$", "", filename)
+        base = base.replace("_", " ").replace("-", " ").strip()
+        if base and re.fullmatch(r"[A-Za-z][A-Za-z .'\-]{2,}", base):
+            return base.title()
+    return "Candidate"
+
+
+def _extract_project_titles(resume_text: str, limit: int = 6) -> list[str]:
+    lines = [line.strip() for line in (resume_text or "").splitlines() if line.strip()]
+    if not lines:
+        return []
+
+    start_idx = None
+    for idx, line in enumerate(lines):
+        if re.fullmatch(r"PROJECTS?", line.upper()):
+            start_idx = idx + 1
+            break
+    if start_idx is None:
+        start_idx = 0
+
+    titles: list[str] = []
+    seen = set()
+    for line in lines[start_idx:]:
+        upper = line.upper()
+        if upper in {"CERTIFICATIONS", "PARTICIPATION", "VOLUNTEER EXPERIENCE", "EXPERIENCE", "EDUCATION", "TECHNICAL SKILLS"}:
+            break
+        if re.match(r"^\s*[•●\-\*]\s+", line):
+            continue
+        if ":" in line and len(line) < 32:
+            continue
+        if len(line) < 4 or len(line) > 100:
+            continue
+        if not re.search(r"[A-Za-z]", line):
+            continue
+        candidate = line
+        if "—" in candidate:
+            candidate = candidate.split("—")[0].strip()
+        if "-" in candidate and len(candidate.split("-")) > 1 and len(candidate) < 80:
+            left = candidate.split("-")[0].strip()
+            if len(left.split()) >= 2:
+                candidate = left
+        key = candidate.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        titles.append(candidate)
+        if len(titles) >= limit:
+            break
+    return titles
+
+
+def _infer_domains_for_text(text: str) -> list[str]:
+    lowered = (text or "").lower()
+    domain_rules: list[tuple[str, list[str]]] = [
+        ("CivicTech", ["civic", "community", "crime", "missing persons", "geolocation", "reporting"]),
+        ("Public Safety", ["crime", "fraud", "missing persons", "safety"]),
+        ("EdTech", ["study", "learning", "quiz", "tutor", "academic", "education"]),
+        ("AI/LLM", ["llm", "rag", "langchain", "nlp", "ai-powered", "machine learning"]),
+        ("FinTech", ["stock", "market", "esg", "financial", "trading"]),
+        ("Assistive Tech", ["visually impaired", "accessibility", "audio feedback", "assist"]),
+        ("E-commerce Ops", ["vendor panel", "product management", "vendor workflows", "uploads"]),
+        ("Cloud/DevOps", ["docker", "kubernetes", "ci/cd", "deployment", "cloud"]),
+    ]
+    matched: list[str] = []
+    for domain, patterns in domain_rules:
+        if any(pattern in lowered for pattern in patterns):
+            matched.append(domain)
+    return matched
+
+
+def _build_project_domain_coverage(resume_text: str) -> list[dict]:
+    lines = [line.strip() for line in (resume_text or "").splitlines() if line.strip()]
+    titles = _extract_project_titles(resume_text, limit=6)
+    coverage: list[dict] = []
+    for title in titles:
+        evidence = ""
+        title_idx = next((i for i, line in enumerate(lines) if title.lower() in line.lower()), None)
+        if title_idx is not None:
+            snippet_lines = lines[title_idx:title_idx + 6]
+            evidence = " ".join(snippet_lines)
+        domains = _infer_domains_for_text(f"{title} {evidence}")
+        if not domains:
+            domains = ["General Software"]
+        coverage.append({
+            "project": title,
+            "domains": domains[:3],
+            "evidence": (evidence[:220] + "...") if len(evidence) > 220 else evidence,
+            "positioning_tip": f"Position {title} as {domains[0]} with one impact metric in resume bullets.",
+        })
+    return coverage[:6]
+
+
+def _extract_summary_line(resume_text: str) -> Optional[str]:
+    lines = [line.strip() for line in (resume_text or "").splitlines() if line.strip()]
+    start = None
+    for idx, line in enumerate(lines):
+        if line.upper() == "SUMMARY":
+            start = idx + 1
+            break
+    if start is None:
+        return None
+    for line in lines[start:start + 8]:
+        if len(line) >= 20 and not re.fullmatch(r"[A-Z][A-Z0-9\s&/\-]{2,}", line):
+            return line
+    return None
+
+
+def _extract_experience_bullet_line(resume_text: str) -> Optional[str]:
+    lines = [line.strip() for line in (resume_text or "").splitlines() if line.strip()]
+    in_experience = False
+    for line in lines:
+        upper = line.upper()
+        if upper == "EXPERIENCE":
+            in_experience = True
+            continue
+        if in_experience and upper in {"PROJECTS", "CERTIFICATIONS", "PARTICIPATION", "VOLUNTEER EXPERIENCE", "EDUCATION"}:
+            break
+        if in_experience and re.match(r"^[•●\-\*]\s+", line):
+            cleaned = re.sub(r"^[•●\-\*]\s*", "", line).strip()
+            if len(cleaned) >= 20:
+                return cleaned
+    return None
+
+
 _ROLE_PLACEHOLDER_TOKENS = {
     "detected role",
     "role 1",
@@ -1035,6 +1199,8 @@ def build_ai_roast_only(
     job_description: Optional[str],
     company_name: Optional[str],
     target_role: Optional[str],
+    candidate_name: Optional[str],
+    project_domain_coverage: list[dict],
     feedback_tone: str,
     friendliness_score: float,
     match_score: Optional[float],
@@ -1058,6 +1224,7 @@ def build_ai_roast_only(
     evidence_lines = _sentences(resume_text)[:10]
 
     prompt_payload = {
+        "candidate_name": candidate_name or "Candidate",
         "target_role": target_role or "unknown",
         "company_name": company,
         "feedback_tone": feedback_tone,
@@ -1069,6 +1236,7 @@ def build_ai_roast_only(
         "job_description_excerpt": (job_description or "")[:1200],
         "resume_excerpt": (resume_text or "")[:2400],
         "evidence_lines": evidence_lines,
+        "project_domain_coverage": project_domain_coverage[:6],
     }
 
     prompt = f"""You are a senior hiring manager and resume diagnostician.
@@ -1129,6 +1297,7 @@ Return STRICT JSON only with this exact shape:
 
 Rules:
 - Every item must use evidence from input (resume lines, risk flags, profile signals).
+- Use candidate_name in at least one hard truth and one priority fix.
 - If job_description is empty:
   - Do NOT invent JD keyword gap output.
   - Do NOT produce generic cert recommendations.
@@ -1279,6 +1448,8 @@ def build_roast_report(
     ats_extracted: dict,
     job_description: Optional[str],
     target_role: Optional[str] = None,
+    candidate_name: Optional[str] = None,
+    project_domain_coverage: Optional[list[dict]] = None,
     has_linkedin_signal: Optional[bool] = None,
     has_github_signal: Optional[bool] = None,
 ) -> dict:
@@ -1286,6 +1457,7 @@ def build_roast_report(
     weaknesses: list[str] = []
     hard_truths: list[str] = []
     priority_fixes: list[str] = []
+    name = (candidate_name or "Candidate").strip() or "Candidate"
 
     raw_text = ats_extracted.get("raw_text", "") or ""
     skills_list = [str(s).strip() for s in (ats_extracted.get("skills", []) or []) if str(s).strip()]
@@ -1300,8 +1472,11 @@ def build_roast_report(
     line_samples = [line.strip() for line in raw_text.splitlines() if line.strip()]
     label_heavy_lines = [
         line for line in line_samples
-        if re.match(r"(?i)^[•\-\*]?\s*(objective|description|key contributions|technologies used|outcome)\s*:", line)
+        if re.match(r"(?i)^[•●\-\*]?\s*(objective|description|key contributions|technologies used|outcome)\s*:", line)
     ]
+    summary_line = _extract_summary_line(raw_text)
+    experience_bullet = _extract_experience_bullet_line(raw_text)
+    domain_coverage = project_domain_coverage or _build_project_domain_coverage(raw_text)
 
     if features.get("email_found"):
         strengths.append("You included an email address, so ATS can route your application correctly.")
@@ -1321,13 +1496,18 @@ def build_roast_report(
 
     if len(quantified_bullets) < 4:
         weaknesses.append("Too few bullets show measurable impact across projects/internships.")
-        hard_truths.append("Without metrics, even real work looks generic and low-impact in screening.")
+        hard_truths.append(f"{name}, without metrics, even real work looks generic and low-impact in screening.")
         priority_fixes.append("Rewrite top bullets to include numbers, latency/time improvements, or user/business outcomes.")
 
     if not summary_ok:
         weaknesses.append("Top summary lines are generic and do not immediately establish role-fit evidence.")
-        hard_truths.append("If your first 6 lines are vague, most recruiters stop reading there.")
-        priority_fixes.append("Replace summary with role focus + strongest proof line from experience/projects.")
+        hard_truths.append(f"{name}, if your first 6 lines are vague, most recruiters stop reading there.")
+        if summary_line:
+            priority_fixes.append(
+                f"Replace summary line \"{summary_line[:120]}\" with role + metric + scope."
+            )
+        else:
+            priority_fixes.append("Replace summary with role focus + strongest proof line from experience/projects.")
 
     risk_flags = set(features.get("risk_flags", []))
     if "DETECTED_TEXT_TABLES" in risk_flags:
@@ -1353,6 +1533,12 @@ def build_roast_report(
         hard_truths.append("For technical roles, no GitHub proof makes skill claims harder to trust.")
         priority_fixes.append("Add GitHub profile URL in header and showcase 2-3 strongest repos.")
 
+    if experience_bullet and re.search(r"(?i)\b(worked on|responsible for|helped)\b", experience_bullet):
+        weaknesses.append("At least one key experience bullet is responsibility-heavy instead of impact-focused.")
+        priority_fixes.append(
+            f"Rewrite this bullet with outcome metric: \"{experience_bullet[:120]}\"."
+        )
+
     friendliness_score = friendliness_result.get("score", 0)
     if friendliness_score < 60:
         hard_truths.append("Current ATS quality is likely too low for consistent callbacks.")
@@ -1374,6 +1560,17 @@ def build_roast_report(
     else:
         strengths.append("Analyze mode is running in no-JD diagnostic mode by design (structure + signal focus).")
         priority_fixes.append("After structural fixes, run Match & Fix with one target JD for role-specific tuning.")
+
+    if domain_coverage:
+        domain_summary = []
+        for item in domain_coverage[:3]:
+            project = str(item.get("project", "")).strip()
+            domains = ", ".join(item.get("domains", [])[:2]) if isinstance(item.get("domains"), list) else ""
+            if project and domains:
+                domain_summary.append(f"{project} -> {domains}")
+        if domain_summary:
+            strengths.append(f"Project domain coverage detected: {'; '.join(domain_summary)}.")
+            priority_fixes.append("Prioritize one primary project domain narrative aligned to your target role.")
 
     # Build loopholes with meaningful defaults (no blank/generic filler).
     resume_loopholes: list[str] = []
@@ -1431,13 +1628,13 @@ def build_roast_report(
     weaknesses = _unique_non_empty(weaknesses + [
         "Current narrative still under-communicates ownership and measurable impact."
     ], 8)
-    hard_truths = _unique_non_empty(hard_truths + [
+    hard_truths = _unique_non_empty_fuzzy(hard_truths + [
         "If a recruiter cannot quickly see ownership + metric + outcome, they move to the next resume."
-    ], 6)
-    priority_fixes = _unique_non_empty(priority_fixes + [
+    ], 6, threshold=0.92)
+    priority_fixes = _unique_non_empty_fuzzy(priority_fixes + [
         "Rewrite the top 5 bullets in action + scope + metric + outcome format.",
         "Keep only role-relevant lines and remove low-signal filler.",
-    ], 8)
+    ], 8, threshold=0.88)
     resume_loopholes = _unique_non_empty(resume_loopholes, 5)
     should_remove = _unique_non_empty(should_remove, 5)
 
@@ -1459,42 +1656,50 @@ def _merge_roast_reports(base: dict, candidate: Optional[dict]) -> dict:
         return base
 
     merged = {
-        "strengths": _unique_non_empty(
+        "strengths": _unique_non_empty_fuzzy(
             (candidate.get("strengths", []) or []) + (base.get("strengths", []) or []),
             6,
+            threshold=0.93,
         ),
-        "weaknesses": _unique_non_empty(
+        "weaknesses": _unique_non_empty_fuzzy(
             (candidate.get("weaknesses", []) or []) + (base.get("weaknesses", []) or []),
             8,
+            threshold=0.9,
         ),
-        "hard_truths": _unique_non_empty(
+        "hard_truths": _unique_non_empty_fuzzy(
             (candidate.get("hard_truths", []) or []) + (base.get("hard_truths", []) or []),
             6,
+            threshold=0.9,
         ),
-        "priority_fixes": _unique_non_empty(
+        "priority_fixes": _unique_non_empty_fuzzy(
             (candidate.get("priority_fixes", []) or []) + (base.get("priority_fixes", []) or []),
             8,
+            threshold=0.86,
         ),
-        "resume_loopholes": _unique_non_empty(
+        "resume_loopholes": _unique_non_empty_fuzzy(
             (candidate.get("resume_loopholes", []) or []) + (base.get("resume_loopholes", []) or []),
             5,
+            threshold=0.9,
         ),
-        "should_remove": _unique_non_empty(
+        "should_remove": _unique_non_empty_fuzzy(
             (candidate.get("should_remove", []) or []) + (base.get("should_remove", []) or []),
             5,
+            threshold=0.9,
         ),
     }
 
     base_role = base.get("role_fit_verdict", {}) if isinstance(base.get("role_fit_verdict"), dict) else {}
     cand_role = candidate.get("role_fit_verdict", {}) if isinstance(candidate.get("role_fit_verdict"), dict) else {}
     merged["role_fit_verdict"] = {
-        "best_fit_roles": _unique_non_empty(
+        "best_fit_roles": _unique_non_empty_fuzzy(
             (cand_role.get("best_fit_roles", []) or []) + (base_role.get("best_fit_roles", []) or []),
             3,
+            threshold=0.92,
         ),
-        "weak_fit_roles": _unique_non_empty(
+        "weak_fit_roles": _unique_non_empty_fuzzy(
             (cand_role.get("weak_fit_roles", []) or []) + (base_role.get("weak_fit_roles", []) or []),
             3,
+            threshold=0.9,
         ),
         "verdict": str(cand_role.get("verdict") or base_role.get("verdict") or "").strip(),
     }
@@ -1814,28 +2019,41 @@ def _build_detailed_action_plan(
     return plan[:5]
 
 
-def _build_sample_resume_upgrades(missing_tech: list[str]) -> list[dict]:
+def _build_sample_resume_upgrades(
+    resume_text: str,
+    missing_tech: list[str],
+    candidate_name: Optional[str] = None,
+    project_domain_coverage: Optional[list[dict]] = None,
+) -> list[dict]:
+    name = (candidate_name or "Candidate").strip() or "Candidate"
+    summary_line = _extract_summary_line(resume_text) or "Aspiring engineer with strong technical skills."
+    exp_line = _extract_experience_bullet_line(resume_text) or "Worked on vendor panel improvements."
+    domains = project_domain_coverage or _build_project_domain_coverage(resume_text)
+
     examples = [
         {
             "area": "Summary",
-            "before": "Aspiring engineer with strong technical skills.",
-            "after": "Software Engineer focused on React + Node systems, delivered vendor workflow improvements with measurable performance gains.",
-            "reason": "Adds role focus + concrete evidence instead of generic claim.",
+            "before": summary_line,
+            "after": f"{name} is a Software Engineer focused on React + Node delivery, with measurable execution outcomes and production-ready project evidence.",
+            "reason": "Personalizes the opening and moves from vague intent to role + proof framing.",
         },
         {
             "area": "Experience Bullet",
-            "before": "Worked on vendor panel improvements.",
-            "after": "Built vendor panel workflow improvements in React/Node, cutting image-upload handling time by 30%.",
-            "reason": "Uses action + stack + metric + outcome format.",
+            "before": exp_line,
+            "after": f"Owned {re.sub(r'(?i)^(worked on|responsible for|helped)\\s+', '', exp_line).strip()}, improving [metric] by [X%] across [scope].",
+            "reason": "Converts responsibility language into ownership + measurable impact format.",
         },
     ]
     if missing_tech:
         skill = missing_tech[0]
+        project_hint = ""
+        if domains:
+            project_hint = str(domains[0].get("project", "")).strip()
         examples.append({
             "area": "Skills to Project Link",
             "before": f"Skills: {skill}",
-            "after": f"{skill}: Applied in [project-name], where I solved [problem] and improved [metric].",
-            "reason": "Turns isolated skill listing into defensible project evidence.",
+            "after": f"{skill}: Applied in {project_hint or '[project-name]'}, where I solved [problem] and improved [metric].",
+            "reason": "Turns isolated skill listing into defensible, domain-linked project evidence.",
         })
     return examples[:3]
 
@@ -1844,12 +2062,16 @@ def build_comprehensive_guidance(
     resume_text: str,
     job_description: Optional[str],
     target_role: Optional[str],
+    candidate_name: Optional[str] = None,
+    project_domain_coverage: Optional[list[dict]] = None,
     has_linkedin_url: bool = False,
     has_github_url: bool = False,
 ) -> dict:
     has_jd = bool((job_description or "").strip())
     analyzer = get_comprehensive_analyzer()
     resume_lower = (resume_text or "").lower()
+    name = (candidate_name or "Candidate").strip() or "Candidate"
+    domains = project_domain_coverage or _build_project_domain_coverage(resume_text)
 
     if not has_jd:
         baseline_role_signals = _extract_jd_interview_signals(_fallback_jd_for_role(target_role), limit=8)
@@ -1859,6 +2081,14 @@ def build_comprehensive_guidance(
         ][:5]
         cert_recs = _recommend_certs_from_resume_evidence(analyzer, resume_text, target_role)
         actionable_lines = []
+        if domains:
+            mapped = [
+                f"{item.get('project', 'Project')} ({', '.join(item.get('domains', [])[:2])})"
+                for item in domains[:3]
+                if isinstance(item, dict)
+            ]
+            if mapped:
+                actionable_lines.append(f"{name}, your project domain map: {', '.join(mapped)}.")
         if no_jd_missing_tech:
             actionable_lines.append(
                 f"No-JD role baseline gaps to consider: {', '.join(no_jd_missing_tech[:4])}."
@@ -1887,7 +2117,13 @@ def build_comprehensive_guidance(
             "certification_recommendations": cert_recs,
             "actionable_recommendations": actionable_lines[:8],
             "action_plan": action_plan,
-            "sample_resume_upgrades": _build_sample_resume_upgrades(no_jd_missing_tech),
+            "sample_resume_upgrades": _build_sample_resume_upgrades(
+                resume_text=resume_text,
+                missing_tech=no_jd_missing_tech,
+                candidate_name=name,
+                project_domain_coverage=domains,
+            ),
+            "project_domain_coverage": domains,
         }
 
     try:
@@ -1903,6 +2139,7 @@ def build_comprehensive_guidance(
             "actionable_recommendations": [],
             "action_plan": [],
             "sample_resume_upgrades": [],
+            "project_domain_coverage": domains,
         }
 
     missing_skills = raw.get("missing_skills", {}) if isinstance(raw, dict) else {}
@@ -1944,7 +2181,22 @@ def build_comprehensive_guidance(
         has_linkedin_url=has_linkedin_url,
         has_github_url=has_github_url,
     )
-    sample_resume_upgrades = _build_sample_resume_upgrades(normalized_missing_tech)
+    sample_resume_upgrades = _build_sample_resume_upgrades(
+        resume_text=resume_text,
+        missing_tech=normalized_missing_tech,
+        candidate_name=name,
+        project_domain_coverage=domains,
+    )
+    actionable_lines = _unique_non_empty(
+        actionable_lines + (
+            [f"{name}, project domains detected: " + ", ".join(
+                f"{item.get('project', 'Project')}->{'/'.join(item.get('domains', [])[:2])}"
+                for item in domains[:3]
+                if isinstance(item, dict)
+            )] if domains else []
+        ),
+        8,
+    )
 
     return {
         "missing_keywords": normalized_missing_keywords[:12],
@@ -1954,6 +2206,7 @@ def build_comprehensive_guidance(
         "actionable_recommendations": actionable_lines[:8],
         "action_plan": action_plan,
         "sample_resume_upgrades": sample_resume_upgrades,
+        "project_domain_coverage": domains,
     }
 
 
@@ -2090,6 +2343,8 @@ async def full_analysis(
         feature_extractor = get_feature_extractor()
         features = feature_extractor.extract_features(parsing_result)
         resume_text = parsing_result.get("raw_text", "")
+        candidate_name = _extract_candidate_name(resume_text, file.filename)
+        project_domain_coverage = _build_project_domain_coverage(resume_text)
         extracted_urls = [str(u).strip() for u in (parsing_result.get("extracted_urls") or []) if str(u).strip()]
         profile_source_text = "\n".join([resume_text] + extracted_urls)
         detected_profiles = extract_profile_links(profile_source_text)
@@ -2169,6 +2424,8 @@ async def full_analysis(
             ats_extracted=ats_extracted,
             job_description=job_description,
             target_role=target_role,
+            candidate_name=candidate_name,
+            project_domain_coverage=project_domain_coverage,
             has_linkedin_signal=bool(resolved_linkedin_url),
             has_github_signal=bool(resolved_github),
         )
@@ -2186,6 +2443,8 @@ async def full_analysis(
                     job_description,
                     company_name,
                     target_role,
+                    candidate_name,
+                    project_domain_coverage,
                     feedback_tone,
                     friendliness_score,
                     match_score,
@@ -2274,6 +2533,8 @@ async def full_analysis(
             resume_text=resume_text,
             job_description=job_description,
             target_role=target_role,
+            candidate_name=candidate_name,
+            project_domain_coverage=project_domain_coverage,
             has_linkedin_url=bool(resolved_linkedin_url),
             has_github_url=bool(resolved_github),
         )
@@ -2337,18 +2598,20 @@ async def full_analysis(
             })
 
         # Final guardrails: never ship blank critical roast sections.
-        roast_report["hard_truths"] = _unique_non_empty(
+        roast_report["hard_truths"] = _unique_non_empty_fuzzy(
             (roast_report.get("hard_truths", []) or []) + [
-                "If ownership and measurable impact are unclear, callbacks drop sharply."
+                f"{candidate_name}, if ownership and measurable impact are unclear, callbacks drop sharply."
             ],
             6,
+            threshold=0.92,
         )
-        roast_report["priority_fixes"] = _unique_non_empty(
+        roast_report["priority_fixes"] = _unique_non_empty_fuzzy(
             (roast_report.get("priority_fixes", []) or []) + [
                 "Rewrite top bullets with action + scope + metric + outcome.",
                 "Keep only role-relevant lines and remove generic filler language.",
             ],
             8,
+            threshold=0.88,
         )
         role_verdict = roast_report.get("role_fit_verdict", {})
         if not isinstance(role_verdict, dict):
@@ -2378,6 +2641,7 @@ async def full_analysis(
                 "mode": analysis_mode,
                 "tone": feedback_tone,
                 "generation_mode": ai_generation_mode,
+                "candidate_name": candidate_name,
                 "overall_score": overall_score,
                 "ats_score": friendliness_score,
                 "jd_fit_score": match_score,
