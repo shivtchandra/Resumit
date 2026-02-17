@@ -9,6 +9,7 @@ import os
 import asyncio
 import tempfile
 import logging
+import re
 from pathlib import Path
 
 # Import services
@@ -73,6 +74,53 @@ def get_comprehensive_analyzer():
     if 'comprehensive_analyzer' not in _rewrite_services:
         _rewrite_services['comprehensive_analyzer'] = ComprehensiveAnalyzer()
     return _rewrite_services['comprehensive_analyzer']
+
+
+def _normalize_url(url: str) -> str:
+    cleaned = str(url or "").strip().rstrip(".,);")
+    if not cleaned:
+        return ""
+    if cleaned.startswith(("http://", "https://")):
+        return cleaned
+    return f"https://{cleaned}"
+
+
+def _extract_profile_urls(raw_text: str, extracted_urls: Optional[List[str]] = None) -> Dict[str, Optional[str]]:
+    source_text = raw_text or ""
+    links = [str(url).strip() for url in (extracted_urls or []) if str(url).strip()]
+    if links:
+        source_text = "\n".join([source_text] + links)
+    compact_text = re.sub(r"\s+", "", source_text)
+
+    linkedin_url: Optional[str] = None
+    github_url: Optional[str] = None
+
+    linkedin_pattern = r"(?:https?://)?(?:www\.)?linkedin\.com/(?:in|pub)/[A-Za-z0-9\-_/%]+/?"
+    linkedin_match = re.search(linkedin_pattern, source_text, re.IGNORECASE)
+    if not linkedin_match:
+        linkedin_match = re.search(linkedin_pattern, compact_text, re.IGNORECASE)
+    if linkedin_match:
+        linkedin_url = _normalize_url(linkedin_match.group(0))
+
+    blocked_handles = {
+        "features", "topics", "orgs", "organizations", "enterprise", "about", "events",
+        "marketplace", "settings", "login", "signup", "pricing", "explore", "site", "contact",
+    }
+    github_pattern = r"(?:https?://)?(?:www\.)?github\.com/([A-Za-z0-9-]{1,39})(?:/[A-Za-z0-9_.-]+)?/?"
+    for match in re.finditer(github_pattern, source_text, re.IGNORECASE):
+        username = (match.group(1) or "").strip()
+        if not username or username.lower() in blocked_handles:
+            continue
+        github_url = _normalize_url(f"github.com/{username}")
+        break
+    if not github_url:
+        compact_match = re.search(github_pattern, compact_text, re.IGNORECASE)
+        if compact_match:
+            username = (compact_match.group(1) or "").strip()
+            if username and username.lower() not in blocked_handles:
+                github_url = _normalize_url(f"github.com/{username}")
+
+    return {"linkedin_url": linkedin_url, "github_url": github_url}
 
 
 class RewriteSectionRequest(BaseModel):
@@ -386,6 +434,10 @@ async def rewrite_with_brutal_feedback(
         
         parsing_result = parser.parse(file_bytes)
         original_text = parsing_result.get("raw_text", "")
+        extracted_urls = [str(url).strip() for url in (parsing_result.get("extracted_urls") or []) if str(url).strip()]
+        detected_profiles = _extract_profile_urls(original_text, extracted_urls)
+        detected_linkedin_url = detected_profiles.get("linkedin_url")
+        detected_github_url = detected_profiles.get("github_url")
         
         if not original_text:
             raise HTTPException(status_code=400, detail="Could not extract text from resume")
@@ -404,6 +456,8 @@ async def rewrite_with_brutal_feedback(
                     original_text,
                     job_description,
                     company_name,
+                    detected_linkedin_url=detected_linkedin_url,
+                    detected_github_url=detected_github_url,
                 ),
                 timeout=brutal_timeout,
             )
@@ -419,6 +473,8 @@ async def rewrite_with_brutal_feedback(
                         original_text,
                         job_description,
                         company_name,
+                        detected_linkedin_url=detected_linkedin_url,
+                        detected_github_url=detected_github_url,
                     ),
                     timeout=fallback_timeout,
                 )
@@ -475,7 +531,9 @@ async def rewrite_with_brutal_feedback(
             "interview_prep": brutal_result.get("interview_prep", {}),
             "generation_mode": brutal_result.get("generation_mode", "fallback"),
             "warnings": warnings,
-            "original_text": original_text
+            "original_text": original_text,
+            "detected_linkedin_url": detected_linkedin_url,
+            "detected_github_url": detected_github_url,
         }
         
     except Exception as e:

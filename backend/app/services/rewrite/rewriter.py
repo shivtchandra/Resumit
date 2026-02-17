@@ -316,12 +316,16 @@ class ResumeRewriter:
         original_resume_text: str,
         job_description: str,
         company_name: Optional[str] = None,
+        detected_linkedin_url: Optional[str] = None,
+        detected_github_url: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Run AI brutal review when available, otherwise return deterministic practical feedback."""
         fallback_result = self._fallback_brutal_review(
             original_resume_text=original_resume_text,
             job_description=job_description,
             company_name=company_name,
+            detected_linkedin_url=detected_linkedin_url,
+            detected_github_url=detected_github_url,
         )
 
         if self.ai_client and hasattr(self.ai_client, "rewrite_with_brutal_review"):
@@ -347,6 +351,8 @@ class ResumeRewriter:
                     result=merged,
                     original_resume_text=original_resume_text,
                     job_description=job_description,
+                    detected_linkedin_url=detected_linkedin_url,
+                    detected_github_url=detected_github_url,
                 )
 
                 if not self._is_valid_brutal_result(merged):
@@ -371,6 +377,8 @@ class ResumeRewriter:
             result=fallback_result,
             original_resume_text=original_resume_text,
             job_description=job_description,
+            detected_linkedin_url=detected_linkedin_url,
+            detected_github_url=detected_github_url,
         )
         return fallback_result
 
@@ -426,6 +434,8 @@ class ResumeRewriter:
         original_resume_text: str,
         job_description: str,
         company_name: Optional[str] = None,
+        detected_linkedin_url: Optional[str] = None,
+        detected_github_url: Optional[str] = None,
     ) -> Dict[str, Any]:
         lines = [line.strip() for line in original_resume_text.splitlines() if line.strip()]
         bullet_lines = [line for line in lines if line.startswith(("-", "•", "*")) or len(line) > 35]
@@ -440,13 +450,19 @@ class ResumeRewriter:
             line for line in bullet_lines
             if re.match(r"(?i)^[•\-\*]?\s*(objective|description|key contributions|technologies used|outcome)\s*:", line)
         ]
-        has_linkedin = bool(re.search(r"(?:https?://)?(?:www\.)?linkedin\.com/in/", original_resume_text, re.IGNORECASE))
-        has_github = bool(re.search(r"(?:https?://)?(?:www\.)?github\.com/[A-Za-z0-9-]+", original_resume_text, re.IGNORECASE))
+        has_linkedin = bool(detected_linkedin_url) or bool(
+            re.search(r"(?:https?://)?(?:www\.)?linkedin\.com/in/", original_resume_text, re.IGNORECASE)
+        )
+        has_github = bool(detected_github_url) or bool(
+            re.search(r"(?:https?://)?(?:www\.)?github\.com/[A-Za-z0-9-]+", original_resume_text, re.IGNORECASE)
+        )
         evidence_lines = self._extract_evidence_lines(original_resume_text, limit=6)
 
         plain_text, marked_up_resume, structured_changes = self._build_deterministic_rewrite(
             original_resume_text=original_resume_text,
             job_description=job_description,
+            detected_linkedin_url=detected_linkedin_url,
+            detected_github_url=detected_github_url,
         )
 
         strengths = []
@@ -868,17 +884,64 @@ class ResumeRewriter:
         self,
         original_resume_text: str,
         job_description: str,
+        detected_linkedin_url: Optional[str] = None,
+        detected_github_url: Optional[str] = None,
     ) -> Tuple[str, str, List[Dict[str, Any]]]:
+        def _clean_profile_url(raw_url: Optional[str], platform: str) -> Optional[str]:
+            value = str(raw_url or "").strip().rstrip(".,);")
+            if not value:
+                return None
+            if not value.lower().startswith(("http://", "https://")):
+                value = f"https://{value}"
+            if platform == "linkedin":
+                match = re.search(
+                    r"(?:https?://)?(?:www\.)?linkedin\.com/(?:in|pub)/[A-Za-z0-9\-_/%]+/?",
+                    value,
+                    re.IGNORECASE,
+                )
+                if not match:
+                    return None
+                cleaned = match.group(0)
+            else:
+                match = re.search(
+                    r"(?:https?://)?(?:www\.)?github\.com/([A-Za-z0-9-]{1,39})(?:/[A-Za-z0-9_.-]+)?/?",
+                    value,
+                    re.IGNORECASE,
+                )
+                if not match:
+                    return None
+                cleaned = f"github.com/{match.group(1)}"
+            cleaned = re.sub(r"^https?://(?:www\.)?", "", cleaned, flags=re.IGNORECASE).rstrip("/")
+            return cleaned
+
         lines = original_resume_text.splitlines()
         missing_keywords = self._derive_missing_jd_signals(
             job_description=job_description,
             resume_text=original_resume_text,
             limit=4,
         )
-        resume_lower = original_resume_text.lower()
-
-        has_linkedin = bool(re.search(r"(?:https?://)?(?:www\.)?linkedin\.com/(?:in|pub)/", resume_lower))
-        has_github = bool(re.search(r"(?:https?://)?(?:www\.)?github\.com/[a-z0-9-]+", resume_lower))
+        linkedin_match = re.search(
+            r"(?:https?://)?(?:www\.)?linkedin\.com/(?:in|pub)/[A-Za-z0-9\-_/%]+/?",
+            original_resume_text,
+            re.IGNORECASE,
+        )
+        github_match = re.search(
+            r"(?:https?://)?(?:www\.)?github\.com/([A-Za-z0-9-]{1,39})(?:/[A-Za-z0-9_.-]+)?/?",
+            original_resume_text,
+            re.IGNORECASE,
+        )
+        resolved_linkedin_url = _clean_profile_url(
+            linkedin_match.group(0) if linkedin_match else detected_linkedin_url,
+            "linkedin",
+        )
+        resolved_github_url = _clean_profile_url(
+            github_match.group(0) if github_match else detected_github_url,
+            "github",
+        )
+        default_linkedin_url = "linkedin.com/in/yourname"
+        default_github_url = "github.com/yourname"
+        has_linkedin = bool(linkedin_match)
+        has_github = bool(github_match)
 
         updated_lines: List[str] = []
         marked_lines: List[str] = []
@@ -900,22 +963,22 @@ class ResumeRewriter:
             marked_line = raw
 
             is_header_band = idx < 8
-            if is_header_band and stripped and ("@" in stripped or "|" in stripped):
+            if is_header_band and stripped and ("@" in stripped or "|" in stripped or re.search(r"(?i)\b(linkedin|github)\b", stripped)):
                 replaced_placeholder = False
                 placeholder_line = raw
-                if not has_linkedin and re.search(r"\blinkedin\b", placeholder_line, re.IGNORECASE):
+                if re.search(r"\blinkedin\b", placeholder_line, re.IGNORECASE) and "linkedin.com" not in placeholder_line.lower():
                     placeholder_line = re.sub(
                         r"(?i)\blinkedin\b",
-                        "LinkedIn: linkedin.com/in/yourname",
+                        f"LinkedIn: {resolved_linkedin_url or default_linkedin_url}",
                         placeholder_line,
                         count=1,
                     )
                     has_linkedin = True
                     replaced_placeholder = True
-                if not has_github and re.search(r"\bgithub\b", placeholder_line, re.IGNORECASE):
+                if re.search(r"\bgithub\b", placeholder_line, re.IGNORECASE) and "github.com" not in placeholder_line.lower():
                     placeholder_line = re.sub(
                         r"(?i)\bgithub\b",
-                        "GitHub: github.com/yourname",
+                        f"GitHub: {resolved_github_url or default_github_url}",
                         placeholder_line,
                         count=1,
                     )
@@ -935,9 +998,9 @@ class ResumeRewriter:
 
                 additions: List[str] = []
                 if not has_linkedin:
-                    additions.append("LinkedIn: linkedin.com/in/yourname")
+                    additions.append(f"LinkedIn: {resolved_linkedin_url or default_linkedin_url}")
                 if not has_github:
-                    additions.append("GitHub: github.com/yourname")
+                    additions.append(f"GitHub: {resolved_github_url or default_github_url}")
                 if additions:
                     addition_text = " | " + " | ".join(additions)
                     base_line = plain_line
@@ -960,19 +1023,38 @@ class ResumeRewriter:
                 bullet_prefix = bullet_match.group(1)
                 bullet_body = bullet_match.group(2).strip()
                 rewritten_body = bullet_body
+                section_upper = section.upper() if section else ""
+                is_skills_section = "SKILL" in section_upper
+                is_execution_section = any(
+                    token in section_upper
+                    for token in ("EXPERIENCE", "PROJECT", "INTERNSHIP", "WORK", "VOLUNTEER", "PARTICIPATION")
+                )
 
-                rewritten_body = re.sub(r"(?i)^responsible for\s+", "Owned ", rewritten_body)
-                rewritten_body = re.sub(r"(?i)^worked on\s+", "Built and improved ", rewritten_body)
-                rewritten_body = re.sub(r"(?i)^helped\s+", "Contributed to ", rewritten_body)
-                rewritten_body = re.sub(r"(?i)^objective\s*:\s*", "Scope: ", rewritten_body)
-                rewritten_body = re.sub(r"(?i)^key contributions\s*:\s*", "Owned: ", rewritten_body)
-                rewritten_body = re.sub(r"(?i)^description\s*:\s*", "Impact: ", rewritten_body)
-                rewritten_body = re.sub(r"(?i)^technologies used\s*:\s*", "Stack: ", rewritten_body)
-                rewritten_body = re.sub(r"(?i)^outcome\s*:\s*", "Outcome: ", rewritten_body)
+                if is_skills_section:
+                    # Skills bullets should stay taxonomy-style, not action-verb style.
+                    rewritten_body = re.sub(r"(?i)^delivered\s+", "", rewritten_body)
+                    rewritten_body = re.sub(r"(?i)^(scope|owned|impact|stack|outcome)\s*:\s*", "", rewritten_body)
+                else:
+                    rewritten_body = re.sub(r"(?i)^responsible for\s+", "Owned ", rewritten_body)
+                    rewritten_body = re.sub(r"(?i)^worked on\s+", "Built and improved ", rewritten_body)
+                    rewritten_body = re.sub(r"(?i)^helped\s+", "Contributed to ", rewritten_body)
+                    rewritten_body = re.sub(r"(?i)^objective\s*:\s*", "Scope: ", rewritten_body)
+                    rewritten_body = re.sub(r"(?i)^key contributions\s*:\s*", "Owned: ", rewritten_body)
+                    rewritten_body = re.sub(r"(?i)^description\s*:\s*", "Impact: ", rewritten_body)
+                    rewritten_body = re.sub(r"(?i)^technologies used\s*:\s*", "Stack: ", rewritten_body)
+                    rewritten_body = re.sub(r"(?i)^outcome\s*:\s*", "Outcome: ", rewritten_body)
                 rewritten_body = re.sub(r"\s{2,}", " ", rewritten_body).strip()
 
                 is_label_bullet = bool(re.match(r"(?i)^(scope|owned|impact|stack|outcome)\s*:", rewritten_body))
-                if not is_label_bullet and not re.match(r"(?i)^(built|led|designed|implemented|optimized|delivered|developed|created|owned|managed|launched|improved)\b", rewritten_body):
+                if (
+                    is_execution_section
+                    and not is_skills_section
+                    and not is_label_bullet
+                    and not re.match(
+                        r"(?i)^(built|led|designed|implemented|optimized|delivered|developed|created|owned|managed|launched|improved|automated|shipped)\b",
+                        rewritten_body,
+                    )
+                ):
                     rewritten_body = f"Delivered {rewritten_body[:1].lower()}{rewritten_body[1:]}" if rewritten_body else rewritten_body
 
                 if rewritten_body != bullet_body:
@@ -984,7 +1066,11 @@ class ResumeRewriter:
                         "type": "rewrite",
                         "before": bullet_body,
                         "after": rewritten_body,
-                        "reason": "Tightened phrasing to emphasize ownership, impact, and readability.",
+                        "reason": (
+                            "Normalized skills wording to avoid generic action-verb noise."
+                            if is_skills_section
+                            else "Tightened phrasing to emphasize ownership, impact, and readability."
+                        ),
                         "jd_signal": "Cleaner bullets improve recruiter comprehension in first-pass scans.",
                     })
 
@@ -994,9 +1080,9 @@ class ResumeRewriter:
         if not profile_hint_added and (not has_linkedin or not has_github):
             append_items: List[str] = []
             if not has_linkedin:
-                append_items.append("LinkedIn: linkedin.com/in/yourname")
+                append_items.append(f"LinkedIn: {resolved_linkedin_url or default_linkedin_url}")
             if not has_github:
-                append_items.append("GitHub: github.com/yourname")
+                append_items.append(f"GitHub: {resolved_github_url or default_github_url}")
             if append_items:
                 addition = " | ".join(append_items)
                 updated_lines.insert(0, addition)
@@ -1054,6 +1140,8 @@ class ResumeRewriter:
         result: Dict[str, Any],
         original_resume_text: str,
         job_description: str,
+        detected_linkedin_url: Optional[str] = None,
+        detected_github_url: Optional[str] = None,
     ) -> Dict[str, Any]:
         stable = deepcopy(result) if isinstance(result, dict) else {}
 
@@ -1070,6 +1158,8 @@ class ResumeRewriter:
             fallback_plain, fallback_marked, fallback_changes = self._build_deterministic_rewrite(
                 original_resume_text=plain_text or original_resume_text,
                 job_description=job_description,
+                detected_linkedin_url=detected_linkedin_url,
+                detected_github_url=detected_github_url,
             )
             if plain_text.strip() == original_resume_text.strip():
                 plain_text = fallback_plain
@@ -1097,6 +1187,8 @@ class ResumeRewriter:
             fallback_plain, fallback_marked, fallback_changes = self._build_deterministic_rewrite(
                 original_resume_text=original_resume_text,
                 job_description=job_description,
+                detected_linkedin_url=detected_linkedin_url,
+                detected_github_url=detected_github_url,
             )
             if self._is_materially_different(fallback_plain, original_resume_text, min_delta=0.005):
                 stable["plain_text"] = fallback_plain
