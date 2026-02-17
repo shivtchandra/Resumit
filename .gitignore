@@ -1,5 +1,6 @@
 backend/.env
 frontend/.env
+.DS_Store
 
 # Python cache/artifacts
 __pycache__/
