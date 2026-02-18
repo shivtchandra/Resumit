@@ -47,8 +47,13 @@ export interface AnalysisResult {
         weaknesses: string[];
         hard_truths: string[];
         priority_fixes: string[];
+        needs_fixing?: string[];
         resume_loopholes?: string[];
         should_remove?: string[];
+        what_is_good_rich?: Array<Record<string, unknown>>;
+        what_is_bad_rich?: Array<Record<string, unknown>>;
+        hard_truths_rich?: Array<Record<string, unknown>>;
+        priority_fixes_rich?: Array<Record<string, unknown>>;
         role_fit_verdict?: {
             best_fit_roles: string[];
             weak_fit_roles: string[];
@@ -64,14 +69,21 @@ export interface AnalysisResult {
     external_profile_intel?: {
         github_best_projects: Array<{
             name: string;
+            rank?: number;
             score: number;
             reason: string;
             resume_bullet?: string;
+            resume_keep_note?: string;
+            language?: string;
+            stars?: number;
+            url?: string;
         }>;
         github_drop_projects: Array<{
             name: string;
+            rank?: number;
             score: number;
             reason: string;
+            resume_action?: string;
         }>;
         github_summary: string;
         linkedin_must_include: string[];
@@ -152,6 +164,16 @@ export interface AnalysisResult {
             domains: string[];
             evidence?: string;
             positioning_tip?: string;
+            // enriched fields from AI
+            project_name?: string;
+            primary_domain?: string;
+            domain_tags?: string[];
+            tech_stack?: string[];
+            complexity_signal?: 'Low' | 'Mid' | 'High';
+            complexity_reason?: string;
+            what_is_good?: string;
+            what_is_missing?: string;
+            rewritten_bullet?: string;
         }>;
     };
     missing_keywords?: string[];

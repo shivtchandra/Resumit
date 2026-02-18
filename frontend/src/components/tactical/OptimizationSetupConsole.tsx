@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Scan, CheckCircle2, Loader2, Clock3, Target, Zap, Sparkles, Search, RotateCcw } from 'lucide-react';
 import { MaterialIcon } from '../ui/MaterialIcon';
-import { jdTemplates, getJDTemplateById } from '../../data/jdTemplates';
+import { getJDTemplatesByRole, getJDTemplateById } from '../../data/jdTemplates';
 
 interface OptimizationSetupConsoleProps {
     onStartFix: (file: File) => void;
@@ -49,6 +49,26 @@ export const OptimizationSetupConsole = ({
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
     const [signalCursor, setSignalCursor] = useState(0);
     const [selectedTemplateId, setSelectedTemplateId] = useState('');
+
+    // Filtered templates matching the currently selected role
+    const roleTemplates = getJDTemplatesByRole(initialData.targetRole);
+
+    // Auto-swap JD when role changes and a template is already selected
+    useEffect(() => {
+        if (!selectedTemplateId) return;
+        const current = getJDTemplateById(selectedTemplateId);
+        if (!current) return;
+        const replacement = roleTemplates.find((t) => t.company === current.company);
+        if (replacement && replacement.id !== selectedTemplateId) {
+            setSelectedTemplateId(replacement.id);
+            onJdChange(replacement.jd);
+            onCompanyChange(replacement.company);
+        } else if (!replacement) {
+            setSelectedTemplateId('');
+            onJdChange('');
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialData.targetRole]);
 
     const handleFileSelect = useCallback((file: File) => {
         const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
@@ -303,13 +323,19 @@ export const OptimizationSetupConsole = ({
                                                 if (template) {
                                                     onJdChange(template.jd);
                                                     onCompanyChange(template.company);
+                                                } else {
+                                                    onJdChange('');
                                                 }
                                             }}
                                             className="text-[10px] font-bold border-none bg-bg-surface px-3 py-1 rounded-full outline-none"
                                             disabled={isFixing}
                                         >
                                             <option value="">JD Template...</option>
-                                            {jdTemplates.map(t => <option key={t.id} value={t.id}>{t.company}</option>)}
+                                            {roleTemplates.map(t => (
+                                                <option key={t.id} value={t.id}>
+                                                    {t.company} — {t.title}
+                                                </option>
+                                            ))}
                                         </select>
                                         <button
                                             onClick={() => {

@@ -1,3 +1,4 @@
+import { RazorpayButton } from '../components/ui/RazorpayButton';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Sparkles, ShieldCheck, Github, Check, ChevronDown, Rocket, Target, Zap, Search, MessageSquare, Star, Circle } from 'lucide-react';
 import { PageLayout } from '../components/layout/PageLayout';
@@ -305,20 +306,17 @@ export const Landing = () => {
                                         <div className="text-4xl font-black text-white">$29<span className="text-lg text-slate-500 font-normal">/mo</span></div>
                                     </div>
                                     <ul className="space-y-3">
-                                        {[
-                                            'Full AI Roast Report',
-                                            'All Pro Templates',
-                                            'Interview Question Bank',
-                                            'GitHub Strategic Audit',
-                                            'Unlimited Analysis'
-                                        ].map(f => (
+                                        {['Full AI Roast Report', 'All Pro Templates', 'Interview Question Bank', 'GitHub Strategic Audit', 'Unlimited Analysis'].map(f => (
                                             <li key={f} className="flex items-center gap-3 text-sm font-medium text-slate-300">
                                                 <Check size={16} className="text-brand-primary shrink-0" /> {f}
                                             </li>
                                         ))}
                                     </ul>
                                 </div>
-                                <button className="w-full mt-8 py-3 px-8 rounded-full font-bold bg-brand-primary text-white hover:bg-teal-400 transition-all active:scale-95">Go Pro Now</button>
+                                <RazorpayButton
+                                    text="Go Pro Now"
+                                    className="w-full mt-8 !shadow-none"
+                                />
                             </div>
 
                             {/* Tier 3 */}

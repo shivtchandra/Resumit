@@ -1,3 +1,4 @@
+import { RazorpayButton } from '../components/ui/RazorpayButton';
 import { PageLayout } from '../components/layout/PageLayout';
 import { Navbar } from '../components/layout/Navbar';
 import { PageGuide } from '../components/layout/PageGuide';
@@ -86,8 +87,8 @@ export const PricingPage = () => {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.1 }}
                             className={`rounded-premium flex flex-col justify-between transition-all duration-300 ${tier.featured
-                                    ? 'bg-brand-secondary p-9 border-2 border-brand-primary shadow-premium scale-[1.03] relative'
-                                    : 'bg-white p-9 border border-border-subtle hover:shadow-premium'
+                                ? 'bg-brand-secondary p-9 border-2 border-brand-primary shadow-premium scale-[1.03] relative'
+                                : 'bg-white p-9 border border-border-subtle hover:shadow-premium'
                                 }`}
                         >
                             {tier.featured && (
@@ -114,14 +115,21 @@ export const PricingPage = () => {
                                     ))}
                                 </ul>
                             </div>
-                            <button
-                                className={`w-full mt-8 py-3 px-8 rounded-full font-bold transition-all active:scale-95 ${tier.featured
+                            {tier.name === 'Pro Mode' ? (
+                                <RazorpayButton
+                                    text={tier.cta}
+                                    className="w-full mt-8 !shadow-none"
+                                />
+                            ) : (
+                                <button
+                                    className={`w-full mt-8 py-3 px-8 rounded-full font-bold transition-all active:scale-95 ${tier.featured
                                         ? 'bg-brand-primary text-white hover:bg-teal-400'
                                         : 'btn-secondary'
-                                    }`}
-                            >
-                                {tier.cta}
-                            </button>
+                                        }`}
+                                >
+                                    {tier.cta}
+                                </button>
+                            )}
                         </motion.div>
                     ))}
                 </div>

@@ -122,6 +122,46 @@
     @apply inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-primary/10 border border-brand-primary/20 text-[11px] font-black tracking-[0.2em] uppercase text-brand-secondary;
   }
 
+  /* ── Razorpay Button ── */
+  .ButtonContainer {
+    @apply inline-block h-10;
+    box-shadow: 0 0 20px rgba(0, 0, 0, .08);
+  }
+
+  .PaymentButton-Button {
+    @apply relative inline-flex items-center bg-[#072654] border-[#072654] border border-transparent rounded-[3px] text-white italic h-10 min-w-[160px] overflow-hidden text-center cursor-pointer transition-all duration-200 active:scale-95;
+    font-family: var(--font-body);
+  }
+
+  .PaymentButton-Button:hover {
+    @apply bg-[#0a3675];
+  }
+
+  .PaymentButton-Button--rzpTheme:before {
+    @apply absolute top-0 -left-[6px] h-full w-[46px] bg-[#1e40a0] rounded-tl-[2px] rounded-bl-[2px] content-[""];
+    transform: skew(-15deg, 0);
+  }
+
+  .PaymentButton-Button svg {
+    @apply absolute top-0 left-0 m-[9px_11px] z-10;
+  }
+
+  .PaymentButton-Button--rzpTheme svg path {
+    @apply fill-white;
+  }
+
+  .PaymentButton-contents {
+    @apply relative z-10 m-[1px_0] p-[4px_10px_4px_44px] text-left;
+  }
+
+  .PaymentButton-text {
+    @apply block text-sm font-bold leading-[18px] min-h-[18px] opacity-[0.95];
+  }
+
+  .PoweredBy {
+    @apply block text-[8px] leading-[10px] opacity-60 not-italic;
+  }
+
   /* ── Material icon base ── */
   .material-symbol {
     font-family: 'Material Symbols Rounded';

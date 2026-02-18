@@ -48,6 +48,32 @@ const TONE_CONFIG = {
     },
 } as const;
 
+const sanitizePublicSummary = (text?: string): string => {
+    if (!text) return '';
+    return text
+        .replace(/firecrawl/gi, '')
+        .replace(/profile source:\s*(resume|input)\.?/gi, '')
+        .replace(/\(\s*profile scrape note:[^)]+\)/gi, '')
+        .replace(/\(\s*repo scrape note:[^)]+\)/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+};
+
+const uniqueNonEmpty = (items: string[], limit = 12): string[] => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const item of items || []) {
+        const value = String(item || '').trim();
+        if (!value) continue;
+        const key = value.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(value);
+        if (out.length >= limit) break;
+    }
+    return out;
+};
+
 const ExpandableList = ({
     items,
     toneBullet,
@@ -174,6 +200,140 @@ const CollapsibleSection = ({
     );
 };
 
+const COMPLEXITY_STYLES: Record<string, string> = {
+    High: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+    Mid:  'text-amber-700 bg-amber-50 border-amber-200',
+    Low:  'text-slate-500 bg-slate-50 border-slate-200',
+};
+
+const ProjectDomainCard = ({
+    name,
+    primaryDomain,
+    allTags,
+    complexitySignal,
+    complexityColor,
+    complexityReason,
+    whatIsGood,
+    whatIsMissing,
+    rewrittenBullet,
+    positioningTip,
+    techStack,
+    evidence,
+}: {
+    name: string;
+    primaryDomain?: string;
+    allTags: string[];
+    complexitySignal?: string;
+    complexityColor?: string | null;
+    complexityReason?: string;
+    whatIsGood?: string;
+    whatIsMissing?: string;
+    rewrittenBullet?: string;
+    positioningTip?: string;
+    techStack?: string[];
+    evidence?: string;
+}) => {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = () => {
+        if (!rewrittenBullet) return;
+        navigator.clipboard.writeText(rewrittenBullet).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1800);
+        });
+    };
+
+    return (
+        <div className="p-4 rounded-xl border border-cyan-200 bg-cyan-50/30 space-y-3">
+            {/* Header: name + complexity badge */}
+            <div className="flex items-start justify-between gap-2">
+                <div className="text-sm font-black text-brand-secondary leading-tight">{name}</div>
+                {complexitySignal && (
+                    <span className={`shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full border ${COMPLEXITY_STYLES[complexitySignal] || 'text-slate-500 bg-slate-50 border-slate-200'}`}>
+                        {complexitySignal}
+                    </span>
+                )}
+            </div>
+
+            {/* Domain tags */}
+            {allTags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                    {allTags.map((tag, i) => (
+                        <span
+                            key={i}
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${i === 0 ? 'bg-cyan-200 text-cyan-800 border-cyan-300' : 'bg-cyan-100 text-cyan-700 border-cyan-200'}`}
+                        >
+                            {tag}
+                        </span>
+                    ))}
+                </div>
+            )}
+
+            {/* Tech stack chips */}
+            {techStack && techStack.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                    {techStack.map((tech, i) => (
+                        <span key={i} className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                            {tech}
+                        </span>
+                    ))}
+                </div>
+            )}
+
+            {/* Complexity reason */}
+            {complexityReason && (
+                <p className="text-[11px] text-text-muted italic">{complexityReason}</p>
+            )}
+
+            {/* Strength */}
+            {whatIsGood && (
+                <div className="flex gap-2 text-[11px]">
+                    <span className="text-emerald-500 font-black shrink-0">✓</span>
+                    <span className="text-text-body">{whatIsGood}</span>
+                </div>
+            )}
+
+            {/* Gap */}
+            {whatIsMissing && (
+                <div className="flex gap-2 text-[11px]">
+                    <span className="text-amber-500 font-black shrink-0">!</span>
+                    <span className="text-text-body">{whatIsMissing}</span>
+                </div>
+            )}
+
+            {/* Rewritten bullet with copy */}
+            {rewrittenBullet && (
+                <div className="rounded-lg border border-cyan-300 bg-white p-3 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-cyan-600">Rewritten Bullet</span>
+                        <button
+                            type="button"
+                            onClick={handleCopy}
+                            className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-cyan-600 hover:text-cyan-800 transition-colors"
+                        >
+                            <MaterialIcon icon={copied ? 'check' : 'content_copy'} size={12} />
+                            {copied ? 'Copied!' : 'Copy'}
+                        </button>
+                    </div>
+                    <p className="text-[11px] text-text-body leading-relaxed">{rewrittenBullet}</p>
+                </div>
+            )}
+
+            {/* Positioning tip */}
+            {positioningTip && (
+                <p className="text-[11px] text-cyan-700 font-semibold">
+                    <span className="font-black">Tip: </span>{positioningTip}
+                </p>
+            )}
+
+            {/* Fallback evidence if no AI enrichment */}
+            {!rewrittenBullet && !whatIsGood && evidence && (
+                <p className="text-xs text-text-muted">{evidence}</p>
+            )}
+        </div>
+    );
+};
+
 export const Analysis = () => {
     const SESSION_KEY = 'resumit_analysis_result';
 
@@ -238,6 +398,91 @@ export const Analysis = () => {
     const sampleUpgrades = result?.comprehensive_analysis?.sample_resume_upgrades || [];
     const projectDomains = result?.comprehensive_analysis?.project_domain_coverage || [];
     const candidateName = result?.analysis_summary?.candidate_name || 'Candidate';
+    const firstName = candidateName.split(/\s+/)[0] || candidateName;
+    const atsScore = Math.round(result?.friendliness_score || result?.analysis_summary?.ats_score || 0);
+    const scoreBand = atsScore >= 85 ? 'strong' : atsScore >= 70 ? 'workable' : 'needs work';
+
+    const roastReport = result?.roast_report;
+    const goodRich = (roastReport?.what_is_good_rich || []) as Array<Record<string, unknown>>;
+    const badRich = (roastReport?.what_is_bad_rich || []) as Array<Record<string, unknown>>;
+    const hardRich = (roastReport?.hard_truths_rich || []) as Array<Record<string, unknown>>;
+    const fixRich = (roastReport?.priority_fixes_rich || []) as Array<Record<string, unknown>>;
+
+    const goodRichItems = uniqueNonEmpty(
+        goodRich.map((item) => {
+            const point = String(item?.point || '').trim();
+            const evidence = String(item?.specific_evidence || item?.evidence || '').trim();
+            const why = String(item?.why_it_matters_to_recruiters || '').trim();
+            return [point, evidence ? `Evidence: ${evidence}` : '', why ? `Why it matters: ${why}` : '']
+                .filter(Boolean)
+                .join(' ');
+        }),
+        8,
+    );
+    const goodItems = goodRichItems.length > 0
+        ? goodRichItems
+        : uniqueNonEmpty(roastReport?.strengths || [], 8);
+
+    const needsFixingRichItems = uniqueNonEmpty([
+        ...badRich.map((item) => {
+            const point = String(item?.point || '').trim();
+            const evidence = String(item?.specific_evidence || '').trim();
+            const lineRef = String(item?.exact_line_reference || '').trim();
+            const reaction = String(item?.recruiter_reaction || '').trim();
+            return [
+                point,
+                evidence ? `Evidence: ${evidence}` : '',
+                lineRef ? `Line: ${lineRef}` : '',
+                reaction ? `Impact: ${reaction}` : '',
+            ].filter(Boolean).join(' ');
+        }),
+        ...hardRich.map((item) => {
+            const truth = String(item?.truth || item?.point || '').trim();
+            const why = String(item?.why || '').trim();
+            const fix = String(item?.what_to_do_instead || '').trim();
+            return [truth, why ? `Why: ${why}` : '', fix ? `Fix: ${fix}` : ''].filter(Boolean).join(' ');
+        }),
+        ...fixRich.map((item) => {
+            const fix = String(item?.fix || item?.action || '').trim();
+            const why = String(item?.why || '').trim();
+            const after = String(item?.after || '').trim();
+            return [fix, why ? `Why: ${why}` : '', after ? `Do this: ${after}` : ''].filter(Boolean).join(' ');
+        }),
+    ], 12);
+
+    const needsFixingItems = needsFixingRichItems.length > 0
+        ? needsFixingRichItems
+        : uniqueNonEmpty(
+            roastReport?.needs_fixing
+                || [
+                    ...(roastReport?.weaknesses || []),
+                    ...(roastReport?.hard_truths || []),
+                    ...(roastReport?.priority_fixes || []),
+                ],
+            12,
+        );
+
+    const githubSummary = sanitizePublicSummary(result?.external_profile_intel?.github_summary);
+    const linkedinSummaryRaw = sanitizePublicSummary(result?.external_profile_intel?.linkedin_summary);
+    const showLinkedinPanel = Boolean(
+        result?.external_profile_intel?.detected_linkedin_url
+        || linkedinKeep.length
+        || linkedinDrop.length,
+    );
+    const githubKeepItems = githubBest.map((repo, idx) => {
+        const rank = repo.rank || idx + 1;
+        const score = typeof repo.score === 'number' ? ` (${Math.round(repo.score)}/100)` : '';
+        const keepNote = repo.resume_keep_note ? ` ${repo.resume_keep_note}` : '';
+        const reason = String(repo.reason || '').trim().replace(/\.+$/, '');
+        return `#${rank} ${repo.name}${score} - ${reason}.${keepNote}`;
+    });
+    const githubDropItems = githubDrop.map((repo, idx) => {
+        const rank = repo.rank || idx + 1;
+        const score = typeof repo.score === 'number' ? ` (${Math.round(repo.score)}/100)` : '';
+        const action = repo.resume_action ? ` ${repo.resume_action}` : '';
+        const reason = String(repo.reason || '').trim().replace(/\.+$/, '');
+        return `#${rank} ${repo.name}${score} - ${reason}.${action}`;
+    });
 
     return (
         <PageLayout header={<Navbar />} maxWidth="xl">
@@ -321,16 +566,23 @@ export const Analysis = () => {
                             </div>
                             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black tracking-widest uppercase border border-slate-200 bg-slate-50 text-slate-700">
                                 <MaterialIcon icon="speed" size={14} />
-                                ATS {Math.round(result.friendliness_score || 0)}
+                                ATS {atsScore}
                             </div>
                         </div>
 
-                        {result.roast_report && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                                <RoastColumn title="What Is Good" icon="check_circle" items={result.roast_report.strengths} />
-                                <RoastColumn title="What Is Bad" icon="warning" items={result.roast_report.weaknesses} tone="warn" />
-                                <RoastColumn title="Hard Truths" icon="report" items={result.roast_report.hard_truths} tone="hard" />
-                                <RoastColumn title="Priority Fixes" icon="bolt" items={result.roast_report.priority_fixes} tone="accent" />
+                        <div className="rounded-2xl border border-brand-primary/30 bg-gradient-to-r from-brand-primary/10 via-cyan-50 to-white p-4 sm:p-5">
+                            <div className="text-lg sm:text-xl font-black text-brand-secondary">
+                                Hey {firstName}, your ATS score is <span className="text-brand-primary">{atsScore}/100</span>.
+                            </div>
+                            <p className="mt-1.5 text-sm text-text-muted">
+                                This resume is currently <span className="font-bold text-brand-secondary">{scoreBand}</span>. Focus on the top fixes below to improve callback quality.
+                            </p>
+                        </div>
+
+                        {roastReport && (
+                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                <RoastColumn title="What Is Good" icon="check_circle" items={goodItems} />
+                                <RoastColumn title="Needs Fixing" icon="warning" items={needsFixingItems} tone="warn" />
                             </div>
                         )}
 
@@ -387,40 +639,59 @@ export const Analysis = () => {
                         {projectDomains.length > 0 && (
                             <CollapsibleSection title="Project Domain Coverage" icon="hub">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {projectDomains.map((item, idx) => (
-                                        <div key={idx} className="p-4 rounded-xl border border-cyan-200 bg-cyan-50/40 space-y-2">
-                                            <div className="text-sm font-black text-brand-secondary">{item.project}</div>
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {(item.domains || []).map((domain, dIdx) => (
-                                                    <span key={dIdx} className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-cyan-100 text-cyan-700 border border-cyan-200">
-                                                        {domain}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                            {item.evidence && <p className="text-xs text-text-muted">{item.evidence}</p>}
-                                            {item.positioning_tip && <p className="text-xs text-cyan-700 font-semibold">Tip: {item.positioning_tip}</p>}
-                                        </div>
-                                    ))}
+                                    {projectDomains.map((item, idx) => {
+                                        const name = item.project_name || item.project;
+                                        const primaryDomain = item.primary_domain || (item.domains || [])[0];
+                                        const allTags = item.domain_tags || item.domains || [];
+                                        const complexityColor =
+                                            item.complexity_signal === 'High' ? 'text-emerald-600 bg-emerald-50 border-emerald-200' :
+                                            item.complexity_signal === 'Mid' ? 'text-amber-600 bg-amber-50 border-amber-200' :
+                                            item.complexity_signal === 'Low' ? 'text-slate-500 bg-slate-50 border-slate-200' :
+                                            null;
+                                        return (
+                                            <ProjectDomainCard
+                                                key={idx}
+                                                name={name}
+                                                primaryDomain={primaryDomain}
+                                                allTags={allTags}
+                                                complexitySignal={item.complexity_signal}
+                                                complexityColor={complexityColor}
+                                                complexityReason={item.complexity_reason}
+                                                whatIsGood={item.what_is_good}
+                                                whatIsMissing={item.what_is_missing}
+                                                rewrittenBullet={item.rewritten_bullet}
+                                                positioningTip={item.positioning_tip}
+                                                techStack={item.tech_stack}
+                                                evidence={item.evidence}
+                                            />
+                                        );
+                                    })}
                                 </div>
                             </CollapsibleSection>
                         )}
 
                         <CollapsibleSection title="External Proof Signals" icon="travel_explore" defaultOpen>
                             <div className="space-y-5">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <div className="p-3 rounded-xl border border-border-subtle bg-bg-page">
-                                        <div className="text-[10px] font-black uppercase tracking-widest text-text-subtle mb-1">Detected GitHub</div>
-                                        <div className="text-sm font-bold text-brand-secondary break-all">
-                                            {result.external_profile_intel?.detected_github_url || 'Not found in resume'}
-                                        </div>
+                                {(result.external_profile_intel?.detected_github_url || result.external_profile_intel?.detected_linkedin_url) && (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        {result.external_profile_intel?.detected_github_url && (
+                                            <div className="p-3 rounded-xl border border-border-subtle bg-bg-page">
+                                                <div className="text-[10px] font-black uppercase tracking-widest text-text-subtle mb-1">Detected GitHub</div>
+                                                <div className="text-sm font-bold text-brand-secondary break-all">
+                                                    {result.external_profile_intel.detected_github_url}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {result.external_profile_intel?.detected_linkedin_url && (
+                                            <div className="p-3 rounded-xl border border-border-subtle bg-bg-page">
+                                                <div className="text-[10px] font-black uppercase tracking-widest text-text-subtle mb-1">Detected LinkedIn</div>
+                                                <div className="text-sm font-bold text-brand-secondary break-all">
+                                                    {result.external_profile_intel.detected_linkedin_url}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                    <div className="p-3 rounded-xl border border-border-subtle bg-bg-page">
-                                        <div className="text-[10px] font-black uppercase tracking-widest text-text-subtle mb-1">Detected LinkedIn</div>
-                                        <div className="text-sm font-bold text-brand-secondary break-all">
-                                            {result.external_profile_intel?.detected_linkedin_url || 'Not found in resume'}
-                                        </div>
-                                    </div>
-                                </div>
+                                )}
 
                                 {extractedProfileUrls.length > 0 && (
                                     <div className="p-3 rounded-xl border border-border-subtle bg-bg-page">
@@ -438,11 +709,11 @@ export const Analysis = () => {
                                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                                     <div className="p-4 rounded-xl border border-border-subtle bg-white space-y-3">
                                         <div className="text-[10px] font-black uppercase tracking-widest text-brand-secondary">GitHub Suggestions</div>
-                                        <p className="text-xs text-text-muted">{result.external_profile_intel?.github_summary || 'No GitHub summary available.'}</p>
+                                        <p className="text-xs text-text-muted">{githubSummary || 'GitHub profile signal analyzed.'}</p>
                                         <div className="space-y-2">
                                             <div className="text-[10px] font-black uppercase tracking-widest text-brand-primary">Keep / Promote</div>
                                             <ExpandableList
-                                                items={githubBest.map((repo) => `${repo.name} - ${repo.reason}`)}
+                                                items={githubKeepItems}
                                                 toneBullet="text-brand-primary"
                                                 defaultVisible={2}
                                                 emptyText="No strong repositories identified yet."
@@ -451,7 +722,7 @@ export const Analysis = () => {
                                         <div className="space-y-2">
                                             <div className="text-[10px] font-black uppercase tracking-widest text-amber-600">Drop / Deprioritize</div>
                                             <ExpandableList
-                                                items={githubDrop.map((repo) => `${repo.name} - ${repo.reason}`)}
+                                                items={githubDropItems}
                                                 toneBullet="text-amber-500"
                                                 defaultVisible={2}
                                                 emptyText="No deprioritized repositories listed."
@@ -459,28 +730,32 @@ export const Analysis = () => {
                                         </div>
                                     </div>
 
-                                    <div className="p-4 rounded-xl border border-border-subtle bg-white space-y-3">
-                                        <div className="text-[10px] font-black uppercase tracking-widest text-brand-secondary">LinkedIn Suggestions</div>
-                                        <p className="text-xs text-text-muted">{result.external_profile_intel?.linkedin_summary || 'No LinkedIn summary available.'}</p>
-                                        <div className="space-y-2">
-                                            <div className="text-[10px] font-black uppercase tracking-widest text-brand-primary">Must Keep / Add</div>
-                                            <ExpandableList
-                                                items={linkedinKeep}
-                                                toneBullet="text-brand-primary"
-                                                defaultVisible={2}
-                                                emptyText="No LinkedIn keep suggestions yet."
-                                            />
+                                    {showLinkedinPanel && (
+                                        <div className="p-4 rounded-xl border border-border-subtle bg-white space-y-3">
+                                            <div className="text-[10px] font-black uppercase tracking-widest text-brand-secondary">LinkedIn Suggestions</div>
+                                            {linkedinSummaryRaw && (
+                                                <p className="text-xs text-text-muted">{linkedinSummaryRaw}</p>
+                                            )}
+                                            <div className="space-y-2">
+                                                <div className="text-[10px] font-black uppercase tracking-widest text-brand-primary">Must Keep / Add</div>
+                                                <ExpandableList
+                                                    items={linkedinKeep}
+                                                    toneBullet="text-brand-primary"
+                                                    defaultVisible={2}
+                                                    emptyText="No LinkedIn keep suggestions yet."
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <div className="text-[10px] font-black uppercase tracking-widest text-amber-600">Remove / Deprioritize</div>
+                                                <ExpandableList
+                                                    items={linkedinDrop}
+                                                    toneBullet="text-amber-500"
+                                                    defaultVisible={2}
+                                                    emptyText="No LinkedIn removal suggestions yet."
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="space-y-2">
-                                            <div className="text-[10px] font-black uppercase tracking-widest text-amber-600">Remove / Deprioritize</div>
-                                            <ExpandableList
-                                                items={linkedinDrop}
-                                                toneBullet="text-amber-500"
-                                                defaultVisible={2}
-                                                emptyText="No LinkedIn removal suggestions yet."
-                                            />
-                                        </div>
-                                    </div>
+                                    )}
                                 </div>
                             </div>
                         </CollapsibleSection>

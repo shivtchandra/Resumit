@@ -43,6 +43,8 @@ class OpenAIClient:
         max_tokens: Optional[int] = None,
         timeout_seconds: Optional[float] = None,
         model_name: Optional[str] = None,
+        temperature_override: Optional[float] = None,
+        use_json_mode: bool = False,
     ) -> str:
         """
         Call OpenAI API with retry logic.
@@ -60,19 +62,33 @@ class OpenAIClient:
         token_budget = max_tokens if max_tokens is not None else 2048
         timeout_budget = timeout_seconds if timeout_seconds is not None else self.timeout_seconds
         selected_model = (model_name or self.model_name).strip() or self.model_name
+        effective_temperature = temperature_override if temperature_override is not None else self.temperature
 
         for attempt in range(retries):
             try:
-                response = self.client.chat.completions.create(
+                call_kwargs: Dict[str, Any] = dict(
                     model=selected_model,
                     messages=[
-                        {"role": "system", "content": "You are an expert ATS resume consultant and career advisor."},
+                        {
+                            "role": "system",
+                            "content": (
+                                "You are a principal-level technical recruiter and resume strategist. "
+                                "You give reference-grade analysis: every critique cites an exact line, "
+                                "every rewrite uses the candidate's real project names and tech stack, "
+                                "every number is either quoted from the resume or labeled (est.). "
+                                "You never use filler phrases, placeholder brackets, or generic advice. "
+                                "You always return valid JSON exactly matching the requested schema."
+                            )
+                        },
                         {"role": "user", "content": prompt}
                     ],
-                    temperature=self.temperature,
+                    temperature=effective_temperature,
                     max_tokens=token_budget,
                     timeout=timeout_budget,
                 )
+                if use_json_mode:
+                    call_kwargs["response_format"] = {"type": "json_object"}
+                response = self.client.chat.completions.create(**call_kwargs)
                 
                 text = response.choices[0].message.content
                 if not text:
