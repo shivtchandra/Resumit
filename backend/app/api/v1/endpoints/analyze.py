@@ -11,6 +11,7 @@ import os
 import json
 import logging
 import re
+import time
 from difflib import SequenceMatcher
 
 from app.services.ingestion.pdf_parser import PDFParser
@@ -1359,10 +1360,291 @@ def _normalize_role_key(role: Optional[str]) -> str:
     return (role or "").strip().lower().replace("-", "_").replace(" ", "_")
 
 
+_CERT_ANCHOR_STOPWORDS = {
+    "certified", "certificate", "certification", "professional", "associate",
+    "specialist", "practitioner", "engineer", "architect", "administrator",
+    "developer", "foundation", "foundations", "exam", "course", "essentials",
+    "fundamentals", "solutions", "advanced", "level", "program",
+}
+
+_CERT_ANCHOR_ALIASES = {
+    "k8s": "kubernetes",
+    "cka": "kubernetes",
+    "ckad": "kubernetes",
+    "cks": "kubernetes",
+    "aws": "aws",
+    "gcp": "gcp",
+    "cicd": "ci/cd",
+    "ci-cd": "ci/cd",
+}
+
+_CERT_EVIDENCE_PATTERNS = {
+    "aws": r"\baws\b|\bamazon web services\b|\bec2\b|\blambda\b|\bs3\b",
+    "kubernetes": r"\bkubernetes\b|\bk8s\b",
+    "azure": r"\bazure\b",
+    "gcp": r"\bgcp\b|\bgoogle cloud\b",
+    "docker": r"\bdocker\b",
+    "ci/cd": r"\bci\s*/\s*cd\b|\bci-cd\b|\bcicd\b",
+    "terraform": r"\bterraform\b",
+    "machine learning": r"\bmachine learning\b|\bml\b|\btensorflow\b|\bpytorch\b",
+    "ai/llm": r"\bllm\b|\blangchain\b|\brag\b|\bgpt\b|\bgenai\b|\bartificial intelligence\b",
+    "security": r"\bsecurity\b|\bcyber\b",
+    "data engineering": r"\bdata engineering\b|\betl\b|\bairflow\b|\bdata pipeline\b",
+    "project management": r"\bproject management\b|\bagile\b|\bscrum\b",
+}
+
+_CERT_KEYWORD_TO_ANCHOR = {
+    "cloud": "aws",
+    "devops": "ci/cd",
+    "k8s": "kubernetes",
+    "kubernetes": "kubernetes",
+    "aws": "aws",
+    "azure": "azure",
+    "gcp": "gcp",
+    "docker": "docker",
+    "terraform": "terraform",
+    "machine learning": "machine learning",
+    "ml": "machine learning",
+    "ai": "ai/llm",
+    "llm": "ai/llm",
+    "security": "security",
+    "cyber": "security",
+    "data engineering": "data engineering",
+    "etl": "data engineering",
+    "project management": "project management",
+    "scrum": "project management",
+}
+
+_CERT_ANCHOR_DISPLAY = {
+    "aws": "AWS/Cloud",
+    "kubernetes": "Kubernetes",
+    "azure": "Azure",
+    "gcp": "GCP",
+    "docker": "Docker",
+    "ci/cd": "CI/CD",
+    "terraform": "Terraform",
+    "machine learning": "Machine Learning",
+    "ai/llm": "AI/LLM",
+    "security": "Security",
+    "data engineering": "Data Engineering",
+    "project management": "Project Management",
+}
+
+_CERT_GAP_LABELS = {
+    "aws": "cloud architecture credibility for backend deployment roles",
+    "kubernetes": "container orchestration credibility for scalable services",
+    "azure": "cloud deployment credibility for Azure-centric teams",
+    "gcp": "cloud deployment credibility for GCP-centric teams",
+    "docker": "containerization proof for modern backend workflows",
+    "ci/cd": "delivery pipeline credibility and release quality signal",
+    "terraform": "infrastructure-as-code credibility for DevOps-heavy roles",
+    "machine learning": "applied ML validation signal for model-building roles",
+    "ai/llm": "production AI/LLM credibility beyond coursework-level claims",
+    "security": "security rigor signal for production systems work",
+    "data engineering": "pipeline/data-platform credibility for data-heavy roles",
+    "project management": "execution planning signal for cross-functional delivery",
+}
+
+
+def _build_cert_evidence_text(
+    resume_text: str,
+    project_domain_coverage: Optional[list[dict]] = None,
+) -> str:
+    parts = [resume_text or ""]
+    for item in project_domain_coverage or []:
+        if not isinstance(item, dict):
+            continue
+        parts.extend([
+            str(item.get("project", "")),
+            str(item.get("title", "")),
+            str(item.get("content", "")),
+            " ".join(str(x) for x in item.get("domains", []) if str(x).strip()),
+            " ".join(str(x) for x in item.get("tech_stack", []) if str(x).strip()),
+        ])
+    return "\n".join(p for p in parts if p).lower()
+
+
+def _extract_cert_anchors(cert_name: str) -> list[str]:
+    name_lower = (cert_name or "").lower()
+    anchors = set()
+
+    phrase_rules = [
+        ("kubernetes", "kubernetes"),
+        ("aws", "aws"),
+        ("amazon web services", "aws"),
+        ("azure", "azure"),
+        ("google cloud", "gcp"),
+        ("gcp", "gcp"),
+        ("ci/cd", "ci/cd"),
+        ("ci-cd", "ci/cd"),
+        ("terraform", "terraform"),
+        ("machine learning", "machine learning"),
+        ("artificial intelligence", "ai/llm"),
+        ("llm", "ai/llm"),
+        ("security", "security"),
+        ("cyber", "security"),
+        ("data engineering", "data engineering"),
+        ("project management", "project management"),
+        ("scrum", "project management"),
+    ]
+    for phrase, anchor in phrase_rules:
+        if phrase in name_lower:
+            anchors.add(anchor)
+
+    for raw_token in re.findall(r"[a-z0-9+/.-]{2,}", name_lower):
+        token = _CERT_ANCHOR_ALIASES.get(raw_token, raw_token)
+        if token in _CERT_ANCHOR_STOPWORDS:
+            continue
+        if token in _CERT_EVIDENCE_PATTERNS:
+            anchors.add(token)
+            continue
+        mapped = _CERT_KEYWORD_TO_ANCHOR.get(token)
+        if mapped:
+            anchors.add(mapped)
+
+    return list(anchors)
+
+
+def _cert_anchor_supported_by_resume(anchor: str, evidence_text: str) -> bool:
+    pattern = _CERT_EVIDENCE_PATTERNS.get(anchor)
+    if pattern:
+        return bool(re.search(pattern, evidence_text, re.IGNORECASE))
+    return anchor.lower() in evidence_text
+
+
+def _short_line(line: str, max_len: int = 140) -> str:
+    text = re.sub(r"\s+", " ", (line or "").strip())
+    if not text:
+        return ""
+    if len(text) <= max_len:
+        return text
+    return text[: max_len - 3].rstrip() + "..."
+
+
+def _collect_cert_evidence_snippets(
+    anchors: list[str],
+    resume_text: str,
+    project_domain_coverage: Optional[list[dict]] = None,
+    limit: int = 2,
+) -> list[str]:
+    lines: list[str] = []
+    lines.extend([line.strip() for line in (resume_text or "").splitlines() if line.strip()])
+
+    for item in project_domain_coverage or []:
+        if not isinstance(item, dict):
+            continue
+        for key in ("project", "title", "content", "evidence"):
+            value = str(item.get(key, "")).strip()
+            if value:
+                lines.extend([part.strip() for part in value.splitlines() if part.strip()])
+        domains = [str(x).strip() for x in item.get("domains", []) if str(x).strip()]
+        if domains:
+            lines.append("Domains: " + ", ".join(domains))
+        tech_stack = [str(x).strip() for x in item.get("tech_stack", []) if str(x).strip()]
+        if tech_stack:
+            lines.append("Tech: " + ", ".join(tech_stack))
+
+    snippets: list[str] = []
+    seen = set()
+    for anchor in anchors:
+        pattern = _CERT_EVIDENCE_PATTERNS.get(anchor)
+        if not pattern:
+            pattern = rf"\b{re.escape(anchor)}\b"
+        for line in lines:
+            if not re.search(pattern, line, re.IGNORECASE):
+                continue
+            shortened = _short_line(line)
+            if not shortened:
+                continue
+            key = shortened.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            snippets.append(shortened)
+            if len(snippets) >= limit:
+                return snippets
+
+    return snippets
+
+
+def _filter_certification_recommendations_by_evidence(
+    cert_recommendations: list[dict],
+    resume_text: str,
+    project_domain_coverage: Optional[list[dict]] = None,
+    limit: int = 3,
+) -> list[dict]:
+    if not cert_recommendations:
+        return []
+
+    evidence_text = _build_cert_evidence_text(resume_text, project_domain_coverage)
+    if not evidence_text.strip():
+        # No evidence text available; return certs unfiltered (still limited)
+        return cert_recommendations[:limit]
+
+    filtered: list[dict] = []
+    seen = set()
+
+    for cert in cert_recommendations:
+        if not isinstance(cert, dict):
+            continue
+        cert_name = str(cert.get("name", "")).strip()
+        if not cert_name:
+            continue
+
+        key = cert_name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+
+        anchors = _extract_cert_anchors(cert_name)
+        if not anchors:
+            logger.info("Dropping cert suggestion '%s': no cert-topic anchor could be inferred.", cert_name)
+            continue
+
+        matched_anchors = [a for a in anchors if _cert_anchor_supported_by_resume(a, evidence_text)]
+        if not matched_anchors:
+            logger.info("Dropping cert suggestion '%s': no matching resume/project evidence.", cert_name)
+            continue
+
+        evidence_snippets = _collect_cert_evidence_snippets(
+            anchors=matched_anchors,
+            resume_text=resume_text,
+            project_domain_coverage=project_domain_coverage,
+            limit=2,
+        )
+        display_anchors = [_CERT_ANCHOR_DISPLAY.get(a, a.upper() if len(a) <= 4 else a.title()) for a in matched_anchors[:2]]
+        inferred_gap = _CERT_GAP_LABELS.get(matched_anchors[0], "role-aligned recruiter trust signal")
+
+        enriched = dict(cert)
+        relevance = str(enriched.get("relevance", "")).strip()
+        reason = str(enriched.get("reason", "")).strip()
+        if not relevance:
+            enriched["relevance"] = f"Evidence found: {', '.join(display_anchors)}"
+        if not reason:
+            enriched["reason"] = f"Resume evidence points to {', '.join(display_anchors)}."
+        enriched["evidence_found"] = evidence_snippets
+        if not enriched.get("gap_it_closes"):
+            enriched["gap_it_closes"] = inferred_gap
+        why_line = str(enriched.get("why_this_person_needs_it", "")).strip()
+        if not why_line:
+            evidence_line = evidence_snippets[0] if evidence_snippets else f"signals {', '.join(display_anchors)}"
+            enriched["why_this_person_needs_it"] = (
+                f"Evidence in your resume: \"{evidence_line}\". "
+                f"This certification closes the gap on {inferred_gap}."
+            )
+
+        filtered.append(enriched)
+        if len(filtered) >= limit:
+            break
+
+    return filtered
+
+
 def _recommend_certs_from_resume_evidence(
     analyzer: ComprehensiveAnalyzer,
     resume_text: str,
     target_role: Optional[str],
+    project_domain_coverage: Optional[list[dict]] = None,
 ) -> list[dict]:
     resume_lower = (resume_text or "").lower()
     if not resume_lower:
@@ -1406,7 +1688,12 @@ def _recommend_certs_from_resume_evidence(
             "proof_project_to_build_after_cert": "Build one role-relevant project and publish the repo + README before adding the cert.",
         })
 
-    return recommendations[:3]
+    return _filter_certification_recommendations_by_evidence(
+        recommendations,
+        resume_text=resume_text,
+        project_domain_coverage=project_domain_coverage,
+        limit=3,
+    )
 
 
 def _clean_questions(raw: Any) -> list[dict]:
@@ -1554,6 +1841,10 @@ def _load_role_benchmarks(target_role: str) -> dict:
     })
 
 
+class RateLimitError(Exception):
+    """Raised when the OpenAI API returns a rate-limit (429) response."""
+
+
 async def generate_ai_analysis_with_fallback(
     resume_text: str,
     job_description: Optional[str],
@@ -1566,13 +1857,15 @@ async def generate_ai_analysis_with_fallback(
     match_score: Optional[float],
     missing_keywords: list[str],
     risk_flags: list[str],
+    detected_github_url: Optional[str] = None,
+    detected_linkedin_url: Optional[str] = None,
 ) -> Optional[dict]:
-    """Generate AI analysis with proper timeout and fallback."""
-    
+    """Generate AI analysis with proper timeout and fallback.
+    Raises RateLimitError if the API is rate-limited so callers can surface a
+    user-friendly message instead of silently falling back to heuristics.
+    """
+    outer_timeout = min(120.0, max(8.0, float(os.getenv("ANALYZE_AI_TIMEOUT_SECONDS", "90"))))
     try:
-        # Use a semaphore to prevent overwhelming the API (globally or per request)
-        # For simplicity, we just use wait_for here.
-        outer_timeout = float(os.getenv("ANALYZE_AI_TIMEOUT_SECONDS", "55"))
         result = await asyncio.wait_for(
             run_in_threadpool(
                 build_ai_roast_only,
@@ -1586,25 +1879,27 @@ async def generate_ai_analysis_with_fallback(
                 friendliness_score,
                 match_score,
                 missing_keywords,
-                risk_flags
+                risk_flags,
+                detected_github_url,
+                detected_linkedin_url,
             ),
             timeout=outer_timeout,
         )
-        
-        # Validate the result
-        validation = validate_ai_output(result, resume_text)
-        if not validation["valid"]:
-            logger.warning(f"AI output validation failed: {validation['errors']}")
-            
+        validate_ai_output(result, resume_text)
         return result
-            
+
     except asyncio.TimeoutError:
-        logger.error(
-            "AI analysis timed out after %.0fs — increase ANALYZE_AI_TIMEOUT_SECONDS or check OpenAI latency.",
-            outer_timeout,
-        )
+        logger.warning("AI analysis timed out after %.0fs.", outer_timeout)
+        return None
+    except RuntimeError as e:
+        if "__RATE_LIMITED__" in str(e):
+            raise RateLimitError("OpenAI rate limit reached") from e
+        logger.error("AI analysis runtime error: %s", e, exc_info=True)
         return None
     except Exception as e:
+        exc_str = str(e).lower()
+        if "rate" in exc_str or "429" in exc_str:
+            raise RateLimitError("OpenAI rate limit reached") from e
         logger.error("AI analysis failed: %s — type: %s", e, type(e).__name__, exc_info=True)
         return None
 
@@ -1621,6 +1916,8 @@ def build_ai_roast_only(
     match_score: Optional[float],
     missing_keywords: list[str],
     risk_flags: list[str],
+    detected_github_url: Optional[str] = None,
+    detected_linkedin_url: Optional[str] = None,
 ) -> Optional[dict]:
     try:
         from app.services.rewrite.openai_client import OpenAIClient
@@ -1630,452 +1927,220 @@ def build_ai_roast_only(
         return None
 
     has_jd = bool((job_description or "").strip())
-    company = (company_name or "the company").strip()
+    name = (candidate_name or "the candidate").strip()
+    role = (target_role or "software engineer").replace("-", " ")
+    ats = round(friendliness_score, 1)
+    jd_score = round(match_score, 1) if match_score is not None else None
 
-    prompt_payload = {
-        "candidate_name": candidate_name or "Candidate",
-        "target_role": target_role or "Not specified",
-        "company_name": company,
-        "feedback_tone": feedback_tone,
-        "has_job_description": has_jd,
-        "ats_friendliness_score": round(friendliness_score, 1),
-        "jd_match_score": round(match_score, 1) if match_score is not None else None,
-        # Risk flags from static ATS analysis — reference these in your critiques
-        "ats_risk_flags": risk_flags[:12],
-        # Keywords in JD not found in resume — only present when JD is provided
-        "missing_jd_keywords": missing_keywords[:15] if has_jd else [],
-        # Full resume text — read this carefully before filling any JSON field
-        "resume_text": (resume_text or "")[:3500],
-        # Job description — cross-reference every resume section against this
-        "job_description": (job_description or "")[:2000],
-        # Pre-parsed project blocks: {title, content, domains} — use exact titles
-        "project_blocks": [
-            {"title": p.get("title") or p.get("project", ""), "content": p.get("content") or p.get("evidence", "")}
-            for p in project_domain_coverage[:6]
-            if (p.get("title") or p.get("project", "")).strip()
-        ],
-    }
+    resume_excerpt = (resume_text or "")[:12000]
+    jd_excerpt     = (job_description or "")[:6000]
 
-    tone_clause = (
-        "Do not soften findings. If a resume section is weak, say it plainly and explain exactly why it will cost the candidate interviews."
+    project_titles = ", ".join(
+        p.get("title") or p.get("project", "")
+        for p in project_domain_coverage[:5]
+        if (p.get("title") or p.get("project", "")).strip()
+    )
+
+    tone_instruction = (
+        "Be brutally honest. Name every weak line by quoting it. Do not soften findings."
         if feedback_tone == "brutal"
-        else "Be direct and practical. Name problems clearly without being harsh."
+        else "Be direct and constructive. Name problems clearly with evidence."
     )
-    jd_clause = (
-        f"A job description IS provided. Cross-reference every section against it. Flag missing keywords, misaligned framing, and unaddressed requirements."
+
+    jd_instruction = (
+        f"A JD is provided. Cross-reference every section. Flag missing keywords, misaligned framing, unaddressed requirements. JD match score: {jd_score}%."
         if has_jd
-        else "No job description provided. Base all analysis on what is and is not present in the resume itself. Do NOT fabricate JD requirements."
+        else "No JD provided. Analyse the resume on its own merits only. Do NOT fabricate requirements."
     )
 
-    prompt = f"""You are a principal-level technical recruiter and career strategist. You have screened 10,000+ resumes at FAANG, top startups, and mid-market tech companies. You give reference-grade, zero-fluff analysis that hiring managers actually use.
+    risk_str = ", ".join(risk_flags[:8]) if risk_flags else "none detected"
+    missing_kw_str = ", ".join(missing_keywords[:12]) if has_jd and missing_keywords else ""
 
-{tone_clause}
-{jd_clause}
+    skills_list = ", ".join(
+        s.strip() for s in (resume_text or "").split(",")[:20]
+    )  # rough skill extraction for prompt context
 
-═══════════════════════════════
-STEP 1 — READ AND EXTRACT (do this first, silently build your ground truth)
-═══════════════════════════════
-Before writing a single word of feedback, read the full resume and extract:
+    from datetime import datetime
+    current_year = datetime.now().year
+    current_month = datetime.now().strftime("%B %Y")
 
-A. IDENTITY
-   - Candidate name (exact)
-   - Current / most recent title (exact)
-   - Companies mentioned (exact names + visible durations)
-   - Estimated total years of experience
+    # Build detected profile URLs context for the AI
+    profile_links_context = ""
+    if detected_github_url or detected_linkedin_url:
+        link_parts = []
+        if detected_github_url:
+            link_parts.append(f"GitHub: {detected_github_url}")
+        if detected_linkedin_url:
+            link_parts.append(f"LinkedIn: {detected_linkedin_url}")
+        profile_links_context = f"Detected profile links from resume: {', '.join(link_parts)}"
+    else:
+        profile_links_context = "No GitHub or LinkedIn URLs detected in this resume."
 
-B. EVIDENCE INVENTORY
-   - Every metric already in the resume (copy the exact phrase: "reduced load time by 40%", etc.)
-   - Every technology mentioned (exact names, no paraphrasing)
-   - Every project title (exact, as written)
-   - Ownership language: verbs like "built", "led", "owned" vs. passive: "helped", "contributed", "worked on"
-   - Bullet count per role
+    # Extract existing certifications from resume text for AI awareness
+    existing_certs_context = ""
+    cert_patterns = [
+        r"(?:certified|certification|certificate)[:\s]+(.+?)(?:\n|$)",
+        r"(?:certifications?|licenses?)\s*\n((?:.+\n?){1,8})",
+    ]
+    found_certs = []
+    for pat in cert_patterns:
+        for m in re.finditer(pat, resume_text or "", re.IGNORECASE):
+            try:
+                # Group(1) might not be there depending on the pattern
+                match_text = m.group(1) if m.groups() >= 1 else m.group(0)
+                # Split by newline, semicolon, or pipe
+                raw_lines = re.split(r'[\n;\|]', match_text)
+                for line in raw_lines:
+                    cleaned = line.strip().strip("-•●▪").strip()
+                    if cleaned and len(cleaned) > 3 and len(cleaned) < 120:
+                        if cleaned not in found_certs:
+                            found_certs.append(cleaned)
+            except Exception:
+                continue
+    if found_certs:
+        existing_certs_context = f"Certifications already on resume: {', '.join(found_certs[:10])}"
 
-C. GAPS INVENTORY
-   - Bullets with NO metric (list the first 5 words of each)
-   - Sections that read like job descriptions instead of achievements
-   - Technologies implied but never named
-   - Missing proof signals: no GitHub, no LinkedIn, no live link
-   - Generic or filler phrases (exact quotes)
+    prompt = f"""You are a brutally honest senior FAANG technical recruiter who has screened 10,000+ resumes. Write a free-flowing, conversational resume roast. Talk directly to the candidate like you're doing them a real favor.
 
-D. JD CROSS-REFERENCE (only if job_description is provided)
-   - Required skills in JD not mentioned in resume
-   - JD keywords present in resume (exact matches)
-   - Role-level mismatch signals
+IMPORTANT: The current date is {current_month}. The current year is {current_year}. Use this when evaluating timelines, dates, and experience freshness.
 
-This extraction is your ground truth. Every critique you write MUST trace back to a specific piece of evidence from this extraction. If you cannot cite an exact line or pattern, do not write the critique.
+Candidate: {name}
+Target role: {role}
+ATS score: {ats}/100
+{f"JD match: {jd_score}%" if jd_score else ""}
+ATS risk flags: {risk_str}
+{f"Missing JD keywords: {missing_kw_str}" if missing_kw_str else ""}
+{f"Projects detected: {project_titles}" if project_titles else ""}
+{profile_links_context}
+{existing_certs_context}
 
-═══════════════════════════════
-STEP 2 — PRODUCE THE ANALYSIS
-═══════════════════════════════
-Now fill the JSON below. Rules that apply to every field:
+RESUME:
+{resume_excerpt}
+{f"JOB DESCRIPTION:{chr(10)}{jd_excerpt}" if has_jd else ""}
 
-ABSOLUTE RULES (violating any of these fails the output):
-1. Zero placeholder text: no [X], [metric], [company], [outcome], [role], or any bracketed token
-2. Zero filler phrases: never write "passionate about", "strong communicator", "team player", "results-driven", "detail-oriented", "dynamic", or "fast learner"
-3. Every "specific_evidence" or "exact_line_reference" must be a direct quote or near-quote from the resume — not a paraphrase
-4. Every rewrite in "rewritten_line" must: (a) start with a strong past-tense action verb, (b) name the actual project or company, (c) include a number — real or labeled "(est.)", (d) stay under 22 words
-5. Priority values must be exactly "P0", "P1", or "P2" — never "high", "medium", "low"
-6. If a metric is genuinely missing, label your inferred estimate as "(est.)" — never present it as fact
-7. Project names in project_domain_coverage must be copied EXACTLY from the resume — never use sentence fragments or tech names as project names
-8. hard_truths must be genuinely hard — things the candidate probably does not want to hear but needs to. Do not soften them.
-9. action_blueprint steps must be concrete executable steps, not advice. Bad: "improve your bullet points". Good: "Open your CivicWatch bullet, find the verb 'worked on', replace with 'Deployed', add Docker container count."
-10. rewrite_guide must cover at minimum 1 item from each: Summary, Experience, Projects (if present)
+{tone_instruction}
+{jd_instruction}
 
-SECTION COUNTS:
-- what_is_good: 3–5 items
-- what_is_bad: 4–6 items
-- hard_truths: 3–5 items (make these land)
-- priority_fixes: 4–6 items
-- action_blueprint: 3–5 items
-- rewrite_guide: 4–6 items
-- cut_these_lines: 3–5 items
-- project_domain_coverage: one entry per project found (max 6)
-- role_fit.strong_fit / weak_fit: 1–3 each
-- certification_suggestions: 0–3 (return [] if unsure)
-
-Return ONLY valid JSON — no markdown, no commentary outside the JSON, no trailing commas.
-
+Write your response in this EXACT JSON format:
 {{
-  "candidate": {{
-    "name": "",
-    "target_role": "",
-    "experience_level": "Entry | Mid | Senior | Staff | Unknown",
-    "estimated_yoe": 0,
-    "ats_score": 0
-  }},
-
-  "extraction_summary": {{
-    "roles": [],
-    "companies": [],
-    "tech_stack": [],
-    "project_names": [],
-    "existing_metrics": [],
-    "ownership_verbs_found": [],
-    "passive_verbs_found": [],
-    "bullets_without_metrics": [],
-    "linkedin_detected": false,
-    "github_detected": false,
-    "linkedin_url": "",
-    "github_url": "",
-    "certifications": []
-  }},
-
-  "executive_snapshot": {{
-    "overall_verdict": "",
-    "signal_strength": "Weak | Moderate | Strong",
-    "roast_score_0_to_100": 0,
-    "biggest_blocker": "",
-    "fastest_win": "",
-    "jd_alignment_note": ""
-  }},
-
-  "what_is_good": [
-    {{
-      "point": "",
-      "specific_evidence": "",
-      "why_it_matters_to_recruiters": ""
-    }}
-  ],
-
-  "what_is_bad": [
-    {{
-      "point": "",
-      "specific_evidence": "",
-      "exact_line_reference": "",
-      "recruiter_reaction": ""
-    }}
-  ],
-
-  "hard_truths": [
-    {{
-      "truth": "",
-      "why": "",
-      "specific_line_that_caused_this": "",
-      "what_to_do_instead": ""
-    }}
-  ],
-
-  "priority_fixes": [
-    {{
-      "fix": "",
-      "priority": "P0",
-      "effort": "30 min | 1–2 hrs | Half day | Multi-day",
-      "why": "",
-      "before": "",
-      "after": ""
-    }}
-  ],
-
-  "role_fit_verdict": {{
-    "summary": "",
-    "jd_match_pct": 0,
-    "works_for": [
-      {{"role": "", "reason": "", "confidence_pct": 0}}
-    ],
-    "struggles_for": [
-      {{"role": "", "gap": "", "how_to_close": ""}}
-    ]
-  }},
-
-  "resume_loopholes": [
-    {{
-      "loophole": "",
-      "risk": "",
-      "example_question_it_triggers": ""
-    }}
-  ],
-
-  "cut_these_lines": [
-    {{
-      "line": "",
-      "reason": "",
-      "replace_with": ""
-    }}
-  ],
-
-  "project_domain_coverage": [
-    {{
-      "project_name": "",
-      "primary_domain": "",
-      "domain_tags": [],
-      "tech_stack": [],
-      "complexity_signal": "Low | Mid | High",
-      "complexity_reason": "",
-      "what_is_good": "",
-      "what_is_missing": "",
-      "rewritten_bullet": "",
-      "positioning_tip": ""
-    }}
-  ],
-
-  "external_proof_signals": {{
-    "github": {{
-      "detected": false,
-      "url": "",
-      "suggestions": ""
-    }},
-    "linkedin": {{
-      "detected": false,
-      "url": "",
-      "suggestions": ""
-    }}
-  }},
-
+  "roast_markdown": "<your full roast as markdown text — see format instructions below>",
   "certification_suggestions": [
-    {{
-      "name": "",
-      "issuer": "",
-      "reason": "",
-      "signal_boost": "",
-      "prerequisite": "",
-      "time_to_complete": "",
-      "proof_project_to_build_after_cert": "",
-      "url": ""
-    }}
-  ],
-
-  "action_blueprint": [
-    {{
-      "action": "",
-      "priority": "P0",
-      "effort": "",
-      "why": "",
-      "steps": [],
-      "before_after_example": ""
-    }}
-  ],
-
-  "rewrite_guide": [
-    {{
-      "section": "Summary | Experience | Projects | Skills",
-      "current_line": "",
-      "rewritten_line": "",
-      "why_this_helps": "",
-      "pattern_used": "Action + Scope + Tech + Metric"
-    }}
-  ],
-
-  "role_fit": {{
-    "strong_fit": [
-      {{"role": "", "confidence": 0, "reasons": []}}
-    ],
-    "conditional_fit": [
-      {{"role": "", "confidence": 0, "reasons": [], "must_fix": []}}
-    ],
-    "weak_fit": [
-      {{"role": "", "confidence": 0, "reasons": []}}
-    ]
-  }},
-
-  "remove_from_resume": [
-    {{"line": "", "reason": "", "better_replacement": ""}}
+    {{"name": "Cert Name", "provider": "Provider", "cost": "$100-300", "time": "2-3 months", "why": "reason specific to this resume's skills", "url": "https://..."}}
   ]
 }}
 
-INPUT DATA:
-{json.dumps(prompt_payload, indent=2)}
-"""
+FORMAT FOR roast_markdown:
+- Use markdown headings (##), bold (**), blockquotes (>), and numbered lists
+- Start with "## 🔥 THE ROAST" heading
+- Use INCREMENTING numbers for critiques (1, 2, 3...). Aim for 5-8 HIGH-QUALITY critiques. Do NOT force 12 if the resume only has 5 real issues.
+- For each critique: quote the EXACT resume line using > blockquote, then explain SPECIFICALLY what's wrong:
+  - What EXACT word or phrase is the problem?
+  - What SHOULD it say instead? Give a rewritten example.
+  - Why does this matter to a hiring manager? (cite real hiring patterns)
+- NEVER use vague phrases like "a bit of a mixed bag", "could be better", "seems scattered", "needs more detail". Instead name the EXACT problem and give the EXACT fix.
+- After the roast, add "## 💡 CERTIFICATION SUGGESTIONS" section — for each cert explain the SPECIFIC skill gap it closes based on what you see in their resume
+- Then add "## 🎯 THE REAL ADVICE" — 5 concrete next steps. Each must include a SPECIFIC action (not "polish your resume" — say EXACTLY what to change and where)
+- End with "## 📋 OVERALL VERDICT" — would you interview this person for {role}? What's the #1 thing holding them back? Give a specific rewrite of their weakest section as an example of what "good" looks like. End with genuine encouragement about their strongest signal.
+- Write 500-800 words total. Be direct, specific, and accurate. Do NOT force filler to meet word counts.
+- DO NOT invent problems. If the resume is strong, focus on high-level strategy rather than nitpicking formatting.
+- If profile links are detected in the context above, do NOT claim they are missing.
+- Do NOT claim text "cuts off" unless you see a literal unfinished sentence with missing punctuation.
+- If the candidate is a current student or recent grad, acknowledge that 4-6 months of internship is standard; do not penalize them for not having "2 years of experience" yet — instead, tell them how to frame that internship as "high-impact".
+
+SPECIFICITY RULES (CRITICAL — follow these strictly):
+- Every critique MUST quote an exact line, name the exact problem, and provide a rewritten alternative.
+- EVALUATE THE MATTER: Do NOT just roast the job titles or project names. You MUST analyze the bullet points and impact statements under them. If a bullet point is weak, quote it and fix it.
+- BANNED behaviors: Do not claim a section is missing if it exists with a different heading name. Do not ignore descriptions just because a heading is bold.
+- BANNED phrases: "needs more detail", "could be improved", "consider adding", "a bit", "seems like", "might want to". Replace these with EXACT rewrites.
+- When discussing experience: calculate exact months of experience, note gaps, compare against typical {role} requirements (e.g., "You have 4 months of intern experience. Most {role} postings require 1-2 years. Here's how to bridge that gap...").
+- When discussing projects: name each project by title, identify what metric or outcome is missing from the DESCRIPTION, and write what a strong bullet would look like.
+- When discussing skills: separate "listed but unproven" skills from "demonstrated in a project" skills. Be explicit about which are which by looking at the project/experience descriptions.
+- For each internship/role, evaluate: (a) duration vs. typical expectations, (b) specificity of achievements in the bullet points, (c) whether impact is quantified, (d) relevance to target role.
+
+IMPORTANT RULES:
+- TODAY IS {current_month}. The current year is {current_year}. You MUST use this when evaluating any dates.
+- Evaluate ALL resume dates relative to {current_month}. Dates from 2025 or earlier are in the PAST. Do NOT claim they are "in the future" or joke about "time travel".
+- Only flag dates as genuinely future if they are AFTER {current_month} (e.g., mid-2026 or beyond).
+- The "Detected profile links" section above tells you what URLs we actually found. USE those URLs when commenting on their GitHub/LinkedIn presence.
+- If profile links were detected, mention them by URL and comment on whether they add credibility.
+- If NO profile links were detected, call that out as a weakness — modern tech resumes need clickable GitHub and LinkedIn URLs.
+
+CERTIFICATION RULES:
+- First ACKNOWLEDGE any certifications already listed on the resume. For each one: is it relevant to {role}? Is it respected in the industry? Is it outdated?
+- Then suggest 3-5 ADDITIONAL certifications that COMPLEMENT what they already have. Do NOT re-suggest certs they already hold.
+- For each suggestion explain the SPECIFIC gap it fills: "You list [skill] but have no proof of it — this cert validates that claim"
+- Include cost estimate, time to complete, and real certification URLs
+- Prioritize certs that are industry-recognized for {role} positions specifically
+
+REMINDER: Today is {current_month}. The year is {current_year}. All date evaluations must use this as reference. Dates from 2025 are in the past.
+
+Return ONLY valid JSON. The roast_markdown value is a single string with markdown formatting. Use \\n for newlines inside the string."""
+
     try:
-        model_timeout = float(os.getenv("ANALYZE_AI_MODEL_TIMEOUT_SECONDS", "45"))
+        model_timeout = min(110.0, max(8.0, float(os.getenv("ANALYZE_AI_MODEL_TIMEOUT_SECONDS", "90"))))
         analyze_model = (
             os.getenv("OPENAI_ANALYZE_MODEL")
             or os.getenv("OPENAI_MODEL_FAST")
-            or ai_client.model_name
-        )
+            or "gpt-4o-mini"
+        ).strip() or "gpt-4o-mini"
+
         logger.info(
-            "AI roast starting — model: %s | timeout: %.0fs | tokens: 2800",
+            "AI roast starting — model: %s | timeout: %.0fs",
             analyze_model, model_timeout,
         )
         ai_text = ai_client._call_gemini(
             prompt,
             max_retries=1,
-            max_tokens=2800,        # sufficient for all 14 sections; lower = faster response
+            max_tokens=6000,
             timeout_seconds=model_timeout,
             model_name=analyze_model,
-            temperature_override=0.3,   # grounded but not robotic; 0.0 over-repeats
-            use_json_mode=True,         # no markdown wrapping, clean parse
+            temperature_override=0.7,
+            use_json_mode=True,
         )
-        parsed = ai_client._parse_json_response(ai_text)
+        stripped = (ai_text or "").strip()
+        try:
+            parsed = json.loads(stripped)
+        except json.JSONDecodeError:
+            parsed = ai_client._parse_json_response(ai_text)
     except Exception as exc:
-        logger.warning("OpenAI roast generation failed: %s", exc)
+        exc_type = type(exc).__name__
+        exc_str = str(exc).lower()
+        if "rate" in exc_str or "429" in exc_str or "ratelimit" in exc_type.lower():
+            logger.warning("OpenAI rate limit hit during roast: %s", exc)
+            raise RuntimeError("__RATE_LIMITED__") from exc
+        logger.warning("OpenAI roast generation failed (%s): %s", exc_type, exc)
         return None
 
     if not isinstance(parsed, dict):
-        parsed = {}
+        return None
 
-    executive_snapshot = parsed.get("executive_snapshot", {})
-    role_fit_raw = parsed.get("role_fit", {})
-    if not isinstance(role_fit_raw, dict):
-        role_fit_raw = {}
+    roast_markdown = str(parsed.get("roast_markdown", "")).strip()
+    if not roast_markdown:
+        logger.warning("AI returned empty roast_markdown.")
+        return None
 
-    strong_roles = _normalize_role_bucket(
-        role_fit_raw.get("strong_fit"),
-        limit=3,
-        fallback=[target_role.replace("-", " ").title()] if target_role else ["General Software Engineer"],
-    )
-    weak_roles = _normalize_role_bucket(
-        role_fit_raw.get("weak_fit"),
-        limit=3,
-        fallback=["Senior/Staff roles requiring deeper specialization"],
-    )
-    conditional_roles = _normalize_role_bucket(
-        role_fit_raw.get("conditional_fit"),
-        limit=2,
-        fallback=[],
-    )
-
-    overview = ""
-    if isinstance(executive_snapshot, dict):
-        overview = str(executive_snapshot.get("overall_verdict", "")).strip()
-    if not overview:
-        overview = "This resume has potential but needs sharper evidence and targeting."
-    if conditional_roles:
-        overview = f"{overview} Conditional fit: {', '.join(conditional_roles)}."
-
-    exec_snap = executive_snapshot if isinstance(executive_snapshot, dict) else {}
-    signal_strength = str(exec_snap.get("signal_strength", "")).strip()
-    jd_note = str(exec_snap.get("jd_alignment_note", "")).strip()
-    fastest_win = str(exec_snap.get("fastest_win", "")).strip()
-    biggest_blocker = str(exec_snap.get("biggest_blocker", "")).strip()
-
-    candidate_meta = parsed.get("candidate", {}) if isinstance(parsed.get("candidate"), dict) else {}
-
-    roast_report = {
-        # ── Flat string lists (backward-compat with existing frontend rendering) ──
-        "strengths": _coerce_point_items(
-            parsed.get("what_is_good"),
-            limit=6,
-            fallback=["Your resume has useful raw material, but the positioning needs tightening."],
-            primary_keys=["point"],
-            secondary_keys=["why_it_matters_to_recruiters", "specific_evidence", "evidence"],
-        ),
-        "weaknesses": _coerce_point_items(
-            parsed.get("what_is_bad"),
-            limit=8,
-            fallback=["The document still reads more like responsibilities than quantified outcomes."],
-            primary_keys=["point"],
-            secondary_keys=["recruiter_reaction", "exact_line_reference", "specific_evidence"],
-        ),
-        "hard_truths": _coerce_point_items(
-            parsed.get("hard_truths"),
-            limit=6,
-            fallback=["If your impact is not measurable, interviewers assume it was small."],
-            primary_keys=["truth", "point"],
-            secondary_keys=["what_to_do_instead", "why", "specific_line_that_caused_this"],
-        ),
-        "priority_fixes": _coerce_point_items(
-            parsed.get("priority_fixes"),
-            limit=8,
-            fallback=["Rewrite top bullets using action + scope + metric + business impact."],
-            primary_keys=["fix", "action"],
-            secondary_keys=["after", "why"],
-        ),
-        "resume_loopholes": _coerce_point_items(
-            parsed.get("resume_loopholes"),
-            limit=5,
-            fallback=["Could not detect specific loopholes — re-run with your resume for detailed analysis."],
-            primary_keys=["loophole", "issue"],
-            secondary_keys=["example_question_it_triggers", "risk"],
-        ),
-        "should_remove": _coerce_point_items(
-            parsed.get("cut_these_lines") or parsed.get("remove_from_resume"),
-            limit=5,
-            fallback=["Review your summary for generic filler phrases like 'passionate' or 'team player'."],
-            primary_keys=["line"],
-            secondary_keys=["replace_with", "reason"],
-        ),
-        "role_fit_verdict": {
-            "best_fit_roles": strong_roles,
-            "weak_fit_roles": weak_roles,
-            "verdict": overview,
-        },
-        # ── Rich structured pass-through (new frontend sections) ──
-        "what_is_good_rich": parsed.get("what_is_good") if isinstance(parsed.get("what_is_good"), list) else [],
-        "what_is_bad_rich": parsed.get("what_is_bad") if isinstance(parsed.get("what_is_bad"), list) else [],
-        "hard_truths_rich": parsed.get("hard_truths") if isinstance(parsed.get("hard_truths"), list) else [],
-        "priority_fixes_rich": parsed.get("priority_fixes") if isinstance(parsed.get("priority_fixes"), list) else [],
-        "rewrite_guide": parsed.get("rewrite_guide") if isinstance(parsed.get("rewrite_guide"), list) else [],
-        "action_blueprint": parsed.get("action_blueprint") if isinstance(parsed.get("action_blueprint"), list) else [],
-        "extraction_summary": parsed.get("extraction_summary") if isinstance(parsed.get("extraction_summary"), dict) else {},
-        "external_proof_signals": parsed.get("external_proof_signals") if isinstance(parsed.get("external_proof_signals"), dict) else {},
-        "project_domain_coverage_detail": parsed.get("project_domain_coverage") if isinstance(parsed.get("project_domain_coverage"), list) else [],
-        # ── Executive metadata ──
-        "signal_strength": signal_strength or "Unknown",
-        "fastest_win": fastest_win,
-        "biggest_blocker": biggest_blocker,
-        "jd_alignment_note": jd_note,
-        "candidate_meta": {
-            "name": str(candidate_meta.get("name", "")).strip(),
-            "target_role": str(candidate_meta.get("target_role", "")).strip(),
-            "experience_level": str(candidate_meta.get("experience_level", "")).strip(),
-            "estimated_yoe": candidate_meta.get("estimated_yoe", 0),
-            "ats_score": candidate_meta.get("ats_score", 0),
-        },
-    }
-
+    # Build cert suggestions from AI output
     certification_suggestions = []
-    for cert in parsed.get("certification_suggestions", []) if isinstance(parsed.get("certification_suggestions"), list) else []:
+    for cert in (parsed.get("certification_suggestions") or []):
         if not isinstance(cert, dict):
             continue
-        name = str(cert.get("name", "")).strip()
-        provider = str(cert.get("issuer") or cert.get("provider", "")).strip()
-        if not name:
+        cert_name = str(cert.get("name", "")).strip()
+        if not cert_name:
             continue
         certification_suggestions.append({
-            "name": name,
-            "provider": provider,
-            "relevance": str(cert.get("reason") or cert.get("gap_it_closes", "Targeted gap closure")).strip() or "Targeted gap closure",
-            "impact": str(cert.get("signal_boost") or cert.get("resume_impact", "Signal boost")).strip() or "Signal boost",
+            "name": cert_name,
+            "provider": str(cert.get("provider", "")).strip(),
+            "relevance": str(cert.get("why", "")).strip() or "Recommended for your target role",
+            "impact": str(cert.get("cost", "")).strip() or "Varies",
             "url": str(cert.get("url", "")).strip(),
-            "why_this_person_needs_it": str(cert.get("why_this_person_needs_it", "")).strip(),
-            "time_to_complete": str(cert.get("time_to_complete", "")).strip(),
-            "proof_project_to_build_after_cert": str(cert.get("proof_project_to_build_after_cert", "")).strip(),
-            "prerequisite": str(cert.get("prerequisite", "")).strip(),
+            "why_this_person_needs_it": str(cert.get("why", "")).strip(),
+            "gap_it_closes": "Validates skill claims with external proof",
+            "time_to_complete": str(cert.get("time", "")).strip(),
         })
 
     return {
-        "roast_report": roast_report,
-        "certification_suggestions": certification_suggestions[:3],
+        "roast_markdown": roast_markdown,
+        "certification_suggestions": certification_suggestions[:5],
     }
 
 
@@ -2488,73 +2553,238 @@ def build_github_intel(
         description = str(repo.get("description") or "").strip()
         topics = repo.get("topics") if isinstance(repo.get("topics"), list) else []
         url = str(repo.get("url") or f"https://github.com/{username}/{name}")
+        readme_content = str(repo.get("readme_content") or "").strip()
+        languages = repo.get("languages") if isinstance(repo.get("languages"), dict) else {}
         return {
             "name": name,
-            "full_name": f"{username}/{name}",
+            "full_name": repo.get("full_name") or f"{username}/{name}",
             "description": description,
             "url": url,
-            "homepage": None,
+            "homepage": repo.get("homepage"),
             "language": language,
-            "languages": {},
+            "languages": languages,
             "topics": [str(t).strip().lower() for t in topics if str(t).strip()][:8],
             "stars": stars,
             "forks": forks,
-            "watchers": stars,
-            "created_at": None,
+            "watchers": int(repo.get("watchers") or stars),
+            "created_at": repo.get("created_at"),
             "updated_at": repo.get("updated_at"),
             "pushed_at": repo.get("pushed_at"),
-            "size": 0,
+            "size": int(repo.get("size") or 0),
             "is_fork": bool(repo.get("is_fork", False)),
-            "has_readme": bool(description),
-            "readme_content": "",
-            "open_issues": 0,
-            "license": None,
+            "has_readme": bool(readme_content) or bool(description),
+            "readme_content": readme_content[:2000],  # cap to avoid memory bloat
+            "open_issues": int(repo.get("open_issues") or 0),
+            "license": repo.get("license"),
             "is_pinned": pinned,
         }
 
-    def _boosted_repo_score(repo: dict) -> int:
-        base = int(float(repo.get("relevance_score", 0) or 0))
-        bonus = 0
-        if repo.get("is_pinned"):
-            bonus += 18
-        if int(repo.get("stars", 0) or 0) > 0:
-            bonus += min(10, 2 + int(repo.get("stars", 0)))
-        if int(repo.get("forks", 0) or 0) > 0:
-            bonus += 4
-        if repo.get("language"):
-            bonus += 5
+    def _repo_text(repo: dict) -> str:
+        parts = [
+            str(repo.get("name") or ""),
+            str(repo.get("description") or ""),
+            " ".join([str(t) for t in (repo.get("topics") or []) if str(t).strip()]),
+            str(repo.get("language") or ""),
+            " ".join(str(k) for k in (repo.get("languages") or {}).keys()),
+            str(repo.get("readme_content") or "")[:500],  # use first 500 chars of README
+        ]
+        return " ".join(parts).lower()
+
+    def _repo_focus_tags(repo: dict) -> list[str]:
+        text = _repo_text(repo)
+        tags = []
+        rules = [
+            ("frontend", r"\b(react|next|vite|ui|ux|frontend|tailwind|css|html|browser|extension|chrome)\b"),
+            ("backend", r"\b(node|express|fastapi|django|flask|spring|api|rest|graphql|server|service)\b"),
+            ("data", r"\b(sql|postgres|mysql|mongodb|etl|pipeline|warehouse)\b"),
+            ("ml_ai", r"\b(ml|ai|llm|rag|nlp|model|prediction|tensorflow|pytorch|scikit)\b"),
+            ("devops", r"\b(docker|kubernetes|k8s|terraform|cicd|ci/cd|github actions|jenkins|deploy)\b"),
+            ("mobile", r"\b(android|ios|flutter|react-native|swift|kotlin)\b"),
+        ]
+        for tag, pattern in rules:
+            if re.search(pattern, text, re.IGNORECASE):
+                tags.append(tag)
+        return tags
+
+    def _focus_label(tag: str) -> str:
+        mapping = {
+            "frontend": "Frontend",
+            "backend": "Backend",
+            "data": "Data",
+            "ml_ai": "ML/AI",
+            "devops": "DevOps",
+            "mobile": "Mobile",
+        }
+        return mapping.get(tag, tag.title())
+
+    def _target_role_tags(role: Optional[str]) -> list[str]:
+        r = (role or "software-engineer").strip().lower().replace("_", "-")
+        mapping = {
+            "software-engineer": ["frontend", "backend", "data", "devops", "mobile"],
+            "full-stack-engineer": ["frontend", "backend", "data", "devops"],
+            "frontend-engineer": ["frontend"],
+            "backend-engineer": ["backend", "data", "devops"],
+            "data-scientist": ["ml_ai", "data"],
+            "ml-engineer": ["ml_ai", "data", "devops"],
+            "devops-engineer": ["devops", "backend"],
+            "data-engineer": ["data", "backend", "devops"],
+            "mobile-engineer": ["mobile", "backend"],
+        }
+        return mapping.get(r, ["frontend", "backend", "data", "devops"])
+
+    def _role_fit_delta(repo: dict, role: Optional[str]) -> int:
+        focus = _repo_focus_tags(repo)
+        targets = set(_target_role_tags(role))
+        if not focus:
+            return -4
+        overlap = len([t for t in focus if t in targets])
+        if overlap >= 2:
+            return 16
+        if overlap == 1:
+            return 10
+        return -6
+
+    def _evidence_delta(repo: dict) -> int:
+        delta = 0
         description = str(repo.get("description", "") or "").strip()
+        readme = str(repo.get("readme_content", "") or "").strip()
         if len(description.split()) >= 8:
-            bonus += 6
-        if repo.get("has_readme"):
-            bonus += 4
-        return int(min(100, max(0, base + bonus)))
-
-    def _keep_reason(repo: dict) -> str:
-        signals = []
-        if repo.get("is_pinned"):
-            signals.append("Pinned project with portfolio visibility")
+            delta += 10
+        elif description:
+            delta += 5
         if repo.get("language"):
-            signals.append(f"clear tech signal ({repo.get('language')})")
+            delta += 6
+        # Multiple languages shows real project complexity
+        languages = repo.get("languages") or {}
+        if isinstance(languages, dict) and len(languages) >= 3:
+            delta += 8
+        elif isinstance(languages, dict) and len(languages) >= 2:
+            delta += 4
         if int(repo.get("stars", 0) or 0) > 0:
-            signals.append(f"{repo.get('stars')} stars")
-        if str(repo.get("description", "") or "").strip():
-            signals.append("problem statement is visible")
-        if not signals:
-            return "Good candidate to keep if you add a stronger README and one measurable result."
-        return "; ".join(signals) + "."
+            delta += min(10, 2 + int(repo.get("stars", 0)))
+        if int(repo.get("forks", 0) or 0) > 0:
+            delta += 4
+        if repo.get("is_pinned"):
+            delta += 8
+        # README content is strong evidence of project quality
+        if len(readme) > 500:
+            delta += 14  # substantial README
+        elif len(readme) > 100:
+            delta += 8   # at least has some README
+        elif readme:
+            delta += 3
+        # Topics/tags show the repo is curated
+        topics = repo.get("topics") or []
+        if isinstance(topics, list) and len(topics) >= 2:
+            delta += 5
+        # Size (non-trivial project)
+        size = int(repo.get("size", 0) or 0)
+        if size > 1000:   # >1MB = substantial codebase
+            delta += 6
+        elif size > 100:  # >100KB
+            delta += 3
+        return delta
 
-    def _drop_reason(repo: dict) -> str:
+    def _boosted_repo_score(repo: dict, role: Optional[str]) -> int:
+        base = int(float(repo.get("relevance_score", 0) or 0))
+        blended = int(base * 0.9) + _role_fit_delta(repo, role) + _evidence_delta(repo)
+        return int(min(100, max(10, blended)))
+
+    def _keep_reason(repo: dict, role: Optional[str]) -> str:
+        focus = _repo_focus_tags(repo)
+        focus_text = ", ".join(_focus_label(tag) for tag in focus[:2]) if focus else ""
+        description = str(repo.get("description", "") or "").strip()
+        readme = str(repo.get("readme_content", "") or "").strip()
+        languages = repo.get("languages") or {}
+        topics = repo.get("topics") or []
+        stars = int(repo.get("stars", 0) or 0)
+        size_kb = int(repo.get("size", 0) or 0)
+
+        parts = []
+
+        # Lead with what the project actually does
+        if description:
+            # Use first 80 chars of description as the lead
+            desc_short = description[:80] + ("..." if len(description) > 80 else "")
+            parts.append(f'"{desc_short}"')
+
+        # Tech stack specifics
+        lang_names = list(languages.keys())[:4] if isinstance(languages, dict) and languages else []
+        if lang_names:
+            parts.append(f"Built with {', '.join(lang_names)}")
+        elif repo.get("language"):
+            parts.append(f"Primary language: {repo.get('language')}")
+
+        # Quality signals
+        quality_notes = []
+        if stars > 0:
+            quality_notes.append(f"{stars} star{'s' if stars != 1 else ''}")
+        if readme and len(readme) > 200:
+            quality_notes.append("has detailed README")
+        elif readme:
+            quality_notes.append("has README")
+        if topics and len(topics) >= 2:
+            quality_notes.append(f"tagged: {', '.join(str(t) for t in topics[:3])}")
+        if size_kb > 1000:
+            quality_notes.append("substantial codebase")
+        if repo.get("is_pinned"):
+            quality_notes.append("pinned on profile")
+
+        if quality_notes:
+            parts.append("; ".join(quality_notes))
+
+        # Role fit
+        if focus_text:
+            parts.append(f"Fits {str(role or 'software engineer').replace('-', ' ')} ({focus_text})")
+
+        return ". ".join(parts) + "." if parts else "Usable project with some role signal."
+
+    def _drop_reason(repo: dict, role: Optional[str]) -> str:
+        focus = _repo_focus_tags(repo)
+        targets = set(_target_role_tags(role))
         reasons = []
         if not str(repo.get("description", "") or "").strip():
-            reasons.append("description does not explain the problem or outcome")
+            reasons.append("missing clear project description")
         if not repo.get("language"):
-            reasons.append("tech stack is not obvious")
+            reasons.append("tech stack not obvious")
+        if focus and not any(tag in targets for tag in focus):
+            reasons.append("weaker match for current target role")
         if int(repo.get("stars", 0) or 0) == 0 and int(repo.get("forks", 0) or 0) == 0:
-            reasons.append("limited external validation")
+            reasons.append("low external proof signal")
         if not reasons:
-            reasons.append("currently weaker signal for target role")
+            reasons.append("currently lower evidence density than your top projects")
         return "; ".join(reasons).capitalize() + "."
+
+    def _drop_actionability(repo: dict, role: Optional[str]) -> str:
+        """Classify whether this drop recommendation is actually actionable for users."""
+        description = str(repo.get("description", "") or "").strip()
+        language = str(repo.get("language", "") or "").strip()
+        score = int(repo.get("final_score", 0) or 0)
+        focus = _repo_focus_tags(repo)
+        targets = set(_target_role_tags(role))
+
+        missing_metadata = (not description) or (not language)
+        role_mismatch = bool(focus) and not any(tag in targets for tag in focus)
+
+        if missing_metadata or role_mismatch:
+            return "high"
+        if score >= 42:
+            return "medium"
+        # Low-score repos that already have metadata but weak external proof
+        # are often noisy in resume guidance and can be hidden from UI.
+        return "low"
+
+    def _drop_action(repo: dict, role: Optional[str]) -> str:
+        description = str(repo.get("description", "") or "").strip()
+        language = str(repo.get("language", "") or "").strip()
+        score = int(repo.get("final_score", 0) or 0)
+        if not description:
+            return "Add a 2-line README problem statement + architecture + one result metric, then reconsider for resume."
+        if not language:
+            return "Specify primary stack in README (frontend/backend/db) and include one measurable outcome."
+        if score < 40:
+            return "Keep out of resume for now; improve README evidence (scope, ownership, metric) before featuring."
+        return f"Deprioritize for this {str(role or 'software engineer').replace('-', ' ')} target unless you add stronger impact proof."
 
     if not github_username:
         return {
@@ -2566,38 +2796,77 @@ def build_github_intel(
 
     try:
         from concurrent.futures import ThreadPoolExecutor, as_completed
-        from app.services.github.firecrawl_github_scraper import (
-            scrape_github_profile,
-            scrape_github_repositories,
-        )
 
         analyzer = RepositoryAnalyzer()
         username = _extract_github_username(github_username)
-        analyze_max_repos = int(os.getenv("ANALYZE_GITHUB_MAX_REPOS", "18"))
-        firecrawl_timeout = int(os.getenv("ANALYZE_FIRECRAWL_GITHUB_TIMEOUT_SECONDS", "12"))
+        analyze_max_repos = min(14, max(6, int(os.getenv("ANALYZE_GITHUB_MAX_REPOS", "12"))))
 
         profile_data: dict = {}
-        repo_payload: dict = {}
+        pygithub_repos: list[dict] = []
+        used_pygithub = False
 
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            future_profile = pool.submit(scrape_github_profile, username, firecrawl_timeout)
-            future_repos = pool.submit(scrape_github_repositories, username, firecrawl_timeout, analyze_max_repos)
-            for fut in as_completed([future_profile, future_repos], timeout=max(16, firecrawl_timeout + 6)):
-                if fut is future_profile:
-                    try:
-                        profile_data = fut.result()
-                    except Exception as exc:
-                        logger.warning("Firecrawl profile scrape failed: %s", exc)
-                        profile_data = {"error": str(exc), "pinned_repos": []}
-                else:
-                    try:
-                        repo_payload = fut.result()
-                    except Exception as exc:
-                        logger.warning("Firecrawl repositories scrape failed: %s", exc)
-                        repo_payload = {"error": str(exc), "repositories": []}
+        # ---------- PRIMARY: PyGithub (rich data + README) ----------
+        try:
+            from app.services.github.github_client import GitHubClient
+            gh_client = GitHubClient(access_token=github_token)
+            pygithub_repos = gh_client.get_user_repositories(
+                username,
+                max_repos=analyze_max_repos,
+                readme_scan_limit=min(8, analyze_max_repos),
+                readme_content_limit=min(4, analyze_max_repos),
+            )
+            if pygithub_repos:
+                used_pygithub = True
+                logger.info("PyGithub fetched %d repos for %s (with READMEs).", len(pygithub_repos), username)
+        except Exception as exc:
+            logger.warning("PyGithub fetch failed for %s: %s — falling back to Firecrawl.", username, exc)
 
-        repositories = repo_payload.get("repositories", []) if isinstance(repo_payload, dict) else []
-        pinned_raw = profile_data.get("pinned_repos", []) if isinstance(profile_data, dict) else []
+        # ---------- FALLBACK: Firecrawl (metadata only) ----------
+        if not used_pygithub:
+            try:
+                from app.services.github.firecrawl_github_scraper import (
+                    scrape_github_profile,
+                    scrape_github_repositories,
+                )
+                firecrawl_timeout = min(8, max(3, int(os.getenv("ANALYZE_FIRECRAWL_GITHUB_TIMEOUT_SECONDS", "8"))))
+                repo_payload: dict = {}
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    future_profile = pool.submit(scrape_github_profile, username, firecrawl_timeout)
+                    future_repos = pool.submit(scrape_github_repositories, username, firecrawl_timeout, analyze_max_repos)
+                    for fut in as_completed([future_profile, future_repos], timeout=max(16, firecrawl_timeout + 6)):
+                        if fut is future_profile:
+                            try:
+                                profile_data = fut.result()
+                            except Exception as exc2:
+                                logger.warning("Firecrawl profile scrape failed: %s", exc2)
+                                profile_data = {"error": str(exc2), "pinned_repos": []}
+                        else:
+                            try:
+                                repo_payload = fut.result()
+                            except Exception as exc2:
+                                logger.warning("Firecrawl repositories scrape failed: %s", exc2)
+                                repo_payload = {"error": str(exc2), "repositories": []}
+            except Exception as exc:
+                logger.warning("Firecrawl import/fallback failed: %s", exc)
+                repo_payload = {"repositories": []}
+
+        # ---------- Normalize into a unified shape ----------
+        if used_pygithub:
+            # PyGithub repos are already in the right shape (same keys as _to_repo_shape)
+            repositories = pygithub_repos
+            # Detect pinned repos: PyGithub doesn't directly expose pinned status,
+            # but Firecrawl profile scrape does. Try a quick profile scrape for pinned info.
+            pinned_raw = []
+            try:
+                from app.services.github.firecrawl_github_scraper import scrape_github_profile as _scrape_profile
+                _firecrawl_timeout = min(5, max(2, int(os.getenv("ANALYZE_FIRECRAWL_GITHUB_TIMEOUT_SECONDS", "5"))))
+                profile_data = _scrape_profile(username, _firecrawl_timeout) or {}
+                pinned_raw = profile_data.get("pinned_repos", []) if isinstance(profile_data, dict) else []
+            except Exception:
+                pass
+        else:
+            repositories = repo_payload.get("repositories", []) if isinstance(repo_payload, dict) else []
+            pinned_raw = profile_data.get("pinned_repos", []) if isinstance(profile_data, dict) else []
         pinned_map = {
             str(item.get("name") or "").strip(): item
             for item in pinned_raw
@@ -2645,7 +2914,8 @@ def build_github_intel(
         ranked_candidates: list[dict] = []
         for repo in analyzed:
             repo_copy = dict(repo)
-            repo_copy["final_score"] = _boosted_repo_score(repo_copy)
+            repo_copy["final_score"] = _boosted_repo_score(repo_copy, target_role)
+            repo_copy["focus_tags"] = _repo_focus_tags(repo_copy)
             ranked_candidates.append(repo_copy)
 
         ranked_candidates.sort(
@@ -2667,18 +2937,25 @@ def build_github_intel(
             language = repo.get("language", "")
             stars = int(repo.get("stars", 0) or 0)
             resume_bullet = repo.get("suggested_resume_text", "")
-            should_keep = (
-                score >= 52
-                or is_pinned
-                or (idx <= 3 and score >= 40)
+            role_delta = _role_fit_delta(repo, target_role)
+            strong_keep = (
+                score >= 56
+                or (score >= 48 and role_delta >= 8)
+                or (idx <= 3 and score >= 44 and role_delta >= 6)
+            )
+            conditional_keep = (
+                not strong_keep and (
+                    (is_pinned and score >= 34 and bool(repo.get("description") or repo.get("language")))
+                    or (score >= 40 and role_delta >= 4 and bool(repo.get("description")))
+                )
             )
 
-            if should_keep:
+            if strong_keep or conditional_keep:
                 best.append({
                     "name": repo_name,
                     "rank": idx,
                     "score": score,
-                    "reason": _keep_reason(repo),
+                    "reason": _keep_reason(repo, target_role),
                     "resume_bullet": resume_bullet,
                     "resume_keep_note": (
                         "Keep this in resume: show ownership + stack + one measurable result."
@@ -2689,33 +2966,48 @@ def build_github_intel(
                     "language": language,
                     "stars": stars,
                     "url": repo.get("url") or f"https://github.com/{username}/{repo_name or ''}",
+                    "conditional_keep": conditional_keep,
                 })
             else:
+                actionability = _drop_actionability(repo, target_role)
                 drop.append({
                     "name": repo_name,
                     "rank": idx,
                     "score": score,
-                    "reason": _drop_reason(repo),
-                    "resume_action": "Deprioritize for now, unless you can add a better README and an impact metric.",
+                    "reason": _drop_reason(repo, target_role),
+                    "resume_action": _drop_action(repo, target_role),
                     "is_pinned": is_pinned,
+                    "actionability": actionability,
                 })
 
-        # Always provide at least a few keep suggestions so users know what to include.
+        # If no keep candidates, add up to 2 pinned conditional suggestions (never duplicate drop entries).
         if not best and ranked_candidates:
-            for idx, repo in enumerate(ranked_candidates[:3], start=1):
+            fallback_candidates = [r for r in ranked_candidates if bool(r.get("is_pinned"))][:2]
+            for idx, repo in enumerate(fallback_candidates, start=1):
                 repo_name = repo.get("name")
                 best.append({
                     "name": repo_name,
                     "rank": idx,
                     "score": int(repo.get("final_score", 0) or 0),
-                    "reason": "Potential keep candidate with clearer project storytelling.",
+                    "reason": _keep_reason(repo, target_role),
                     "resume_bullet": repo.get("suggested_resume_text", ""),
-                    "resume_keep_note": "Keep only if you can show problem, ownership, and measurable result.",
+                    "resume_keep_note": "Conditional keep: include only if you can prove ownership + one measurable result.",
                     "is_pinned": bool(repo.get("is_pinned", False)),
                     "language": repo.get("language", ""),
                     "stars": int(repo.get("stars", 0) or 0),
                     "url": repo.get("url") or f"https://github.com/{username}/{repo_name or ''}",
+                    "conditional_keep": True,
                 })
+
+        keep_names = {str(item.get("name", "")).strip().lower() for item in best if str(item.get("name", "")).strip()}
+        drop = [item for item in drop if str(item.get("name", "")).strip().lower() not in keep_names]
+
+        best.sort(key=lambda item: int(item.get("score", 0) or 0), reverse=True)
+        drop.sort(key=lambda item: int(item.get("score", 0) or 0), reverse=True)
+        for i, item in enumerate(best, start=1):
+            item["rank"] = i
+        for i, item in enumerate(drop, start=1):
+            item["rank"] = i
 
         followers = int(profile_data.get("followers", 0) or 0) if isinstance(profile_data, dict) else 0
         bio = str(profile_data.get("bio", "") or "") if isinstance(profile_data, dict) else ""
@@ -2732,18 +3024,29 @@ def build_github_intel(
             scrape_notes.append(f"repo scrape note: {repo_payload.get('error')}")
 
         keep_count = len(best)
+        strong_keep_count = len([item for item in best if not bool(item.get("conditional_keep"))])
+        conditional_keep_count = len([item for item in best if bool(item.get("conditional_keep"))])
         drop_count = len(drop)
-        summary = (
-            f"GitHub profile analyzed for role relevance. Ranked {len(ranked_candidates)} repositories, "
-            f"recommended {keep_count} to keep in resume, and {drop_count} to deprioritize."
-        )
+        actionable_drop_count = len([item for item in drop if str(item.get("actionability", "medium")).lower() != "low"])
+        summary = f"GitHub profile analyzed for role relevance across {len(ranked_candidates)} repositories."
+        if keep_count > 0:
+            summary += (
+                f" Recommended {keep_count} repositories for resume inclusion "
+                f"({strong_keep_count} strong, {conditional_keep_count} conditional)."
+            )
+        else:
+            summary += " No high-confidence repositories to feature yet."
+        if actionable_drop_count > 0:
+            summary += f" Marked {actionable_drop_count} as lower-priority for the current role target."
+        elif drop_count > 0:
+            summary += " No actionable deprioritization items right now; lower-signal noise was hidden."
         if pinned_names:
             summary += f" Pinned repos detected: {', '.join(pinned_names[:3])}{'...' if len(pinned_names) > 3 else ''}."
         if not ranked_candidates:
             summary += " We couldn't extract enough repository signals in this run."
 
         return {
-            "github_best_projects": best[:6],
+            "github_best_projects": best[:5],
             "github_drop_projects": drop[:4],
             "github_summary": summary,
             "github_profile": {
@@ -2859,7 +3162,7 @@ def _build_detailed_action_plan(
                 "Pin 2-3 role-relevant repositories with clear README.",
                 "Add one repository line in Projects with measurable result.",
             ],
-            "example": "Project bullet: Built CivicWatch API (Node/Postgres), reduced report submission latency by 28%.",
+            "example": "Project bullet: Built [Your Project] API (Node/Postgres), reduced latency by ~25%.",
         })
 
     if missing_tech:
@@ -2922,10 +3225,14 @@ def build_roast_report_v2(
     candidate_name: Optional[str] = None,
 ) -> dict:
     """Evidence-based roast report that quotes specific resume lines."""
-    
+
     raw_text = ats_extracted.get("raw_text", "")
     lines = [l.strip() for l in raw_text.splitlines() if l.strip()]
     text_lower = raw_text.lower()
+    name = (candidate_name or "Candidate").strip() or "Candidate"
+    first_name = name.split()[0] if name else "Candidate"
+    role_label = (target_role or "software engineer").replace("-", " ").replace("_", " ").strip().title()
+    role_is_technical = _is_technical_role(target_role)
     
     # Find specific problematic lines
     vague_lines = []
@@ -2954,66 +3261,222 @@ def build_roast_report_v2(
         s = re.sub(r"^(Objective|Goal|Task|Note|Summary|Description)\s*:\s*", "", s, flags=re.I).strip()
         return s[:limit]
 
-    # Build specific critiques
-    hard_truths = []
-    if vague_lines:
-        examples = [f'"{_clean_quote(v["line"], 80)}..."' for v in vague_lines[:2]]
-        hard_truths.append(f"Found {len(vague_lines)} generic phrases. Replace: {', '.join(examples)}")
-
-    if responsibility_lines:
-        examples = [f'"{_clean_quote(r["line"], 80)}..."' for r in responsibility_lines[:2]]
-        hard_truths.append(f"{len(responsibility_lines)} bullets describe activity, not impact. Example: {examples[0]}")
-
-    priority_fixes: list[str] = []
-
-    for line_info in responsibility_lines[:3]:
-        original = line_info["line"]
-        rewritten = _generate_specific_rewrite(original, target_role)
-        # Always produce a clean string — never a dict — so the frontend renders correctly
-        priority_fixes.append(
-            f"Rewrite: \"{_clean_quote(original, 80)}\" → {rewritten}"
-        )
-
-    # Build heuristic strengths with encouragement + recruiter framing
-    heuristic_strengths: list[str] = []
-    for ml in metric_lines[:3]:
-        heuristic_strengths.append(f"Metric-backed bullet: \"{_clean_quote(ml['line'], 100)}\"")
     section_signals = {
         "summary": bool(re.search(r"\bsummary\b", text_lower)),
         "experience": bool(re.search(r"\bexperience\b", text_lower)),
         "projects": bool(re.search(r"\bprojects?\b", text_lower)),
         "skills": bool(re.search(r"\bskills?\b", text_lower)),
     }
-    if all(section_signals.values()):
-        heuristic_strengths.append("Resume structure is recruiter-friendly: clear Summary, Experience, Projects, and Skills sections.")
+    summary_line = _extract_summary_line(raw_text)
+    experience_line = _extract_experience_bullet_line(raw_text)
     skills_detected = ats_extracted.get("skills", []) if isinstance(ats_extracted.get("skills"), list) else []
-    if len(skills_detected) >= 10:
-        heuristic_strengths.append(f"Technical breadth is visible with {len(skills_detected)} detected skills.")
+    skills_count = len(skills_detected)
     project_lines = [l for l in lines if re.search(r"(civicwatch|quizx|stock|project)", l, re.IGNORECASE)]
+    has_github_url = bool(re.search(r"(?:https?://)?(?:www\.)?github\.com/[A-Za-z0-9-]+", raw_text, re.IGNORECASE))
+    has_linkedin_url = bool(re.search(r"(?:https?://)?(?:www\.)?linkedin\.com/(?:in|pub)/[A-Za-z0-9-_/]+", raw_text, re.IGNORECASE))
+    mentions_github = bool(re.search(r"\bgithub\b", raw_text, re.IGNORECASE))
+    mentions_linkedin = bool(re.search(r"\blinkedin\b", raw_text, re.IGNORECASE))
+    generic_summary = bool(summary_line and re.search(r"(?i)\b(aspiring|passionate|solid foundation|innovative solutions|business goals)\b", summary_line))
+
+    what_is_good_rich: list[dict] = []
+    for ml in metric_lines[:3]:
+        quote = _clean_quote(ml["line"], 120)
+        what_is_good_rich.append({
+            "point": "You already have measurable outcome evidence.",
+            "specific_evidence": quote,
+            "why_it_matters_to_recruiters": "Quantified bullets are trusted faster than responsibility-only bullets.",
+        })
+    if all(section_signals.values()):
+        what_is_good_rich.append({
+            "point": "Your core resume structure is ATS/recruiter friendly.",
+            "specific_evidence": "Summary, Experience, Projects, and Skills sections are all present.",
+            "why_it_matters_to_recruiters": "Clear structure reduces scan friction in the first 20-30 seconds.",
+        })
+    if skills_count >= 10:
+        what_is_good_rich.append({
+            "point": "Technical breadth is visible.",
+            "specific_evidence": f"{skills_count} skills were detected from ATS-visible text.",
+            "why_it_matters_to_recruiters": "Breadth helps with keyword coverage in early screening.",
+        })
     if len(project_lines) >= 2:
-        heuristic_strengths.append("Project portfolio shows initiative across multiple problem domains.")
-    if "intern" in text_lower:
-        heuristic_strengths.append("Internship experience gives practical execution signal beyond classroom work.")
-    if re.search(r"(?:https?://)?(?:www\.)?github\.com/", raw_text, re.IGNORECASE):
-        heuristic_strengths.append("GitHub profile signal is present, which helps technical credibility.")
-    if re.search(r"(?:https?://)?(?:www\.)?linkedin\.com/(?:in|pub)/", raw_text, re.IGNORECASE):
-        heuristic_strengths.append("LinkedIn profile signal is present, which supports recruiter verification.")
+        what_is_good_rich.append({
+            "point": "Your projects provide practical execution proof.",
+            "specific_evidence": f"{min(len(project_lines), 4)} project-related lines detected with concrete stack mentions.",
+            "why_it_matters_to_recruiters": "Projects are your strongest ownership signal for entry-to-mid hiring.",
+        })
+    if not what_is_good_rich:
+        what_is_good_rich.append({
+            "point": "Your resume has usable raw material.",
+            "specific_evidence": "Detected technical content can be upgraded into stronger impact bullets.",
+            "why_it_matters_to_recruiters": "Execution-focused rewrites can improve callback probability quickly.",
+        })
 
-    if not heuristic_strengths:
-        heuristic_strengths = ["Resume contains project and technical content worth refining for stronger impact."]
-    heuristic_strengths = _unique_non_empty_fuzzy(heuristic_strengths, 6, threshold=0.9)
-
-    # Build heuristic weaknesses from vague and responsibility lines
-    heuristic_weaknesses: list[str] = []
+    what_is_bad_rich: list[dict] = []
+    if generic_summary and summary_line:
+        what_is_bad_rich.append({
+            "point": "Summary sounds generic and interchangeable.",
+            "specific_evidence": _clean_quote(summary_line, 120),
+            "exact_line_reference": _clean_quote(summary_line, 100),
+            "recruiter_reaction": "Does not establish why you are a strong fit in first glance.",
+        })
     for vl in vague_lines[:2]:
-        heuristic_weaknesses.append(f"Generic phrase found: \"{_clean_quote(vl['line'], 80)}\" — replace with a specific outcome.")
+        quote = _clean_quote(vl["line"], 120)
+        what_is_bad_rich.append({
+            "point": "Generic language is reducing credibility.",
+            "specific_evidence": quote,
+            "exact_line_reference": quote,
+            "recruiter_reaction": "Reads like filler rather than proof of impact.",
+        })
     for rl in responsibility_lines[:2]:
-        heuristic_weaknesses.append(f"Responsibility-only bullet: \"{_clean_quote(rl['line'], 80)}\" — add ownership verb and metric.")
-    if not heuristic_weaknesses:
-        heuristic_weaknesses = ["Review bullets for passive language and missing impact metrics."]
-    heuristic_weaknesses = _unique_non_empty_fuzzy(heuristic_weaknesses, 6, threshold=0.9)
-    hard_truths = _unique_non_empty_fuzzy(hard_truths, 3, threshold=0.9)
-    priority_fixes = _unique_non_empty_fuzzy(priority_fixes, 6, threshold=0.9)
+        quote = _clean_quote(rl["line"], 120)
+        what_is_bad_rich.append({
+            "point": "Responsibility-only bullet without outcome metric.",
+            "specific_evidence": quote,
+            "exact_line_reference": quote,
+            "recruiter_reaction": "Recruiters cannot estimate your ownership depth or business impact.",
+        })
+    if skills_count >= 16 and len(metric_lines) < 3:
+        what_is_bad_rich.append({
+            "point": "Skill list is broad, but proof density is low.",
+            "specific_evidence": f"{skills_count} skills detected with only {len(metric_lines)} clear metric-backed lines.",
+            "exact_line_reference": "Skills section + experience/project bullets",
+            "recruiter_reaction": "Can look like keyword stuffing without supporting execution evidence.",
+        })
+    if (mentions_github and not has_github_url) or (mentions_linkedin and not has_linkedin_url):
+        what_is_bad_rich.append({
+            "point": "Profile links are mentioned but not fully visible as URLs.",
+            "specific_evidence": "Resume text includes 'LinkedIn' / 'GitHub' labels without reliable URL proof.",
+            "exact_line_reference": "Header/contact block",
+            "recruiter_reaction": "Verification friction increases and trust signal drops.",
+        })
+    if not what_is_bad_rich:
+        what_is_bad_rich.append({
+            "point": "Most bullets still need stronger measurable outcomes.",
+            "specific_evidence": "Current phrasing is clearer than average but still under-quantified.",
+            "exact_line_reference": "Experience/Projects bullets",
+            "recruiter_reaction": "Interview conversion may lag against sharper resumes.",
+        })
+
+    hard_truths_rich: list[dict] = []
+    if len(metric_lines) < 3:
+        hard_truths_rich.append({
+            "truth": f"{first_name}, this still reads more like activity than impact.",
+            "why": "Most bullets describe work done, not measurable business/user outcomes.",
+            "specific_line_that_caused_this": _clean_quote(responsibility_lines[0]["line"], 100) if responsibility_lines else "Multiple non-metric bullets across Experience/Projects.",
+            "what_to_do_instead": "Convert top 5 bullets to action + scope + metric + result format.",
+        })
+    if generic_summary and summary_line:
+        hard_truths_rich.append({
+            "truth": "Your opening is too generic to create interview pull.",
+            "why": "Recruiters decide fast; vague intros get skipped.",
+            "specific_line_that_caused_this": _clean_quote(summary_line, 100),
+            "what_to_do_instead": f"Lead with role focus ({role_label}) + strongest measurable proof line.",
+        })
+    if role_is_technical and not has_github_url:
+        hard_truths_rich.append({
+            "truth": "Technical role target without visible GitHub hurts trust.",
+            "why": "Skill claims are weaker when code proof is missing.",
+            "specific_line_that_caused_this": "GitHub URL not detected as a valid profile link in resume text.",
+            "what_to_do_instead": "Add full GitHub URL in header and list 2 strongest repos with impact bullets.",
+        })
+    if skills_count >= 16 and len(metric_lines) < 3:
+        hard_truths_rich.append({
+            "truth": "Too many skill claims with too little proof can look inflated.",
+            "why": "Hiring teams reward evidence density over long tool lists.",
+            "specific_line_that_caused_this": f"Detected {skills_count} skills but only {len(metric_lines)} high-confidence metric lines.",
+            "what_to_do_instead": "Trim skills to role-critical stack and prove each with one project/experience bullet.",
+        })
+    if not hard_truths_rich:
+        hard_truths_rich.append({
+            "truth": f"{first_name}, this is close but not yet interview-magnet quality.",
+            "why": "The resume passes ATS but needs stronger differentiation for human review.",
+            "specific_line_that_caused_this": "Overall evidence density and line-level impact phrasing.",
+            "what_to_do_instead": "Tighten top bullets around ownership, technical decision, and measurable results.",
+        })
+
+    priority_fixes_rich: list[dict] = []
+    if summary_line:
+        summary_rewrite = f"Built and shipped role-relevant {role_label} projects with measurable outcomes, including stronger ownership and production execution signals."
+        priority_fixes_rich.append({
+            "fix": "Rewrite Summary opening to remove generic wording.",
+            "priority": "P0",
+            "why": "The first lines control whether recruiters continue reading.",
+            "before": _clean_quote(summary_line, 120),
+            "after": summary_rewrite,
+        })
+    if experience_line and re.search(r"(?i)\b(worked on|responsible for|helped)\b", experience_line):
+        priority_fixes_rich.append({
+            "fix": "Rewrite weakest experience bullet into ownership + metric format.",
+            "priority": "P0",
+            "why": "Responsibility language does not prove impact.",
+            "before": _clean_quote(experience_line, 120),
+            "after": _generate_specific_rewrite(experience_line, target_role),
+        })
+    for line_info in responsibility_lines[:2]:
+        original = line_info["line"]
+        priority_fixes_rich.append({
+            "fix": "Upgrade passive bullet to measurable impact statement.",
+            "priority": "P1",
+            "why": "Impact wording improves callback quality immediately.",
+            "before": _clean_quote(original, 120),
+            "after": _generate_specific_rewrite(original, target_role),
+        })
+    if (mentions_github and not has_github_url) or (mentions_linkedin and not has_linkedin_url):
+        priority_fixes_rich.append({
+            "fix": "Fix profile proof in header.",
+            "priority": "P1",
+            "why": "Recruiter verification should be one click, not guesswork.",
+            "before": "Header has profile labels but weak URL visibility.",
+            "after": "Add full clickable URLs: linkedin.com/in/<handle> and github.com/<username>.",
+        })
+    if len(metric_lines) < 4:
+        priority_fixes_rich.append({
+            "fix": "Add metric-backed outcomes to top 5 bullets.",
+            "priority": "P0",
+            "why": "Interview conversion depends on concrete impact evidence.",
+            "before": "Several bullets describe tasks without measurable result.",
+            "after": "Use action + scope + metric + result in Experience/Projects.",
+        })
+
+    priority_fixes_rich = priority_fixes_rich[:6]
+
+    heuristic_strengths = _unique_non_empty_fuzzy(
+        [str(item.get("point", "")).strip() + (f" Evidence: {str(item.get('specific_evidence', '')).strip()}" if str(item.get("specific_evidence", "")).strip() else "") for item in what_is_good_rich],
+        6,
+        threshold=0.9,
+    )
+    heuristic_weaknesses = _unique_non_empty_fuzzy(
+        [str(item.get("point", "")).strip() + (f" Evidence: {str(item.get('specific_evidence', '')).strip()}" if str(item.get("specific_evidence", "")).strip() else "") for item in what_is_bad_rich],
+        8,
+        threshold=0.88,
+    )
+    hard_truths = _unique_non_empty_fuzzy(
+        [str(item.get("truth", "")).strip() + (f" Why: {str(item.get('why', '')).strip()}" if str(item.get("why", "")).strip() else "") for item in hard_truths_rich],
+        6,
+        threshold=0.9,
+    )
+    priority_fixes = _unique_non_empty_fuzzy(
+        [f"{str(item.get('fix', '')).strip()} -> {str(item.get('after', '')).strip()}".strip(" ->") for item in priority_fixes_rich],
+        8,
+        threshold=0.88,
+    )
+
+    role_fit_raw = _calculate_role_fit_v2(ats_extracted, target_role, job_description)
+    role_fit_score = int(role_fit_raw.get("score", 0) or 0)
+    role_fit_status = str(role_fit_raw.get("status", "")).upper()
+    role_fit_verdict = {
+        "best_fit_roles": [role_label] if role_fit_score >= 55 else ["Entry-level Software Engineer"],
+        "weak_fit_roles": (
+            ["Senior/Staff roles requiring deep specialization", "Impact-heavy roles demanding strong metric ownership"]
+            if len(metric_lines) < 3
+            else ["Senior/Staff roles requiring deep specialization"]
+        ),
+        "verdict": (
+            "This resume is currently strong for entry-to-mid opportunities; tighten impact evidence for stronger interview pull."
+            if role_fit_status in {"STRONG_FIT", "CONDITIONAL_FIT"}
+            else "This resume needs tighter role evidence before it becomes interview-competitive."
+        ),
+    }
 
     return {
         "evidence_based": True,
@@ -3027,7 +3490,11 @@ def build_roast_report_v2(
         "weaknesses": heuristic_weaknesses,
         "hard_truths": hard_truths,
         "priority_fixes": priority_fixes,
-        "role_fit_verdict": _calculate_role_fit_v2(ats_extracted, target_role, job_description),
+        "what_is_good_rich": what_is_good_rich[:6],
+        "what_is_bad_rich": what_is_bad_rich[:6],
+        "hard_truths_rich": hard_truths_rich[:5],
+        "priority_fixes_rich": priority_fixes_rich[:6],
+        "role_fit_verdict": role_fit_verdict,
     }
 
 
@@ -3218,24 +3685,8 @@ def _build_sample_resume_upgrades(
     exp_line = _extract_experience_bullet_line(resume_text) or "Worked on vendor panel improvements."
     domains = project_domain_coverage or _build_project_domain_coverage(resume_text)
 
-    # Strip common passive openers to get the core action phrase
-    core_exp = re.sub(
-        r'(?i)^(worked on|responsible for|helped with?|assisted in?|participated in?|objective\s*:?\s*)',
-        '', exp_line
-    ).strip()
-    # Capitalize first letter if needed
-    if core_exp and not core_exp[0].isupper():
-        core_exp = core_exp[0].upper() + core_exp[1:]
-
-    # Build a believable estimate based on what domain the first project is in
     first_project = (domains[0].get("project", "") if domains else "").strip()
-    first_domain_tag = (domains[0].get("domains", ["Software"])[0] if domains else "Software")
-    metric_estimate = (
-        "reducing load time by 30% (est.)" if "DevOps" in first_domain_tag or "Cloud" in first_domain_tag
-        else "improving user engagement by 25% (est.)" if "EdTech" in first_domain_tag or "AI" in first_domain_tag
-        else "cutting report processing time by 40% (est.)" if "Civic" in first_domain_tag
-        else "reducing manual effort by 35% (est.)"
-    )
+    rewritten_exp_line = _generate_specific_rewrite(exp_line, None)
 
     examples = [
         {
@@ -3250,7 +3701,7 @@ def _build_sample_resume_upgrades(
         {
             "area": "Experience Bullet",
             "before": exp_line,
-            "after": f"Built {core_exp}, {metric_estimate}.",
+            "after": rewritten_exp_line,
             "reason": "Converts passive responsibility language into ownership + measurable impact.",
         },
     ]
@@ -3290,7 +3741,13 @@ def build_comprehensive_guidance(
             signal for signal in baseline_role_signals
             if signal and signal.lower() not in resume_lower
         ][:5]
-        cert_recs = _recommend_certs_from_resume_evidence(analyzer, resume_text, target_role)
+        role_label = (target_role or "software engineer").replace("-", " ").replace("_", " ").strip()
+        cert_recs = _recommend_certs_from_resume_evidence(
+            analyzer,
+            resume_text,
+            target_role,
+            project_domain_coverage=domains,
+        )
         actionable_lines = []
         if domains:
             mapped = [
@@ -3302,16 +3759,25 @@ def build_comprehensive_guidance(
                 actionable_lines.append(f"{name}, your project domain map: {', '.join(mapped)}.")
         if no_jd_missing_tech:
             actionable_lines.append(
-                f"No-JD role baseline gaps to consider: {', '.join(no_jd_missing_tech[:4])}."
-            )
-        if cert_recs:
-            top = cert_recs[0]
-            actionable_lines.append(
-                f"Certification to consider only if role-aligned evidence exists: {top['name']} -> Build proof project before adding to resume."
+                f"{name}, for your {role_label} target, weakest evidence signals are: {', '.join(no_jd_missing_tech[:4])}. Add one metric-backed bullet per signal in Experience/Projects."
             )
         else:
             actionable_lines.append(
-                "No certification recommendation in no-JD mode. Prioritize quantified bullets + GitHub proof first."
+                f"{name}, your no-JD baseline coverage is healthy for the selected {role_label} role. Focus on deeper outcome metrics to improve interview pull."
+            )
+        if cert_recs:
+            top = cert_recs[0]
+            gap_note = str(top.get("gap_it_closes", "")).strip()
+            why_note = str(top.get("why_this_person_needs_it", "")).strip()
+            actionable_lines.append(
+                f"Certification fit: {top['name']}."
+                + (f" Gap closed: {gap_note}." if gap_note else "")
+                + (f" Why now: {why_note}" if why_note else "")
+            )
+        else:
+            missing_focus = ", ".join(no_jd_missing_tech[:2]) if no_jd_missing_tech else "clear measurable impact proof"
+            actionable_lines.append(
+                f"No certification suggested yet because current evidence is not strong enough for a high-confidence cert mapping. Prioritize {missing_focus}, then re-run."
             )
 
         action_plan = _build_detailed_action_plan(
@@ -3374,13 +3840,26 @@ def build_comprehensive_guidance(
     for cert in cert_recs[:6]:
         if not isinstance(cert, dict):
             continue
+        evidence_found = cert.get("evidence_found", [])
+        if not isinstance(evidence_found, list):
+            evidence_found = []
+        evidence_found = [_short_line(str(item)) for item in evidence_found if str(item).strip()][:2]
         normalized_certs.append({
             "name": str(cert.get("name", "")).strip(),
             "provider": str(cert.get("provider", "")).strip(),
-            "relevance": str(cert.get("relevance", "")).strip(),
+            "relevance": str(cert.get("relevance", "") or cert.get("reason", "")).strip(),
             "impact": str(cert.get("impact", "")).strip(),
             "url": str(cert.get("url", "")).strip(),
+            "why_this_person_needs_it": str(cert.get("why_this_person_needs_it", "")).strip(),
+            "gap_it_closes": str(cert.get("gap_it_closes", "")).strip(),
+            "evidence_found": evidence_found,
         })
+    normalized_certs = _filter_certification_recommendations_by_evidence(
+        normalized_certs,
+        resume_text=resume_text,
+        project_domain_coverage=domains,
+        limit=3,
+    )
 
     normalized_missing_keywords = _normalize_missing_keywords(raw.get("missing_keywords", []) if isinstance(raw, dict) else [])
     normalized_missing_tech = _normalize_missing_keywords((missing_skills.get("technical", []) if isinstance(missing_skills, dict) else [])[:10])
@@ -3533,6 +4012,9 @@ async def full_analysis(
         Complete analysis result
     """
     try:
+        request_started_at = time.monotonic()
+        total_budget_seconds = min(40.0, max(24.0, float(os.getenv("ANALYZE_TOTAL_BUDGET_SECONDS", "38"))))
+
         # 1. Parse resume
         content = await file.read()
         filename = file.filename.lower()
@@ -3553,7 +4035,10 @@ async def full_analysis(
         # 2. Extract features
         feature_extractor = get_feature_extractor()
         features = feature_extractor.extract_features(parsing_result)
-        resume_text = parsing_result.get("raw_text", "")
+        
+        # Use visual_text for AI/Semantic tasks as it preserves reading order better.
+        # Fallback to raw_text if visual_text is missing.
+        resume_text = parsing_result.get("visual_text") or parsing_result.get("raw_text", "")
         candidate_name = _extract_candidate_name(resume_text, file.filename)
         project_domain_coverage = _build_project_domain_coverage(resume_text)
         extracted_urls = [str(u).strip() for u in (parsing_result.get("extracted_urls") or []) if str(u).strip()]
@@ -3649,31 +4134,38 @@ async def full_analysis(
         
         missing_keywords = visibility_result.get("missing_keywords", [])[:10] if visibility_result else []
         risk_flags = features.get("risk_flags", [])
+        # 7.5 Run AI roast and GitHub intel in parallel with strict time budgets.
+        def _remaining_budget() -> float:
+            return max(3.0, total_budget_seconds - (time.monotonic() - request_started_at))
 
-        # 7.5 AI-powered deep roast with fallback
-        ai_generated = await generate_ai_analysis_with_fallback(
-            resume_text=resume_text,
-            job_description=job_description,
-            company_name=company_name,
-            target_role=target_role,
-            candidate_name=candidate_name,
-            project_domain_coverage=project_domain_coverage,
-            feedback_tone=feedback_tone,
-            friendliness_score=friendliness_score,
-            match_score=match_score,
-            missing_keywords=missing_keywords,
-            risk_flags=risk_flags,
+        ai_generated = None
+        ai_generation_mode = "heuristic"
+        ai_task = asyncio.create_task(
+            generate_ai_analysis_with_fallback(
+                resume_text=resume_text,
+                job_description=job_description,
+                company_name=company_name,
+                target_role=target_role,
+                candidate_name=candidate_name,
+                project_domain_coverage=project_domain_coverage,
+                feedback_tone=feedback_tone,
+                friendliness_score=friendliness_score,
+                match_score=match_score,
+                missing_keywords=missing_keywords,
+                risk_flags=risk_flags,
+                detected_github_url=detected_profiles.get("github_url"),
+                detected_linkedin_url=resolved_linkedin_url,
+            )
         )
 
-        if ai_generated:
-            # Merge AI results into the heuristic report
-            roast_report = _merge_roast_reports(roast_report, ai_generated)
-            ai_generation_mode = "ai"
-        else:
-            ai_generation_mode = "heuristic"
-
-        github_timeout = float(os.getenv("ANALYZE_GITHUB_TIMEOUT_SECONDS", "25"))
+        github_timeout = min(30.0, max(6.0, float(os.getenv("ANALYZE_GITHUB_TIMEOUT_SECONDS", "25"))))
         github_task = None
+        github_intel = {
+            "github_best_projects": [],
+            "github_drop_projects": [],
+            "github_summary": "",
+            "github_profile": {},
+        }
         if resolved_github:
             github_task = asyncio.create_task(
                 asyncio.wait_for(
@@ -3699,11 +4191,46 @@ async def full_analysis(
                 detected_profiles.get("github_url"),
             )
 
+        # Await AI — use the env-controlled wait budget only; the inner
+        # generate_ai_analysis_with_fallback already enforces its own hard timeout
+        # so we don't double-clip with _remaining_budget() here.
+        try:
+            ai_wait = min(120.0, max(6.0, float(os.getenv("ANALYZE_AI_WAIT_BUDGET_SECONDS", "90"))))
+            ai_generated = await asyncio.wait_for(ai_task, timeout=ai_wait)
+        except asyncio.TimeoutError:
+            ai_task.cancel()
+            logger.warning("AI roast exceeded wait budget (%ss) and was skipped.", ai_wait)
+        except RateLimitError:
+            ai_task.cancel()
+            logger.warning("OpenAI rate limit reached — returning 429 to client.")
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "error": "rate_limited",
+                    "message": "Our AI analysis engine is receiving too many requests right now.",
+                    "retry_after_seconds": 60,
+                },
+            )
+        except Exception as exc:
+            logger.warning("AI roast failed in request path: %s", exc)
+            ai_generated = None
+
+        roast_markdown = ""
+        if ai_generated:
+            roast_markdown = ai_generated.get("roast_markdown", "")
+            if roast_markdown:
+                ai_generation_mode = "ai"
+
+        # Await GitHub task after AI; it has been running concurrently.
+        # Give GitHub a generous wait — it runs concurrently with AI so budget
+        # should not clip it aggressively.
         if github_task:
             try:
-                github_intel = await github_task
+                github_wait = max(15.0, min(github_timeout, _remaining_budget() + 10.0))
+                github_intel = await asyncio.wait_for(github_task, timeout=github_wait)
             except asyncio.TimeoutError:
                 logger.warning("GitHub intel timed out after %ss.", github_timeout)
+                github_task.cancel()
                 github_intel = {
                     "github_best_projects": [
                         {
@@ -3722,6 +4249,7 @@ async def full_analysis(
                             "score": 25,
                             "reason": "Low ownership signal unless you document your unique contribution.",
                             "resume_action": "Avoid listing these unless you can prove meaningful custom work.",
+                            "actionability": "low",
                         }
                     ],
                     "github_summary": "GitHub deep scan timed out. Applied quick fallback guidance from profile signals.",
@@ -3749,9 +4277,25 @@ async def full_analysis(
         ai_cert_suggestions = []
         if isinstance(ai_generated, dict):
             ai_cert_suggestions = ai_generated.get("certification_suggestions", []) or []
+        # AI certs are already personalized — light filter only (dedup + limit).
+        # Skip the aggressive anchor-matching filter that drops most AI suggestions.
+        if ai_cert_suggestions and isinstance(ai_cert_suggestions, list):
+            seen_names: set[str] = set()
+            deduped_certs: list[dict] = []
+            for c in ai_cert_suggestions:
+                if not isinstance(c, dict):
+                    continue
+                cname = str(c.get("name", "")).strip().lower()
+                if not cname or cname in seen_names:
+                    continue
+                seen_names.add(cname)
+                deduped_certs.append(c)
+            ai_cert_suggestions = deduped_certs[:5]
+        else:
+            ai_cert_suggestions = []
         if ai_cert_suggestions:
             # Prefer AI-personalized cert guidance when available.
-            comprehensive_guidance["certification_recommendations"] = ai_cert_suggestions[:3]
+            comprehensive_guidance["certification_recommendations"] = ai_cert_suggestions[:5]
             for cert in ai_cert_suggestions[:2]:
                 if not isinstance(cert, dict):
                     continue
@@ -3848,27 +4392,50 @@ async def full_analysis(
             })
 
         # Final guardrails: never ship blank critical roast sections.
-        roast_report["hard_truths"] = _unique_non_empty_fuzzy(
-            (roast_report.get("hard_truths", []) or []) + [
+        hard_truth_seed = roast_report.get("hard_truths", []) or []
+        if len(hard_truth_seed) < 2:
+            hard_truth_seed = hard_truth_seed + [
                 f"{candidate_name}, if ownership and measurable impact are unclear, callbacks drop sharply."
-            ],
+            ]
+        roast_report["hard_truths"] = _unique_non_empty_fuzzy(
+            hard_truth_seed,
             6,
-            threshold=0.92,
+            threshold=0.9,
         )
-        roast_report["priority_fixes"] = _unique_non_empty_fuzzy(
-            (roast_report.get("priority_fixes", []) or []) + [
+        priority_fix_seed = roast_report.get("priority_fixes", []) or []
+        if len(priority_fix_seed) < 3:
+            priority_fix_seed = priority_fix_seed + [
                 "Rewrite top bullets with action + scope + metric + outcome.",
                 "Keep only role-relevant lines and remove generic filler language.",
-            ],
+            ]
+        roast_report["priority_fixes"] = _unique_non_empty_fuzzy(
+            priority_fix_seed,
             8,
-            threshold=0.88,
+            threshold=0.86,
+        )
+        strength_backfill = []
+        skills_count = len(ats_extracted.get("skills", []) or [])
+        if skills_count >= 8:
+            strength_backfill.append(f"Skill coverage is solid with {skills_count} detected technical skills.")
+        if friendliness_score >= 75:
+            strength_backfill.append("ATS readability baseline is healthy, so optimization can focus on impact quality.")
+        if len(project_domain_coverage) >= 2:
+            strength_backfill.append("Project portfolio shows breadth across multiple problem domains.")
+        if resolved_github:
+            strength_backfill.append("GitHub proof signal is present, which strengthens technical credibility.")
+        if resolved_linkedin_url:
+            strength_backfill.append("LinkedIn signal is present, improving recruiter verification trust.")
+        roast_report["strengths"] = _unique_non_empty_fuzzy(
+            (roast_report.get("strengths", []) or []) + strength_backfill,
+            6,
+            threshold=0.9,
         )
         roast_report["needs_fixing"] = _unique_non_empty_fuzzy(
             (roast_report.get("weaknesses", []) or [])
             + (roast_report.get("hard_truths", []) or [])
             + (roast_report.get("priority_fixes", []) or []),
             8,
-            threshold=0.9,
+            threshold=0.84,
         )
         role_verdict = roast_report.get("role_fit_verdict", {})
         if not isinstance(role_verdict, dict):
@@ -3886,6 +4453,7 @@ async def full_analysis(
         roast_report["role_fit_verdict"] = role_verdict
 
         overall_score = round(((friendliness_score or 0) * 0.6) + ((match_score or friendliness_score or 0) * 0.4), 1)
+        elapsed_seconds = round(time.monotonic() - request_started_at, 2)
 
         # 8. Prepare response
         response = {
@@ -3903,6 +4471,7 @@ async def full_analysis(
                 "ats_score": friendliness_score,
                 "jd_fit_score": match_score,
                 "ats_score_raw": score_calibration.get("raw_score"),
+                "elapsed_seconds": elapsed_seconds,
             },
             "vendor_compatibility": vendor_compatibility,
             "critical_issues": critical_issues,
@@ -3914,6 +4483,7 @@ async def full_analysis(
             "visibility_breakdown": visibility_result.get("breakdown", {}) if visibility_result else None,
             "missing_keywords": missing_keywords,
             "roast_report": roast_report,
+            "roast_markdown": roast_markdown,
             "external_profile_intel": {
                 **github_intel,
                 **linkedin_intel,

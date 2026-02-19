@@ -7,6 +7,7 @@ import json
 import time
 import logging
 import re
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 from openai import OpenAI
 
@@ -66,12 +67,14 @@ class OpenAIClient:
 
         for attempt in range(retries):
             try:
+                current_date_str = datetime.now().strftime("%B %d, %Y")
                 call_kwargs: Dict[str, Any] = dict(
                     model=selected_model,
                     messages=[
                         {
                             "role": "system",
                             "content": (
+                                f"Today's date is {current_date_str}. "
                                 "You are a principal-level technical recruiter and resume strategist. "
                                 "You give reference-grade analysis: every critique cites an exact line, "
                                 "every rewrite uses the candidate's real project names and tech stack, "
@@ -425,10 +428,10 @@ Explanation must be under 60 characters total. Use "✓" bullets. NO paragraphs.
         brutal_timeout = float(
             os.getenv(
                 "OPENAI_BRUTAL_TIMEOUT_SECONDS",
-                str(max(20.0, min(35.0, self.timeout_seconds + 5.0))),
+                str(max(12.0, min(24.0, self.timeout_seconds + 2.0))),
             )
         )
-        brutal_max_tokens = int(os.getenv("OPENAI_BRUTAL_MAX_TOKENS", "1500"))
+        brutal_max_tokens = int(os.getenv("OPENAI_BRUTAL_MAX_TOKENS", "1200"))
         resume_excerpt_limit = int(os.getenv("OPENAI_BRUTAL_RESUME_CHARS", "6500"))
         jd_excerpt_limit = int(os.getenv("OPENAI_BRUTAL_JD_CHARS", "2200"))
 

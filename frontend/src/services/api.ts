@@ -150,6 +150,7 @@ const mapModernAnalysisResponse = (file: File, data: BackendAnalysisResponse): A
         visibility_breakdown: data.visibility_breakdown,
         missing_keywords: data.missing_keywords,
         roast_report: data.roast_report,
+        roast_markdown: data.roast_markdown,
         content_decisions: data.content_decisions,
         external_profile_intel: data.external_profile_intel,
         interview_prep: data.interview_prep,
@@ -183,12 +184,13 @@ export const analyzeResume = async (
     if (options.linkedinText) formData.append('linkedin_text', options.linkedinText);
     if (options.githubToken) formData.append('github_token', options.githubToken);
 
+    const analyzeTimeout = Number(import.meta.env.VITE_ANALYZE_TIMEOUT_MS || 120000);
     const response = await api.post<BackendAnalysisResponse>('/api/v1/analyze/full', formData, {
         headers: {
             'Content-Type': 'multipart/form-data',
         },
-        // Render cold starts + AI enrichment can exceed 90s.
-        timeout: 180000,
+        // Keep analyze UX snappy; backend now returns fast fallbacks within this budget.
+        timeout: analyzeTimeout,
     });
 
     const data = response.data;
@@ -370,6 +372,17 @@ export const healthCheck = async (): Promise<{ status: string; version: string }
     return response.data;
 };
 
+// Custom error class for rate limiting
+export class RateLimitError extends Error {
+    isRateLimit: true = true;
+    retryAfter: number;
+    constructor(retryAfter = 60) {
+        super('RATE_LIMITED');
+        this.name = 'RateLimitError';
+        this.retryAfter = retryAfter;
+    }
+}
+
 // Error handling interceptor
 api.interceptors.response.use(
     (response) => response,
@@ -381,7 +394,16 @@ api.interceptors.response.use(
             throw new Error('Request timed out. Please retry in a moment.');
         }
         if (error.response) {
-            const message = error.response.data?.detail || error.response.statusText;
+            // Detect rate limit (429) and throw typed error
+            if (error.response.status === 429) {
+                const detail = error.response.data?.detail;
+                const retryAfter =
+                    (typeof detail === 'object' ? detail?.retry_after_seconds : null) || 60;
+                throw new RateLimitError(retryAfter);
+            }
+            const detail = error.response.data?.detail;
+            const message =
+                typeof detail === 'object' ? detail?.message || JSON.stringify(detail) : detail || error.response.statusText;
             throw new Error(message);
         } else if (error.request) {
             throw new Error('No response from server. Please check if the backend is running.');

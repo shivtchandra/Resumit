@@ -2,76 +2,81 @@
     "certifications_by_role": {
         "software_engineer": [
             {
-                "name": "AWS Certified Solutions Architect",
+                "name": "AWS Certified Developer - Associate",
                 "provider": "Amazon Web Services",
                 "relevance_keywords": [
-                    "AWS",
-                    "cloud",
-                    "EC2",
-                    "S3",
-                    "Lambda",
-                    "serverless"
+                    "AWS", "cloud", "EC2", "S3", "Lambda", "serverless",
+                    "deploy", "backend", "API", "microservices", "Docker", "infrastructure"
                 ],
                 "impact_score": 15,
-                "url": "https://aws.amazon.com/certification/certified-solutions-architect-associate/"
+                "url": "https://aws.amazon.com/certification/certified-developer-associate/"
             },
             {
-                "name": "Google Cloud Professional Cloud Architect",
-                "provider": "Google Cloud",
+                "name": "Meta Front-End Developer Professional Certificate",
+                "provider": "Meta (Coursera)",
                 "relevance_keywords": [
-                    "GCP",
-                    "Google Cloud",
-                    "cloud architecture"
-                ],
-                "impact_score": 15,
-                "url": "https://cloud.google.com/certification/cloud-architect"
-            },
-            {
-                "name": "Certified Kubernetes Administrator (CKA)",
-                "provider": "CNCF",
-                "relevance_keywords": [
-                    "Kubernetes",
-                    "K8s",
-                    "container orchestration",
-                    "DevOps"
+                    "React", "JavaScript", "TypeScript", "frontend", "CSS", "HTML",
+                    "Next.js", "UI", "web", "responsive"
                 ],
                 "impact_score": 12,
-                "url": "https://www.cncf.io/certification/cka/"
+                "url": "https://www.coursera.org/professional-certificates/meta-front-end-developer"
+            },
+            {
+                "name": "Oracle Certified Professional: Java SE Developer",
+                "provider": "Oracle",
+                "relevance_keywords": [
+                    "Java", "backend", "Spring", "enterprise", "OOP"
+                ],
+                "impact_score": 14,
+                "url": "https://education.oracle.com/oracle-certified-professional-java-se-11-developer/pTrack_OCPJP11"
+            },
+            {
+                "name": "MongoDB Certified Developer",
+                "provider": "MongoDB",
+                "relevance_keywords": [
+                    "MongoDB", "NoSQL", "database", "Express", "Node.js", "MERN"
+                ],
+                "impact_score": 10,
+                "url": "https://university.mongodb.com/certification"
+            },
+            {
+                "name": "Docker Certified Associate",
+                "provider": "Docker / Mirantis",
+                "relevance_keywords": [
+                    "Docker", "container", "DevOps", "deploy", "CI/CD", "pipeline", "Kubernetes"
+                ],
+                "impact_score": 12,
+                "url": "https://training.mirantis.com/certification/dca-certification-exam/"
+            },
+            {
+                "name": "TensorFlow Developer Certificate",
+                "provider": "Google",
+                "relevance_keywords": [
+                    "TensorFlow", "deep learning", "neural networks", "ML", "machine learning", "Python", "AI"
+                ],
+                "impact_score": 15,
+                "url": "https://www.tensorflow.org/certificate"
             }
         ],
         "data_scientist": [
             {
                 "name": "AWS Certified Machine Learning - Specialty",
                 "provider": "Amazon Web Services",
-                "relevance_keywords": [
-                    "machine learning",
-                    "ML",
-                    "AWS",
-                    "SageMaker"
-                ],
+                "relevance_keywords": ["machine learning", "ML", "AWS", "SageMaker"],
                 "impact_score": 18,
                 "url": "https://aws.amazon.com/certification/certified-machine-learning-specialty/"
             },
             {
                 "name": "TensorFlow Developer Certificate",
                 "provider": "Google",
-                "relevance_keywords": [
-                    "TensorFlow",
-                    "deep learning",
-                    "neural networks"
-                ],
+                "relevance_keywords": ["TensorFlow", "deep learning", "neural networks", "Python"],
                 "impact_score": 15,
                 "url": "https://www.tensorflow.org/certificate"
             },
             {
                 "name": "Microsoft Certified: Azure Data Scientist Associate",
                 "provider": "Microsoft",
-                "relevance_keywords": [
-                    "Azure",
-                    "data science",
-                    "ML",
-                    "Python"
-                ],
+                "relevance_keywords": ["Azure", "data science", "ML", "Python"],
                 "impact_score": 14,
                 "url": "https://learn.microsoft.com/en-us/certifications/azure-data-scientist/"
             }
@@ -80,46 +85,28 @@
             {
                 "name": "Certified Kubernetes Administrator (CKA)",
                 "provider": "CNCF",
-                "relevance_keywords": [
-                    "Kubernetes",
-                    "K8s",
-                    "container",
-                    "orchestration"
-                ],
+                "relevance_keywords": ["Kubernetes", "K8s", "container", "orchestration", "Docker"],
                 "impact_score": 18,
                 "url": "https://www.cncf.io/certification/cka/"
             },
             {
                 "name": "AWS Certified DevOps Engineer",
                 "provider": "Amazon Web Services",
-                "relevance_keywords": [
-                    "AWS",
-                    "DevOps",
-                    "CI/CD",
-                    "automation"
-                ],
+                "relevance_keywords": ["AWS", "DevOps", "CI/CD", "automation", "pipeline"],
                 "impact_score": 16,
                 "url": "https://aws.amazon.com/certification/certified-devops-engineer-professional/"
             },
             {
                 "name": "HashiCorp Certified: Terraform Associate",
                 "provider": "HashiCorp",
-                "relevance_keywords": [
-                    "Terraform",
-                    "IaC",
-                    "infrastructure as code"
-                ],
+                "relevance_keywords": ["Terraform", "IaC", "infrastructure as code"],
                 "impact_score": 14,
                 "url": "https://www.hashicorp.com/certification/terraform-associate"
             },
             {
                 "name": "Docker Certified Associate",
-                "provider": "Docker",
-                "relevance_keywords": [
-                    "Docker",
-                    "container",
-                    "containerization"
-                ],
+                "provider": "Docker / Mirantis",
+                "relevance_keywords": ["Docker", "container", "containerization"],
                 "impact_score": 12,
                 "url": "https://training.mirantis.com/certification/dca-certification-exam/"
             }
@@ -128,23 +115,21 @@
             {
                 "name": "AWS Certified Developer - Associate",
                 "provider": "Amazon Web Services",
-                "relevance_keywords": [
-                    "AWS",
-                    "cloud",
-                    "serverless",
-                    "API"
-                ],
+                "relevance_keywords": ["AWS", "cloud", "serverless", "API", "backend", "deploy"],
                 "impact_score": 14,
                 "url": "https://aws.amazon.com/certification/certified-developer-associate/"
             },
             {
+                "name": "Meta Front-End Developer Professional Certificate",
+                "provider": "Meta (Coursera)",
+                "relevance_keywords": ["React", "JavaScript", "frontend", "HTML", "CSS"],
+                "impact_score": 12,
+                "url": "https://www.coursera.org/professional-certificates/meta-front-end-developer"
+            },
+            {
                 "name": "MongoDB Certified Developer",
                 "provider": "MongoDB",
-                "relevance_keywords": [
-                    "MongoDB",
-                    "NoSQL",
-                    "database"
-                ],
+                "relevance_keywords": ["MongoDB", "NoSQL", "database", "Express", "Node.js"],
                 "impact_score": 10,
                 "url": "https://university.mongodb.com/certification"
             }
@@ -153,33 +138,21 @@
             {
                 "name": "AWS Certified Solutions Architect - Professional",
                 "provider": "Amazon Web Services",
-                "relevance_keywords": [
-                    "AWS",
-                    "cloud architecture",
-                    "enterprise"
-                ],
+                "relevance_keywords": ["AWS", "cloud architecture", "enterprise"],
                 "impact_score": 20,
                 "url": "https://aws.amazon.com/certification/certified-solutions-architect-professional/"
             },
             {
                 "name": "Google Cloud Professional Cloud Architect",
                 "provider": "Google Cloud",
-                "relevance_keywords": [
-                    "GCP",
-                    "Google Cloud",
-                    "cloud design"
-                ],
+                "relevance_keywords": ["GCP", "Google Cloud", "cloud design"],
                 "impact_score": 18,
                 "url": "https://cloud.google.com/certification/cloud-architect"
             },
             {
                 "name": "Microsoft Certified: Azure Solutions Architect Expert",
                 "provider": "Microsoft",
-                "relevance_keywords": [
-                    "Azure",
-                    "cloud",
-                    "Microsoft"
-                ],
+                "relevance_keywords": ["Azure", "cloud", "Microsoft"],
                 "impact_score": 18,
                 "url": "https://learn.microsoft.com/en-us/certifications/azure-solutions-architect/"
             }
@@ -188,49 +161,28 @@
             {
                 "name": "CISSP (Certified Information Systems Security Professional)",
                 "provider": "ISC2",
-                "relevance_keywords": [
-                    "CISSP",
-                    "information security",
-                    "cybersecurity",
-                    "security management"
-                ],
+                "relevance_keywords": ["CISSP", "information security", "cybersecurity", "security management"],
                 "impact_score": 25,
                 "url": "https://www.isc2.org/Certifications/CISSP"
             },
             {
                 "name": "CompTIA Security+",
                 "provider": "CompTIA",
-                "relevance_keywords": [
-                    "security+",
-                    "cybersecurity",
-                    "network security",
-                    "vulnerability"
-                ],
+                "relevance_keywords": ["security+", "cybersecurity", "network security", "vulnerability"],
                 "impact_score": 15,
                 "url": "https://www.comptia.org/certifications/security"
             },
             {
                 "name": "Certified Ethical Hacker (CEH)",
                 "provider": "EC-Council",
-                "relevance_keywords": [
-                    "CEH",
-                    "penetration testing",
-                    "ethical hacking",
-                    "vulnerability assessment"
-                ],
+                "relevance_keywords": ["CEH", "penetration testing", "ethical hacking", "vulnerability assessment"],
                 "impact_score": 18,
                 "url": "https://www.eccouncil.org/programs/certified-ethical-hacker-ceh/"
             },
             {
                 "name": "AWS Certified Security - Specialty",
                 "provider": "Amazon Web Services",
-                "relevance_keywords": [
-                    "AWS",
-                    "cloud security",
-                    "IAM",
-                    "encryption",
-                    "kms"
-                ],
+                "relevance_keywords": ["AWS", "cloud security", "IAM", "encryption", "kms"],
                 "impact_score": 20,
                 "url": "https://aws.amazon.com/certification/certified-security-specialty/"
             }
@@ -238,14 +190,8 @@
         "frontend_engineer": [
             {
                 "name": "Meta Front-End Developer Professional Certificate",
-                "provider": "Meta",
-                "relevance_keywords": [
-                    "React",
-                    "frontend",
-                    "UI",
-                    "UX",
-                    "JavaScript"
-                ],
+                "provider": "Meta (Coursera)",
+                "relevance_keywords": ["React", "frontend", "UI", "UX", "JavaScript", "TypeScript", "CSS", "HTML"],
                 "impact_score": 12,
                 "url": "https://www.coursera.org/professional-certificates/meta-front-end-developer"
             }
@@ -254,22 +200,21 @@
             {
                 "name": "Oracle Certified Professional: Java SE Developer",
                 "provider": "Oracle",
-                "relevance_keywords": [
-                    "Java",
-                    "backend",
-                    "enterprise"
-                ],
+                "relevance_keywords": ["Java", "backend", "enterprise", "Spring"],
                 "impact_score": 15,
                 "url": "https://education.oracle.com/oracle-certified-professional-java-se-11-developer/pTrack_OCPJP11"
             },
             {
+                "name": "AWS Certified Developer - Associate",
+                "provider": "Amazon Web Services",
+                "relevance_keywords": ["AWS", "cloud", "API", "backend", "serverless", "deploy"],
+                "impact_score": 14,
+                "url": "https://aws.amazon.com/certification/certified-developer-associate/"
+            },
+            {
                 "name": "Redis Certified Developer",
                 "provider": "Redis",
-                "relevance_keywords": [
-                    "Redis",
-                    "caching",
-                    "backend"
-                ],
+                "relevance_keywords": ["Redis", "caching", "backend"],
                 "impact_score": 10,
                 "url": "https://university.redislabs.com/certification/"
             }
@@ -278,24 +223,14 @@
             {
                 "name": "Google Professional Machine Learning Engineer",
                 "provider": "Google Cloud",
-                "relevance_keywords": [
-                    "machine learning",
-                    "MLOps",
-                    "GCP",
-                    "TensorFlow"
-                ],
+                "relevance_keywords": ["machine learning", "MLOps", "GCP", "TensorFlow", "Python", "AI"],
                 "impact_score": 22,
                 "url": "https://cloud.google.com/certification/machine-learning-engineer"
             },
             {
                 "name": "NVIDIA Graduate Certificate in Deep Learning",
                 "provider": "NVIDIA",
-                "relevance_keywords": [
-                    "Deep Learning",
-                    "GPU",
-                    "Computer Vision",
-                    "NLP"
-                ],
+                "relevance_keywords": ["Deep Learning", "GPU", "Computer Vision", "NLP", "PyTorch"],
                 "impact_score": 20,
                 "url": "https://www.nvidia.com/en-us/training/"
             }
@@ -305,22 +240,14 @@
         {
             "name": "Certified ScrumMaster (CSM)",
             "provider": "Scrum Alliance",
-            "relevance_keywords": [
-                "Scrum",
-                "Agile",
-                "project management"
-            ],
+            "relevance_keywords": ["Scrum", "Agile", "project management"],
             "impact_score": 8,
             "url": "https://www.scrumalliance.org/get-certified/scrum-master-track/certified-scrummaster"
         },
         {
             "name": "PMP (Project Management Professional)",
             "provider": "PMI",
-            "relevance_keywords": [
-                "project management",
-                "PMP",
-                "leadership"
-            ],
+            "relevance_keywords": ["project management", "PMP", "leadership"],
             "impact_score": 10,
             "url": "https://www.pmi.org/certifications/project-management-pmp"
         }

@@ -15,6 +15,7 @@ export interface AnalysisResult {
         ats_score: number;
         jd_fit_score?: number | null;
         ats_score_raw?: number | null;
+        elapsed_seconds?: number;
     };
     vendor_compatibility: {
         [key: string]: {
@@ -60,6 +61,15 @@ export interface AnalysisResult {
             verdict: string;
         };
     };
+    roast_markdown?: string;
+    ai_certification_suggestions?: Array<{
+        name: string;
+        provider: string;
+        cost: string;
+        time: string;
+        why: string;
+        url: string;
+    }>;
     content_decisions?: {
         keep: string[];
         rewrite: string[];
@@ -77,6 +87,7 @@ export interface AnalysisResult {
             language?: string;
             stars?: number;
             url?: string;
+            conditional_keep?: boolean;
         }>;
         github_drop_projects: Array<{
             name: string;
@@ -84,6 +95,7 @@ export interface AnalysisResult {
             score: number;
             reason: string;
             resume_action?: string;
+            actionability?: 'high' | 'medium' | 'low';
         }>;
         github_summary: string;
         linkedin_must_include: string[];
@@ -142,6 +154,9 @@ export interface AnalysisResult {
             relevance: string;
             impact: string;
             url?: string;
+            why_this_person_needs_it?: string;
+            gap_it_closes?: string;
+            evidence_found?: string[];
         }>;
         actionable_recommendations: string[];
         action_plan?: Array<{
@@ -209,6 +224,8 @@ export interface BackendAnalysisResponse {
     visibility_breakdown?: Record<string, unknown>;
     missing_keywords?: string[];
     roast_report?: AnalysisResult["roast_report"];
+    roast_markdown?: string;
+    ai_certification_suggestions?: AnalysisResult["ai_certification_suggestions"];
     content_decisions?: AnalysisResult["content_decisions"];
     external_profile_intel?: AnalysisResult["external_profile_intel"];
     interview_prep?: AnalysisResult["interview_prep"];

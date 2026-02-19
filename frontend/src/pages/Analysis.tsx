@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, type ReactNode } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import Markdown from 'react-markdown';
 import { PageLayout } from '../components/layout/PageLayout';
 import { Navbar } from '../components/layout/Navbar';
 import { PageGuide } from '../components/layout/PageGuide';
@@ -9,367 +10,27 @@ import { MaterialIcon } from '../components/ui/MaterialIcon';
 import { analyzeResume } from '../services/api';
 import type { AnalysisResult } from '../types';
 
-const TONE_CONFIG = {
-    default: {
-        border: 'border-emerald-200/60',
-        leftAccent: 'border-l-emerald-400',
-        headerBg: 'bg-emerald-50',
-        iconBg: 'bg-emerald-100 text-emerald-600',
-        bullet: 'text-emerald-500',
-        badge: 'bg-emerald-100 text-emerald-700',
-        topGradient: 'from-emerald-400 to-teal-500',
-    },
-    warn: {
-        border: 'border-amber-200/60',
-        leftAccent: 'border-l-amber-400',
-        headerBg: 'bg-amber-50',
-        iconBg: 'bg-amber-100 text-amber-600',
-        bullet: 'text-amber-500',
-        badge: 'bg-amber-100 text-amber-700',
-        topGradient: 'from-amber-400 to-orange-500',
-    },
-    hard: {
-        border: 'border-red-200/60',
-        leftAccent: 'border-l-red-400',
-        headerBg: 'bg-red-50',
-        iconBg: 'bg-red-100 text-red-600',
-        bullet: 'text-red-500',
-        badge: 'bg-red-100 text-red-700',
-        topGradient: 'from-red-400 to-rose-500',
-    },
-    accent: {
-        border: 'border-brand-primary/30',
-        leftAccent: 'border-l-brand-primary',
-        headerBg: 'bg-brand-primary/5',
-        iconBg: 'bg-brand-primary/15 text-brand-primary',
-        bullet: 'text-brand-primary',
-        badge: 'bg-brand-primary/10 text-brand-primary',
-        topGradient: 'from-brand-primary to-teal-600',
-    },
-} as const;
-
-const sanitizePublicSummary = (text?: string): string => {
-    if (!text) return '';
-    return text
-        .replace(/firecrawl/gi, '')
-        .replace(/profile source:\s*(resume|input)\.?/gi, '')
-        .replace(/\(\s*profile scrape note:[^)]+\)/gi, '')
-        .replace(/\(\s*repo scrape note:[^)]+\)/gi, '')
-        .replace(/\s{2,}/g, ' ')
-        .trim();
-};
-
-const uniqueNonEmpty = (items: string[], limit = 12): string[] => {
-    const seen = new Set<string>();
-    const out: string[] = [];
-    for (const item of items || []) {
-        const value = String(item || '').trim();
-        if (!value) continue;
-        const key = value.toLowerCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
-        out.push(value);
-        if (out.length >= limit) break;
-    }
-    return out;
-};
-
-const ExpandableList = ({
-    items,
-    toneBullet,
-    emptyText = 'No items available.',
-    defaultVisible = 4,
-}: {
-    items: string[];
-    toneBullet: string;
-    emptyText?: string;
-    defaultVisible?: number;
-}) => {
-    const [expanded, setExpanded] = useState(false);
-    const list = items || [];
-    const visible = expanded ? list : list.slice(0, defaultVisible);
-
-    if (list.length === 0) {
-        return <div className="text-sm text-text-muted italic">{emptyText}</div>;
-    }
-
-    return (
-        <div className="space-y-3">
-            <ul className="space-y-2.5 list-none p-0 m-0">
-                {visible.map((item, idx) => (
-                    <li key={idx} className="text-sm text-text-muted leading-relaxed flex gap-2.5">
-                        <span className={`${toneBullet} text-[8px] mt-1.5 shrink-0`}>●</span>
-                        <span>{item}</span>
-                    </li>
-                ))}
-            </ul>
-            {list.length > defaultVisible && (
-                <button
-                    type="button"
-                    className="text-xs font-black uppercase tracking-wider text-brand-primary hover:underline"
-                    onClick={() => setExpanded((prev) => !prev)}
-                >
-                    {expanded ? 'Show less' : `Show ${list.length - defaultVisible} more`}
-                </button>
-            )}
-        </div>
-    );
-};
-
-const RoastColumn = ({
-    title,
-    icon,
-    items,
-    tone = 'default',
-}: {
-    title: string;
-    icon: string;
-    items: string[];
-    tone?: 'default' | 'warn' | 'hard' | 'accent';
-}) => {
-    const t = TONE_CONFIG[tone];
-    const count = (items || []).length;
-
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={`rounded-2xl border ${t.border} ${t.leftAccent} border-l-[3px] bg-white overflow-hidden`}
-        >
-            <div className={`h-1 bg-gradient-to-r ${t.topGradient}`} />
-            <div className={`px-4 sm:px-5 pt-4 pb-3 ${t.headerBg} flex items-center justify-between`}>
-                <div className="flex items-center gap-2.5">
-                    <div className={`w-8 h-8 rounded-lg ${t.iconBg} flex items-center justify-center`}>
-                        <MaterialIcon icon={icon} size={16} />
-                    </div>
-                    <h3 className="text-[10px] sm:text-[11px] font-black tracking-[0.18em] uppercase text-brand-secondary">
-                        {title}
-                    </h3>
-                </div>
-                {count > 0 && (
-                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${t.badge}`}>
-                        {count}
-                    </span>
-                )}
-            </div>
-            <div className="p-4 sm:p-5">
-                <ExpandableList items={items} toneBullet={t.bullet} />
-            </div>
-        </motion.div>
-    );
-};
-
-const CollapsibleSection = ({
-    title,
-    icon,
-    defaultOpen = false,
-    badge,
-    children,
-}: {
-    title: string;
-    icon: string;
-    defaultOpen?: boolean;
-    badge?: string;
-    children: ReactNode;
-}) => {
-    const [open, setOpen] = useState(defaultOpen);
-    return (
-        <section className="zen-card overflow-hidden">
-            <button
-                type="button"
-                onClick={() => setOpen((prev) => !prev)}
-                className="w-full p-4 sm:p-5 flex items-center justify-between text-left border-b border-border-subtle/60"
-            >
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-brand-primary/10 text-brand-primary flex items-center justify-center">
-                        <MaterialIcon icon={icon} size={16} />
-                    </div>
-                    <div className="text-[11px] sm:text-xs font-black tracking-[0.18em] uppercase text-brand-secondary">
-                        {title}
-                    </div>
-                    {badge && (
-                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-brand-primary/10 text-brand-primary border border-brand-primary/20">
-                            {badge}
-                        </span>
-                    )}
-                </div>
-                <MaterialIcon icon={open ? 'expand_less' : 'expand_more'} size={18} className="text-text-subtle" />
-            </button>
-            {open && <div className="p-4 sm:p-6">{children}</div>}
-        </section>
-    );
-};
-
-const COMPLEXITY_STYLES: Record<string, string> = {
-    High: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-    Mid:  'text-amber-700 bg-amber-50 border-amber-200',
-    Low:  'text-slate-500 bg-slate-50 border-slate-200',
-};
-
-const ProjectDomainCard = ({
-    name,
-    primaryDomain,
-    allTags,
-    complexitySignal,
-    complexityColor,
-    complexityReason,
-    whatIsGood,
-    whatIsMissing,
-    rewrittenBullet,
-    positioningTip,
-    techStack,
-    evidence,
-}: {
-    name: string;
-    primaryDomain?: string;
-    allTags: string[];
-    complexitySignal?: string;
-    complexityColor?: string | null;
-    complexityReason?: string;
-    whatIsGood?: string;
-    whatIsMissing?: string;
-    rewrittenBullet?: string;
-    positioningTip?: string;
-    techStack?: string[];
-    evidence?: string;
-}) => {
-    const [copied, setCopied] = useState(false);
-
-    const handleCopy = () => {
-        if (!rewrittenBullet) return;
-        navigator.clipboard.writeText(rewrittenBullet).then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1800);
-        });
-    };
-
-    return (
-        <div className="p-4 rounded-xl border border-cyan-200 bg-cyan-50/30 space-y-3">
-            {/* Header: name + complexity badge */}
-            <div className="flex items-start justify-between gap-2">
-                <div className="text-sm font-black text-brand-secondary leading-tight">{name}</div>
-                {complexitySignal && (
-                    <span className={`shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full border ${COMPLEXITY_STYLES[complexitySignal] || 'text-slate-500 bg-slate-50 border-slate-200'}`}>
-                        {complexitySignal}
-                    </span>
-                )}
-            </div>
-
-            {/* Domain tags */}
-            {allTags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                    {allTags.map((tag, i) => (
-                        <span
-                            key={i}
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${i === 0 ? 'bg-cyan-200 text-cyan-800 border-cyan-300' : 'bg-cyan-100 text-cyan-700 border-cyan-200'}`}
-                        >
-                            {tag}
-                        </span>
-                    ))}
-                </div>
-            )}
-
-            {/* Tech stack chips */}
-            {techStack && techStack.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                    {techStack.map((tech, i) => (
-                        <span key={i} className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                            {tech}
-                        </span>
-                    ))}
-                </div>
-            )}
-
-            {/* Complexity reason */}
-            {complexityReason && (
-                <p className="text-[11px] text-text-muted italic">{complexityReason}</p>
-            )}
-
-            {/* Strength */}
-            {whatIsGood && (
-                <div className="flex gap-2 text-[11px]">
-                    <span className="text-emerald-500 font-black shrink-0">✓</span>
-                    <span className="text-text-body">{whatIsGood}</span>
-                </div>
-            )}
-
-            {/* Gap */}
-            {whatIsMissing && (
-                <div className="flex gap-2 text-[11px]">
-                    <span className="text-amber-500 font-black shrink-0">!</span>
-                    <span className="text-text-body">{whatIsMissing}</span>
-                </div>
-            )}
-
-            {/* Rewritten bullet with copy */}
-            {rewrittenBullet && (
-                <div className="rounded-lg border border-cyan-300 bg-white p-3 space-y-1.5">
-                    <div className="flex items-center justify-between gap-2">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-cyan-600">Rewritten Bullet</span>
-                        <button
-                            type="button"
-                            onClick={handleCopy}
-                            className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-cyan-600 hover:text-cyan-800 transition-colors"
-                        >
-                            <MaterialIcon icon={copied ? 'check' : 'content_copy'} size={12} />
-                            {copied ? 'Copied!' : 'Copy'}
-                        </button>
-                    </div>
-                    <p className="text-[11px] text-text-body leading-relaxed">{rewrittenBullet}</p>
-                </div>
-            )}
-
-            {/* Positioning tip */}
-            {positioningTip && (
-                <p className="text-[11px] text-cyan-700 font-semibold">
-                    <span className="font-black">Tip: </span>{positioningTip}
-                </p>
-            )}
-
-            {/* Fallback evidence if no AI enrichment */}
-            {!rewrittenBullet && !whatIsGood && evidence && (
-                <p className="text-xs text-text-muted">{evidence}</p>
-            )}
-        </div>
-    );
-};
-
 export const Analysis = () => {
-    const SESSION_KEY = 'resumit_analysis_result';
-
     const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [result, setResult] = useState<AnalysisResult | null>(() => {
-        try {
-            const stored = sessionStorage.getItem(SESSION_KEY);
-            return stored ? JSON.parse(stored) : null;
-        } catch {
-            return null;
-        }
-    });
+    const [result, setResult] = useState<AnalysisResult | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [isRateLimited, setIsRateLimited] = useState(false);
+    const [rateLimitRetryAfter, setRateLimitRetryAfter] = useState(60);
+    const [rateLimitCountdown, setRateLimitCountdown] = useState(0);
     const [targetRole, setTargetRole] = useState('software-engineer');
     const [feedbackTone, setFeedbackTone] = useState<'brutal' | 'professional'>('brutal');
     const [githubUsername, setGithubUsername] = useState('');
     const [linkedinText, setLinkedinText] = useState('');
 
-    useEffect(() => {
-        if (result) {
-            try {
-                sessionStorage.setItem(SESSION_KEY, JSON.stringify(result));
-            } catch {
-                // ignore session write failures
-            }
-        }
-    }, [result]);
-
     const clearResult = useCallback(() => {
         setResult(null);
-        sessionStorage.removeItem(SESSION_KEY);
     }, []);
 
     const handleUpload = async (file: File) => {
         setIsAnalyzing(true);
         setError(null);
+        setIsRateLimited(false);
+        setRateLimitCountdown(0);
         try {
             await new Promise((resolve) => setTimeout(resolve, 800));
             const data = await analyzeResume(file, undefined, {
@@ -380,156 +41,207 @@ export const Analysis = () => {
                 linkedinText: linkedinText.trim() || undefined,
             });
             setResult(data);
-        } catch (analysisError) {
-            setError(analysisError instanceof Error ? analysisError.message : 'Analysis failed. Please try again.');
+        } catch (analysisError: unknown) {
+            const err = analysisError as { isRateLimit?: boolean; retryAfter?: number; message?: string };
+            if (err?.isRateLimit) {
+                const secs = err.retryAfter || 60;
+                setIsRateLimited(true);
+                setRateLimitRetryAfter(secs);
+                setRateLimitCountdown(secs);
+            } else {
+                setError(analysisError instanceof Error ? analysisError.message : 'Analysis failed. Please try again.');
+            }
         } finally {
             setIsAnalyzing(false);
         }
     };
 
+    useEffect(() => {
+        if (!isRateLimited || rateLimitCountdown <= 0) return;
+        const timer = setInterval(() => {
+            setRateLimitCountdown((c) => {
+                if (c <= 1) {
+                    clearInterval(timer);
+                    return 0;
+                }
+                return c - 1;
+            });
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [isRateLimited, rateLimitRetryAfter]);
+
+    const roastMarkdown = (() => {
+        const raw = result?.roast_markdown || '';
+        if (!raw) return '';
+        const lines = raw.split('\n');
+        let counter = 0;
+        return lines.map((line) => {
+            if (/^\d+\.\s/.test(line)) {
+                counter++;
+                const content = line.replace(/^\d+\.\s*/, '');
+                return `**${counter}.** ${content}`;
+            }
+            if (line.startsWith('#')) {
+                counter = 0;
+            }
+            return line;
+        }).join('\n');
+    })();
+
     const certRecs = result?.comprehensive_analysis?.certification_recommendations || [];
-    const certActions = result?.comprehensive_analysis?.actionable_recommendations || [];
-    const githubBest = result?.external_profile_intel?.github_best_projects || [];
-    const githubDrop = result?.external_profile_intel?.github_drop_projects || [];
-    const linkedinKeep = result?.external_profile_intel?.linkedin_must_include || [];
-    const linkedinDrop = result?.external_profile_intel?.linkedin_remove || [];
-    const extractedProfileUrls = result?.external_profile_intel?.extracted_profile_urls || [];
-    const actionPlan = result?.comprehensive_analysis?.action_plan || [];
-    const sampleUpgrades = result?.comprehensive_analysis?.sample_resume_upgrades || [];
-    const projectDomains = result?.comprehensive_analysis?.project_domain_coverage || [];
     const candidateName = result?.analysis_summary?.candidate_name || 'Candidate';
     const firstName = candidateName.split(/\s+/)[0] || candidateName;
     const atsScore = Math.round(result?.friendliness_score || result?.analysis_summary?.ats_score || 0);
-    const scoreBand = atsScore >= 85 ? 'strong' : atsScore >= 70 ? 'workable' : 'needs work';
+    const scoreBand = atsScore >= 85 ? 'Strong' : atsScore >= 70 ? 'Workable' : 'Needs Work';
+    const generationMode = result?.analysis_summary?.generation_mode;
 
-    const roastReport = result?.roast_report;
-    const goodRich = (roastReport?.what_is_good_rich || []) as Array<Record<string, unknown>>;
-    const badRich = (roastReport?.what_is_bad_rich || []) as Array<Record<string, unknown>>;
-    const hardRich = (roastReport?.hard_truths_rich || []) as Array<Record<string, unknown>>;
-    const fixRich = (roastReport?.priority_fixes_rich || []) as Array<Record<string, unknown>>;
-
-    const goodRichItems = uniqueNonEmpty(
-        goodRich.map((item) => {
-            const point = String(item?.point || '').trim();
-            const evidence = String(item?.specific_evidence || item?.evidence || '').trim();
-            const why = String(item?.why_it_matters_to_recruiters || '').trim();
-            return [point, evidence ? `Evidence: ${evidence}` : '', why ? `Why it matters: ${why}` : '']
-                .filter(Boolean)
-                .join(' ');
-        }),
-        8,
-    );
-    const goodItems = goodRichItems.length > 0
-        ? goodRichItems
-        : uniqueNonEmpty(roastReport?.strengths || [], 8);
-
-    const needsFixingRichItems = uniqueNonEmpty([
-        ...badRich.map((item) => {
-            const point = String(item?.point || '').trim();
-            const evidence = String(item?.specific_evidence || '').trim();
-            const lineRef = String(item?.exact_line_reference || '').trim();
-            const reaction = String(item?.recruiter_reaction || '').trim();
-            return [
-                point,
-                evidence ? `Evidence: ${evidence}` : '',
-                lineRef ? `Line: ${lineRef}` : '',
-                reaction ? `Impact: ${reaction}` : '',
-            ].filter(Boolean).join(' ');
-        }),
-        ...hardRich.map((item) => {
-            const truth = String(item?.truth || item?.point || '').trim();
-            const why = String(item?.why || '').trim();
-            const fix = String(item?.what_to_do_instead || '').trim();
-            return [truth, why ? `Why: ${why}` : '', fix ? `Fix: ${fix}` : ''].filter(Boolean).join(' ');
-        }),
-        ...fixRich.map((item) => {
-            const fix = String(item?.fix || item?.action || '').trim();
-            const why = String(item?.why || '').trim();
-            const after = String(item?.after || '').trim();
-            return [fix, why ? `Why: ${why}` : '', after ? `Do this: ${after}` : ''].filter(Boolean).join(' ');
-        }),
-    ], 12);
-
-    const needsFixingItems = needsFixingRichItems.length > 0
-        ? needsFixingRichItems
-        : uniqueNonEmpty(
-            roastReport?.needs_fixing
-                || [
-                    ...(roastReport?.weaknesses || []),
-                    ...(roastReport?.hard_truths || []),
-                    ...(roastReport?.priority_fixes || []),
-                ],
-            12,
-        );
-
-    const githubSummary = sanitizePublicSummary(result?.external_profile_intel?.github_summary);
-    const linkedinSummaryRaw = sanitizePublicSummary(result?.external_profile_intel?.linkedin_summary);
-    const showLinkedinPanel = Boolean(
-        result?.external_profile_intel?.detected_linkedin_url
-        || linkedinKeep.length
-        || linkedinDrop.length,
-    );
-    const githubKeepItems = githubBest.map((repo, idx) => {
-        const rank = repo.rank || idx + 1;
-        const score = typeof repo.score === 'number' ? ` (${Math.round(repo.score)}/100)` : '';
-        const keepNote = repo.resume_keep_note ? ` ${repo.resume_keep_note}` : '';
-        const reason = String(repo.reason || '').trim().replace(/\.+$/, '');
-        return `#${rank} ${repo.name}${score} - ${reason}.${keepNote}`;
-    });
-    const githubDropItems = githubDrop.map((repo, idx) => {
-        const rank = repo.rank || idx + 1;
-        const score = typeof repo.score === 'number' ? ` (${Math.round(repo.score)}/100)` : '';
-        const action = repo.resume_action ? ` ${repo.resume_action}` : '';
-        const reason = String(repo.reason || '').trim().replace(/\.+$/, '');
-        return `#${rank} ${repo.name}${score} - ${reason}.${action}`;
-    });
+    const extIntel = result?.external_profile_intel;
+    const githubBest = extIntel?.github_best_projects || [];
+    const githubDrop = extIntel?.github_drop_projects || [];
+    const githubSummary = extIntel?.github_summary || '';
+    const detectedGithub = extIntel?.detected_github_url || '';
+    const detectedLinkedin = extIntel?.detected_linkedin_url || '';
+    const hasGithubIntel = githubBest.length > 0 || githubDrop.length > 0 || githubSummary;
+    const hasLinkedinIntel = Boolean(detectedLinkedin || (extIntel?.linkedin_must_include || []).length || (extIntel?.linkedin_remove || []).length);
 
     return (
         <PageLayout header={<Navbar />} maxWidth="xl">
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
-                <div className="text-center space-y-4">
-                    <div className="page-badge">
+            {/* Background decorative elements */}
+            <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+                <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-brand-primary/5 blur-[120px] rounded-full" />
+                <div className="absolute top-[20%] -right-[5%] w-[30%] h-[30%] bg-indigo-500/5 blur-[100px] rounded-full" />
+            </div>
+
+            <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-12">
+                <header className="text-center space-y-4">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="page-badge mx-auto"
+                    >
                         <span className="relative flex h-2 w-2">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-primary opacity-60" />
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-primary" />
                         </span>
                         Roast Mode Active
-                    </div>
-                    <h1 className="page-hero-title">
-                        Analyze <span className="text-brand-primary">Resume</span>
-                    </h1>
-                    <p className="text-base sm:text-lg text-text-muted max-w-3xl mx-auto font-medium">
-                        Pure diagnostic mode: brutal roast, GitHub/LinkedIn signal review, and certification guidance.
-                    </p>
-                </div>
+                    </motion.div>
+                    <motion.h1
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="page-hero-title"
+                    >
+                        Resume <span className="text-gradient">Roast</span>
+                    </motion.h1>
+                    <motion.p
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 }}
+                        className="text-base sm:text-lg text-text-muted max-w-3xl mx-auto font-medium"
+                    >
+                        Get a brutally honest breakdown of your resume with actionable certification recommendations.
+                    </motion.p>
+                </header>
 
-                <PageGuide
-                    badge="ANALYZE GUIDE"
-                    title="Roast + Profile Signal Check"
-                    description="Use this page to identify what is weak, what proofs are missing, and what to fix next."
-                    whatThisPageDoes="Runs roast feedback, validates external proof, and builds a practical action queue."
-                    bestUseCase="Use this first, then go to Match & Fix for rewriting and interview prep."
-                    howToUse={[
-                        'Upload your resume. JD is optional here.',
-                        'Use Brutal tone for direct feedback.',
-                        'Review the top 3 fixes, then expand other sections as needed.',
-                        'Move to Match & Fix for execution.',
-                    ]}
-                    makeMostOfIt={[
-                        'Keep LinkedIn and GitHub URLs in your resume header.',
-                        'Use one target role before running Analyze.',
-                        'Treat priority fixes as a checklist, not a reading dump.',
-                    ]}
-                    primaryAction={{ label: 'Go to Match & Fix', to: '/resume-fix-lab' }}
-                    secondaryAction={{ label: 'Browse Templates', to: '/templates' }}
-                />
+                <AnimatePresence mode="wait">
+                    {!result && !isAnalyzing && (
+                        <motion.div
+                            key="guide"
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                        >
+                            <PageGuide
+                                badge="ROAST GUIDE"
+                                title="Free-Flow Resume Roast"
+                                description="Upload your resume for a conversational, no-BS critique with specific cert suggestions."
+                                whatThisPageDoes="AI reads your resume and writes a free-flowing roast — quoting exact lines, calling out problems, and recommending certifications."
+                                bestUseCase="Use this first to understand what's weak, then go to Match & Fix for rewriting."
+                                howToUse={[
+                                    'Upload your resume (PDF or DOCX).',
+                                    'Select your target role and tone.',
+                                    'Read the roast — each critique quotes your resume directly.',
+                                    'Check the cert suggestions at the bottom.',
+                                ]}
+                                makeMostOfIt={[
+                                    'Use Brutal tone for the most honest feedback.',
+                                    'Pay attention to blockquoted lines — those are exact resume excerpts.',
+                                    'Move to Match & Fix after digesting the roast.',
+                                ]}
+                                primaryAction={{ label: 'Go to Match & Fix', to: '/resume-fix-lab' }}
+                                secondaryAction={{ label: 'Browse Templates', to: '/templates' }}
+                            />
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
                 <WorkflowMap currentStep="analysis" />
 
-                {error && (
-                    <div className="p-4 rounded-xl border border-red-200 bg-red-50 text-sm text-red-700">
-                        {error}
-                    </div>
+                {/* Rate limit UI */}
+                {isRateLimited && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="glass-card p-8 text-center"
+                    >
+                        <div className="flex flex-col items-center gap-6">
+                            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-amber-100 text-5xl shadow-inner animate-pulse">
+                                ⚡
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-2xl font-black text-brand-secondary">
+                                    AI Engine Overloaded
+                                </h3>
+                                <p className="text-text-muted max-w-md mx-auto">
+                                    Our analysis engine is processing too many resumes right now. No sweat — give it a moment and try again.
+                                </p>
+                            </div>
+                            {rateLimitCountdown > 0 ? (
+                                <div className="flex flex-col items-center gap-2">
+                                    <div className="text-6xl font-heading font-black text-brand-primary tabular-nums tracking-tighter">
+                                        {rateLimitCountdown}s
+                                    </div>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-text-subtle">
+                                        Estimated wait
+                                    </p>
+                                    <div className="mt-4 h-2 w-64 rounded-full bg-slate-100 overflow-hidden">
+                                        <motion.div
+                                            className="h-full bg-brand-primary rounded-full shadow-[0_0_12px_rgba(20,184,166,0.4)]"
+                                            initial={{ width: '100%' }}
+                                            animate={{ width: `${(rateLimitCountdown / rateLimitRetryAfter) * 100}%` }}
+                                            transition={{ duration: 1, ease: 'linear' }}
+                                        />
+                                    </div>
+                                </div>
+                            ) : (
+                                <p className="text-sm font-bold text-brand-primary">Engine cooled down. Ready to retry!</p>
+                            )}
+                            <button
+                                onClick={() => {
+                                    setIsRateLimited(false);
+                                    setRateLimitCountdown(0);
+                                    setError(null);
+                                }}
+                                disabled={rateLimitCountdown > 0}
+                                className={`btn-primary px-10 ${rateLimitCountdown > 0 ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+                            >
+                                {rateLimitCountdown > 0 ? 'Wait for Engine…' : 'Re-engage Engine'}
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+
+                {/* Generic error */}
+                {error && !isRateLimited && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="p-5 rounded-premium border border-red-200 bg-red-50 flex gap-4 items-center"
+                    >
+                        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-red-500 shadow-sm shrink-0">
+                            <MaterialIcon icon="error" size={20} />
+                        </div>
+                        <div className="text-sm font-medium text-red-900">{error}</div>
+                    </motion.div>
                 )}
 
                 {!result ? (
@@ -549,337 +261,448 @@ export const Analysis = () => {
                         }}
                     />
                 ) : (
-                    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-                        <div className="flex flex-wrap items-center gap-3">
-                            {result.analysis_summary?.generation_mode && (
-                                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black tracking-widest uppercase border ${result.analysis_summary.generation_mode === 'ai'
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : 'bg-amber-50 text-amber-700 border-amber-200'
-                                    }`}>
-                                    <MaterialIcon icon="memory" size={14} />
-                                    {result.analysis_summary.generation_mode === 'ai' ? 'AI Roast' : 'Fallback Roast'}
-                                </div>
-                            )}
-                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black tracking-widest uppercase border border-indigo-200 bg-indigo-50 text-indigo-700">
-                                <MaterialIcon icon="person" size={14} />
-                                {candidateName}
-                            </div>
-                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black tracking-widest uppercase border border-slate-200 bg-slate-50 text-slate-700">
-                                <MaterialIcon icon="speed" size={14} />
-                                ATS {atsScore}
-                            </div>
-                        </div>
-
-                        <div className="rounded-2xl border border-brand-primary/30 bg-gradient-to-r from-brand-primary/10 via-cyan-50 to-white p-4 sm:p-5">
-                            <div className="text-lg sm:text-xl font-black text-brand-secondary">
-                                Hey {firstName}, your ATS score is <span className="text-brand-primary">{atsScore}/100</span>.
-                            </div>
-                            <p className="mt-1.5 text-sm text-text-muted">
-                                This resume is currently <span className="font-bold text-brand-secondary">{scoreBand}</span>. Focus on the top fixes below to improve callback quality.
-                            </p>
-                        </div>
-
-                        {roastReport && (
-                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                                <RoastColumn title="What Is Good" icon="check_circle" items={goodItems} />
-                                <RoastColumn title="Needs Fixing" icon="warning" items={needsFixingItems} tone="warn" />
-                            </div>
-                        )}
-
-                        <CollapsibleSection title="Role Fit Verdict" icon="gavel" defaultOpen>
-                            <div className="space-y-4">
-                                <div className="p-3 sm:p-4 rounded-xl border border-indigo-200 bg-indigo-50/60 text-sm text-indigo-900 font-semibold italic">
-                                    "{result.roast_report?.role_fit_verdict?.verdict || 'Role fit verdict unavailable.'}"
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <div className="text-[10px] font-black uppercase tracking-widest text-emerald-700">This Resume Works For</div>
-                                        <div className="flex flex-wrap gap-2">
-                                            {(result.roast_report?.role_fit_verdict?.best_fit_roles || []).map((role, idx) => (
-                                                <span key={idx} className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
-                                                    {role}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <div className="text-[10px] font-black uppercase tracking-widest text-red-600">Would Struggle For</div>
-                                        <div className="flex flex-wrap gap-2">
-                                            {(result.roast_report?.role_fit_verdict?.weak_fit_roles || []).map((role, idx) => (
-                                                <span key={idx} className="px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 text-red-600 border border-red-200">
-                                                    {role}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </CollapsibleSection>
-
-                        {result.roast_report?.resume_loopholes?.length ? (
-                            <CollapsibleSection title="Resume Loopholes" icon="policy" badge={String(result.roast_report.resume_loopholes.length)} defaultOpen>
-                                <ExpandableList
-                                    items={result.roast_report.resume_loopholes}
-                                    toneBullet="text-amber-500"
-                                    defaultVisible={3}
-                                />
-                            </CollapsibleSection>
-                        ) : null}
-
-                        {result.roast_report?.should_remove?.length ? (
-                            <CollapsibleSection title="Cut These Lines" icon="delete_sweep" badge={String(result.roast_report.should_remove.length)}>
-                                <ExpandableList
-                                    items={result.roast_report.should_remove}
-                                    toneBullet="text-red-500"
-                                    defaultVisible={3}
-                                />
-                            </CollapsibleSection>
-                        ) : null}
-
-                        {projectDomains.length > 0 && (
-                            <CollapsibleSection title="Project Domain Coverage" icon="hub">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {projectDomains.map((item, idx) => {
-                                        const name = item.project_name || item.project;
-                                        const primaryDomain = item.primary_domain || (item.domains || [])[0];
-                                        const allTags = item.domain_tags || item.domains || [];
-                                        const complexityColor =
-                                            item.complexity_signal === 'High' ? 'text-emerald-600 bg-emerald-50 border-emerald-200' :
-                                            item.complexity_signal === 'Mid' ? 'text-amber-600 bg-amber-50 border-amber-200' :
-                                            item.complexity_signal === 'Low' ? 'text-slate-500 bg-slate-50 border-slate-200' :
-                                            null;
-                                        return (
-                                            <ProjectDomainCard
-                                                key={idx}
-                                                name={name}
-                                                primaryDomain={primaryDomain}
-                                                allTags={allTags}
-                                                complexitySignal={item.complexity_signal}
-                                                complexityColor={complexityColor}
-                                                complexityReason={item.complexity_reason}
-                                                whatIsGood={item.what_is_good}
-                                                whatIsMissing={item.what_is_missing}
-                                                rewrittenBullet={item.rewritten_bullet}
-                                                positioningTip={item.positioning_tip}
-                                                techStack={item.tech_stack}
-                                                evidence={item.evidence}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            </CollapsibleSection>
-                        )}
-
-                        <CollapsibleSection title="External Proof Signals" icon="travel_explore" defaultOpen>
-                            <div className="space-y-5">
-                                {(result.external_profile_intel?.detected_github_url || result.external_profile_intel?.detected_linkedin_url) && (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        {result.external_profile_intel?.detected_github_url && (
-                                            <div className="p-3 rounded-xl border border-border-subtle bg-bg-page">
-                                                <div className="text-[10px] font-black uppercase tracking-widest text-text-subtle mb-1">Detected GitHub</div>
-                                                <div className="text-sm font-bold text-brand-secondary break-all">
-                                                    {result.external_profile_intel.detected_github_url}
+                    <div className="space-y-10">
+                        {/* HERO SCORE SECTION */}
+                        <motion.section
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="relative"
+                        >
+                            <div className="absolute inset-0 bg-brand-primary/10 blur-[60px] rounded-full -z-10 opacity-50" />
+                            <div className="glass-card overflow-hidden">
+                                <div className="grid grid-cols-1 md:grid-cols-[1fr_200px] gap-8 p-8 sm:p-10">
+                                    <div className="space-y-6">
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            {generationMode && (
+                                                <div className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase border flex items-center gap-1.5 ${generationMode === 'ai'
+                                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                                                    }`}>
+                                                    <MaterialIcon icon="memory" size={12} />
+                                                    {generationMode === 'ai' ? 'AI Roasted' : 'Heuristic Roast'}
                                                 </div>
-                                            </div>
-                                        )}
-                                        {result.external_profile_intel?.detected_linkedin_url && (
-                                            <div className="p-3 rounded-xl border border-border-subtle bg-bg-page">
-                                                <div className="text-[10px] font-black uppercase tracking-widest text-text-subtle mb-1">Detected LinkedIn</div>
-                                                <div className="text-sm font-bold text-brand-secondary break-all">
-                                                    {result.external_profile_intel.detected_linkedin_url}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {extractedProfileUrls.length > 0 && (
-                                    <div className="p-3 rounded-xl border border-border-subtle bg-bg-page">
-                                        <div className="text-[10px] font-black uppercase tracking-widest text-text-subtle mb-2">Links Extracted</div>
-                                        <div className="flex flex-wrap gap-2">
-                                            {extractedProfileUrls.map((url, idx) => (
-                                                <span key={idx} className="px-2 py-1 rounded-md border border-border-subtle bg-white text-[11px] text-text-muted break-all">
-                                                    {url}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                                    <div className="p-4 rounded-xl border border-border-subtle bg-white space-y-3">
-                                        <div className="text-[10px] font-black uppercase tracking-widest text-brand-secondary">GitHub Suggestions</div>
-                                        <p className="text-xs text-text-muted">{githubSummary || 'GitHub profile signal analyzed.'}</p>
-                                        <div className="space-y-2">
-                                            <div className="text-[10px] font-black uppercase tracking-widest text-brand-primary">Keep / Promote</div>
-                                            <ExpandableList
-                                                items={githubKeepItems}
-                                                toneBullet="text-brand-primary"
-                                                defaultVisible={2}
-                                                emptyText="No strong repositories identified yet."
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <div className="text-[10px] font-black uppercase tracking-widest text-amber-600">Drop / Deprioritize</div>
-                                            <ExpandableList
-                                                items={githubDropItems}
-                                                toneBullet="text-amber-500"
-                                                defaultVisible={2}
-                                                emptyText="No deprioritized repositories listed."
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {showLinkedinPanel && (
-                                        <div className="p-4 rounded-xl border border-border-subtle bg-white space-y-3">
-                                            <div className="text-[10px] font-black uppercase tracking-widest text-brand-secondary">LinkedIn Suggestions</div>
-                                            {linkedinSummaryRaw && (
-                                                <p className="text-xs text-text-muted">{linkedinSummaryRaw}</p>
                                             )}
-                                            <div className="space-y-2">
-                                                <div className="text-[10px] font-black uppercase tracking-widest text-brand-primary">Must Keep / Add</div>
-                                                <ExpandableList
-                                                    items={linkedinKeep}
-                                                    toneBullet="text-brand-primary"
-                                                    defaultVisible={2}
-                                                    emptyText="No LinkedIn keep suggestions yet."
-                                                />
+                                            <div className="px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase border border-indigo-200 bg-indigo-50 text-indigo-700 flex items-center gap-1.5">
+                                                <MaterialIcon icon="person" size={12} />
+                                                {candidateName}
                                             </div>
-                                            <div className="space-y-2">
-                                                <div className="text-[10px] font-black uppercase tracking-widest text-amber-600">Remove / Deprioritize</div>
-                                                <ExpandableList
-                                                    items={linkedinDrop}
-                                                    toneBullet="text-amber-500"
-                                                    defaultVisible={2}
-                                                    emptyText="No LinkedIn removal suggestions yet."
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <h2 className="text-3xl sm:text-4xl font-black text-brand-secondary leading-tight">
+                                                Hey {firstName}, your resume is <span className="text-brand-primary italic">{scoreBand}</span>.
+                                            </h2>
+                                            <p className="text-text-muted text-lg max-w-xl">
+                                                We've analyzed your profile against modern standards. Read the roast below for the exact lines that are holding you back.
+                                            </p>
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-4 pt-4">
+                                            <button
+                                                onClick={() => {
+                                                    const box = document.querySelector('.roast-box');
+                                                    if (box) window.scrollTo({ top: box.getBoundingClientRect().top + window.scrollY - 100, behavior: 'smooth' });
+                                                }}
+                                                className="btn-primary"
+                                            >
+                                                View Critique
+                                                <MaterialIcon icon="arrow_downward" size={18} />
+                                            </button>
+                                            <button onClick={clearResult} className="btn-secondary">
+                                                Re-Scan
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col items-center justify-center p-6 bg-slate-50/50 rounded-inner border border-white space-y-3">
+                                        <div className="relative w-32 h-32 flex items-center justify-center">
+                                            <svg className="w-full h-full -rotate-90">
+                                                <circle
+                                                    cx="64" cy="64" r="58"
+                                                    className="stroke-slate-200 fill-none"
+                                                    strokeWidth="8"
                                                 />
+                                                <motion.circle
+                                                    cx="64" cy="64" r="58"
+                                                    className="stroke-brand-primary fill-none"
+                                                    strokeWidth="8"
+                                                    strokeLinecap="round"
+                                                    initial={{ strokeDasharray: "0, 364" }}
+                                                    animate={{ strokeDasharray: `${(atsScore / 100) * 364}, 364` }}
+                                                    transition={{ duration: 1.5, ease: "easeOut" }}
+                                                />
+                                            </svg>
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                                <span className="text-4xl font-heading font-black text-brand-secondary">{atsScore}</span>
+                                                <span className="text-[10px] font-black uppercase text-text-subtle tracking-widest">Score</span>
                                             </div>
+                                        </div>
+                                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-text-subtle text-center">
+                                            ATS FRIENDLINESS
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.section>
+
+                        {/* THE ROAST BOX */}
+                        <motion.section
+                            initial={{ opacity: 0, scale: 0.98 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: 0.2 }}
+                            className="roast-box"
+                        >
+                            <div className="p-8 sm:p-12">
+                                {roastMarkdown ? (
+                                    <div className="roast-markdown-body">
+                                        <Markdown
+                                            components={{
+                                                h2: ({ children, ...props }) => (
+                                                    <h2 {...props} className="text-4xl font-black text-brand-secondary mt-12 mb-6 first:mt-0 pb-4 border-b-2 border-slate-50 flex items-center gap-4">
+                                                        <span className="w-2 h-8 bg-brand-primary rounded-full hidden sm:block" />
+                                                        {children}
+                                                    </h2>
+                                                ),
+                                                h3: ({ children, ...props }) => (
+                                                    <h3 {...props} className="text-2xl font-bold text-brand-secondary mt-10 mb-4 flex items-center gap-2">
+                                                        <MaterialIcon icon="label_important" size={24} className="text-brand-primary" />
+                                                        {children}
+                                                    </h3>
+                                                ),
+                                                p: ({ children, ...props }) => (
+                                                    <p {...props} className="text-lg text-text-muted leading-relaxed mb-6">
+                                                        {children}
+                                                    </p>
+                                                ),
+                                                blockquote: ({ children, ...props }) => (
+                                                    <div className="relative my-8 group text-left">
+                                                        <div className="absolute inset-0 bg-red-50 -skew-x-2 -z-10 rounded-lg transform scale-[1.03] opacity-50 transition-transform group-hover:scale-[1.05]" />
+                                                        <blockquote {...props} className="border-l-4 border-red-400 bg-white shadow-sm rounded-r-lg px-8 py-6 text-base text-red-900 italic font-medium">
+                                                            <div className="absolute -top-3 -left-2 w-8 h-8 bg-red-400 text-white rounded-full flex items-center justify-center shadow-lg">
+                                                                <MaterialIcon icon="format_quote" size={18} />
+                                                            </div>
+                                                            {children}
+                                                        </blockquote>
+                                                    </div>
+                                                ),
+                                                strong: ({ children, ...props }) => (
+                                                    <strong {...props} className="font-extrabold text-brand-primary">
+                                                        {children}
+                                                    </strong>
+                                                ),
+                                                ol: ({ children, ...props }) => (
+                                                    <ol {...props} className="space-y-4 mb-8">
+                                                        {children}
+                                                    </ol>
+                                                ),
+                                                ul: ({ children, ...props }) => (
+                                                    <ul {...props} className="list-disc list-outside pl-6 space-y-3 mb-8 text-text-muted">
+                                                        {children}
+                                                    </ul>
+                                                ),
+                                                li: ({ children, ...props }) => {
+                                                    if (typeof children === 'string' && /^\d+\./.test(children)) {
+                                                        const [num, ...rest] = children.split('.');
+                                                        return (
+                                                            <li className="list-none flex gap-4 items-start bg-slate-50/50 p-5 rounded-inner border border-slate-100 hover:border-brand-primary/20 transition-colors">
+                                                                <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-brand-secondary text-white text-xs font-black shrink-0">
+                                                                    {num}
+                                                                </span>
+                                                                <div className="text-lg text-text-main font-semibold leading-snug">
+                                                                    {rest.join('.')}
+                                                                </div>
+                                                            </li>
+                                                        );
+                                                    }
+                                                    return (
+                                                        <li {...props} className="text-lg text-text-muted leading-relaxed">
+                                                            {children}
+                                                        </li>
+                                                    );
+                                                },
+                                                a: ({ children, href, ...props }) => (
+                                                    <a {...props} href={href} target="_blank" rel="noreferrer" className="text-brand-primary font-bold hover:underline decoration-2 underline-offset-4 decoration-brand-primary/30">
+                                                        {children}
+                                                    </a>
+                                                ),
+                                                hr: (props) => (
+                                                    <hr {...props} className="my-12 border-slate-100" />
+                                                ),
+                                            }}
+                                        >
+                                            {roastMarkdown}
+                                        </Markdown>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-20 bg-slate-50 rounded-premium border border-dashed border-slate-300">
+                                        <div className="text-6xl mb-6">🏜️</div>
+                                        <h3 className="text-2xl font-black text-brand-secondary">AI Roast Unavailable</h3>
+                                        <p className="text-text-muted mt-2 max-w-md mx-auto mb-10">
+                                            The intensive AI roast couldn't be generated. This usually happens with non-parseable PDFs or server timeouts.
+                                        </p>
+                                        {result.roast_report?.priority_fixes && result.roast_report.priority_fixes.length > 0 && (
+                                            <div className="text-left max-w-lg mx-auto bg-white p-8 rounded-premium shadow-sm border border-slate-100">
+                                                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-primary mb-6">Quick Fixes (Fallback)</div>
+                                                <ul className="space-y-4">
+                                                    {result.roast_report.priority_fixes.slice(0, 5).map((fix, idx) => (
+                                                        <li key={idx} className="flex gap-4 items-start text-text-main">
+                                                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-brand-primary/10 text-brand-primary text-[10px] font-black shrink-0">{idx + 1}</span>
+                                                            <span className="font-medium">{fix}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </motion.section>
+
+                        {/* CERTIFICATIONS SECTION */}
+                        {certRecs.length > 0 && (
+                            <motion.section
+                                initial={{ opacity: 0, y: 30 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true }}
+                                className="space-y-6"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200">
+                                        <MaterialIcon icon="workspace_premium" size={24} />
+                                    </div>
+                                    <div className="space-y-0.5">
+                                        <h2 className="text-2xl font-black text-brand-secondary">Actionable Proof</h2>
+                                        <p className="text-sm text-text-subtle font-medium">Industry-recognized paths to bridge your specific skill gaps.</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {certRecs.map((cert, idx) => (
+                                        <motion.div
+                                            key={idx}
+                                            whileHover={{ y: -5 }}
+                                            className="glass-card group"
+                                        >
+                                            <div className="p-6 space-y-5">
+                                                <div className="flex items-start justify-between gap-4">
+                                                    <div className="space-y-1">
+                                                        <h3 className="text-lg font-black text-brand-secondary group-hover:text-brand-primary transition-colors">{cert.name}</h3>
+                                                        <p className="text-xs font-bold text-text-subtle uppercase tracking-wider">{cert.provider}</p>
+                                                    </div>
+                                                    <div className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-black tracking-widest uppercase border border-indigo-100">
+                                                        Path
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="bg-slate-50 p-3 rounded-inner flex items-center gap-3">
+                                                        <MaterialIcon icon="payments" size={16} className="text-brand-primary opacity-60" />
+                                                        <div className="text-xs font-black text-text-main">{cert.impact || 'Free/Varies'}</div>
+                                                    </div>
+                                                    <div className="bg-slate-50 p-3 rounded-inner flex items-center gap-3">
+                                                        <MaterialIcon icon="schedule" size={16} className="text-brand-primary opacity-60" />
+                                                        <div className="text-xs font-black text-text-main">{String((cert as Record<string, unknown>).time_to_complete || '4-8 weeks')}</div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-3 pt-2">
+                                                    {cert.why_this_person_needs_it && (
+                                                        <div className="flex gap-3">
+                                                            <div className="w-1 h-auto bg-brand-primary/20 rounded-full shrink-0" />
+                                                            <p className="text-xs text-text-muted leading-relaxed italic">{cert.why_this_person_needs_it}</p>
+                                                        </div>
+                                                    )}
+                                                    {cert.gap_it_closes && (
+                                                        <div className="text-[11px] font-medium text-text-main bg-emerald-50 text-emerald-800 p-2.5 rounded-inner border border-emerald-100">
+                                                            <span className="font-black uppercase tracking-widest text-[9px] block mb-1">Gap Closed</span>
+                                                            {cert.gap_it_closes}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <button
+                                                    onClick={() => window.open(cert.url, '_blank')}
+                                                    className="w-full py-2.5 rounded-inner bg-slate-900 text-white text-xs font-black flex items-center justify-center gap-2 hover:bg-brand-primary transition-all shadow-md active:scale-95"
+                                                >
+                                                    Start Path
+                                                    <MaterialIcon icon="open_in_new" size={14} />
+                                                </button>
+                                            </div>
+                                        </motion.div>
+                                    ))}
+                                </div>
+                            </motion.section>
+                        )}
+
+                        {/* EXTERNAL ANALYSIS SECTION */}
+                        {(hasGithubIntel || hasLinkedinIntel) && (
+                            <motion.section
+                                initial={{ opacity: 0, y: 30 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true }}
+                                className="space-y-6"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center shadow-lg shadow-slate-200">
+                                        <MaterialIcon icon="travel_explore" size={24} />
+                                    </div>
+                                    <div className="space-y-0.5">
+                                        <h2 className="text-2xl font-black text-brand-secondary">Signal Analysis</h2>
+                                        <p className="text-sm text-text-subtle font-medium">How your online presence currently speaks to recruiters.</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                    {hasGithubIntel && (
+                                        <div className="glass-card relative group p-8 space-y-8 text-left">
+                                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                                <MaterialIcon icon="code" size={60} />
+                                            </div>
+
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
+                                                    <MaterialIcon icon="code" size={18} />
+                                                </div>
+                                                <h3 className="text-sm font-black uppercase tracking-[0.2em] text-brand-secondary">GitHub Repository Power</h3>
+                                            </div>
+
+                                            {githubSummary && (
+                                                <p className="text-sm text-text-muted leading-relaxed font-medium bg-slate-50 p-4 rounded-inner border border-slate-100 italic">
+                                                    "{githubSummary}"
+                                                </p>
+                                            )}
+
+                                            {githubBest.length > 0 && (
+                                                <div className="space-y-6">
+                                                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 border-b border-emerald-100 pb-2">Top Recommendation</div>
+                                                    <div className="flex gap-4 items-start">
+                                                        <div className="text-4xl font-heading font-black text-emerald-100 shrink-0">01</div>
+                                                        <div className="space-y-2">
+                                                            <div className="font-black text-brand-secondary bg-emerald-50/50 inline-block px-2 py-0.5 rounded text-lg italic">
+                                                                {githubBest[0].name}
+                                                            </div>
+                                                            <p className="text-sm text-text-main leading-relaxed">{githubBest[0].reason}</p>
+                                                            {githubBest[0].resume_keep_note && (
+                                                                <div className="text-emerald-700 text-[11px] font-black uppercase tracking-widest mt-2">{githubBest[0].resume_keep_note}</div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {detectedGithub ? (
+                                                <a href={detectedGithub} target="_blank" rel="noreferrer" className="flex items-center justify-between p-4 rounded-inner border border-slate-100 bg-slate-50/50 hover:bg-white hover:border-brand-primary transition-all group/link">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
+                                                            <MaterialIcon icon="account_circle" size={18} className="text-brand-secondary" />
+                                                        </div>
+                                                        <span className="text-xs font-black text-brand-secondary">View Profile</span>
+                                                    </div>
+                                                    <MaterialIcon icon="chevron_right" size={20} className="text-text-subtle group-hover/link:text-brand-primary" />
+                                                </a>
+                                            ) : (
+                                                <div className="p-4 rounded-inner bg-amber-50 border border-amber-100 text-xs text-amber-900 font-medium flex gap-3">
+                                                    <MaterialIcon icon="warning" size={16} className="shrink-0" />
+                                                    No GitHub detected. Add it to your header to prove your skills.
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {hasLinkedinIntel && (
+                                        <div className="glass-card p-8 space-y-8 relative group text-left">
+                                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                                <MaterialIcon icon="person" size={60} />
+                                            </div>
+
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+                                                    <MaterialIcon icon="person" size={18} />
+                                                </div>
+                                                <h3 className="text-sm font-black uppercase tracking-[0.2em] text-brand-secondary">LinkedIn Strategy</h3>
+                                            </div>
+
+                                            {extIntel?.linkedin_summary && (
+                                                <p className="text-sm text-text-muted leading-relaxed font-medium bg-slate-50 p-4 rounded-inner border border-slate-100 italic">
+                                                    "{extIntel.linkedin_summary}"
+                                                </p>
+                                            )}
+
+                                            <div className="space-y-6">
+                                                {(extIntel?.linkedin_must_include || []).length > 0 && (
+                                                    <div className="space-y-4">
+                                                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 border-b border-emerald-100 pb-2">Must Emphasize</div>
+                                                        <ul className="space-y-4">
+                                                            {(extIntel?.linkedin_must_include || []).slice(0, 3).map((item, idx) => (
+                                                                <li key={idx} className="flex gap-4 items-start text-sm text-text-main">
+                                                                    <div className="w-5 h-5 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700 shrink-0">
+                                                                        <MaterialIcon icon="check" size={12} />
+                                                                    </div>
+                                                                    <span className="font-semibold">{item}</span>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {detectedLinkedin ? (
+                                                <a href={detectedLinkedin} target="_blank" rel="noreferrer" className="flex items-center justify-between p-4 rounded-inner border border-slate-100 bg-slate-50/50 hover:bg-white hover:border-brand-primary transition-all group/link">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
+                                                            <MaterialIcon icon="public" size={18} className="text-indigo-600" />
+                                                        </div>
+                                                        <span className="text-xs font-black text-brand-secondary">View Profile</span>
+                                                    </div>
+                                                    <MaterialIcon icon="chevron_right" size={20} className="text-text-subtle group-hover/link:text-brand-primary" />
+                                                </a>
+                                            ) : (
+                                                <div className="p-4 rounded-inner bg-amber-50 border border-amber-100 text-xs text-amber-900 font-medium flex gap-3">
+                                                    <MaterialIcon icon="warning" size={16} className="shrink-0" />
+                                                    No LinkedIn URL detected. This is a red flag for 87% of recruiters.
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
+                            </motion.section>
+                        )}
+
+                        {/* FINAL ACTIONS */}
+                        <motion.section
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.5 }}
+                            className="bg-slate-900 rounded-premium p-8 sm:p-12 text-center space-y-8 relative overflow-hidden"
+                        >
+                            <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-brand-primary to-brand-accent opacity-50" />
+                            <div className="space-y-2">
+                                <h3 className="text-3xl font-black text-white">Ready for the Next Phase?</h3>
+                                <p className="text-slate-400 max-w-lg mx-auto">Analyze, rewrite, and practice. Move to the Rewrite Lab to apply these fixes.</p>
                             </div>
-                        </CollapsibleSection>
-
-                        <CollapsibleSection title="Certification Suggestions" icon="workspace_premium" badge={String(certRecs.length)}>
-                            {certRecs.length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                                    {certRecs.map((cert, idx) => (
-                                        <div key={idx} className="p-4 rounded-xl border border-border-subtle bg-white space-y-2">
-                                            <div className="text-sm font-black text-brand-secondary">{cert.name}</div>
-                                            <div className="text-xs text-text-subtle font-semibold">{cert.provider}</div>
-                                            <div className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full inline-block bg-brand-primary/10 text-brand-primary border border-brand-primary/20">
-                                                {cert.relevance}
-                                            </div>
-                                            <div className="text-xs font-bold text-brand-primary">{cert.impact}</div>
-                                            {cert.url && (
-                                                <a href={cert.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-brand-primary hover:underline">
-                                                    <MaterialIcon icon="open_in_new" size={12} />
-                                                    View certification
-                                                </a>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-sm text-text-muted italic">
-                                    No strong certification recommendations for the current role/context.
-                                </div>
-                            )}
-                            {certActions.length > 0 && (
-                                <div className="mt-5 pt-4 border-t border-border-subtle">
-                                    <div className="text-[10px] font-black uppercase tracking-widest text-brand-secondary mb-2">
-                                        How to use these recommendations
-                                    </div>
-                                    <ExpandableList
-                                        items={certActions}
-                                        toneBullet="text-brand-primary"
-                                        defaultVisible={3}
-                                    />
-                                </div>
-                            )}
-                        </CollapsibleSection>
-
-                        {actionPlan.length > 0 && (
-                            <CollapsibleSection title="Detailed Action Blueprint" icon="checklist" badge={String(actionPlan.length)}>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {actionPlan.map((item, idx) => (
-                                        <div key={idx} className="p-4 rounded-xl border border-border-subtle bg-white space-y-2">
-                                            <div className="flex items-start justify-between gap-2">
-                                                <div className="text-sm font-black text-brand-secondary">{item.title}</div>
-                                                <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-brand-primary/10 text-brand-primary border border-brand-primary/20">
-                                                    {item.priority}
-                                                </span>
-                                            </div>
-                                            <div className="text-xs text-text-muted"><span className="font-bold">Effort:</span> {item.effort}</div>
-                                            <div className="text-xs text-text-muted"><span className="font-bold">Why:</span> {item.why}</div>
-                                            <ul className="list-none p-0 m-0 space-y-1">
-                                                {item.steps.map((step, stepIdx) => (
-                                                    <li key={stepIdx} className="text-xs text-text-muted flex gap-2">
-                                                        <span className="text-brand-primary font-black">{stepIdx + 1}.</span>
-                                                        {step}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                            <div className="text-xs text-brand-secondary bg-bg-page border border-border-subtle rounded-lg p-2">
-                                                <span className="font-bold">Example:</span> {item.example}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </CollapsibleSection>
-                        )}
-
-                        {sampleUpgrades.length > 0 && (
-                            <CollapsibleSection title="Resume Rewrite Guide" icon="edit_note" badge={`${sampleUpgrades.length} fixes`} defaultOpen>
-                                <div className="space-y-3">
-                                    {sampleUpgrades.map((item, idx) => (
-                                        <details key={idx} className="rounded-xl border border-border-subtle bg-white p-3 sm:p-4" open={idx === 0}>
-                                            <summary className="cursor-pointer flex items-center justify-between gap-3">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="w-6 h-6 rounded-md bg-brand-secondary text-white text-xs font-black flex items-center justify-center">
-                                                        {idx + 1}
-                                                    </span>
-                                                    <span className="text-sm font-black text-brand-secondary">{item.area}</span>
-                                                </div>
-                                                <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700">
-                                                    Rewrite
-                                                </span>
-                                            </summary>
-                                            <div className="mt-3 space-y-3">
-                                                <div>
-                                                    <div className="text-[10px] font-black uppercase tracking-widest text-red-500 mb-1">Current (remove)</div>
-                                                    <div className="text-sm text-red-800 bg-red-50 border border-red-200 rounded-lg p-3">
-                                                        <span className="line-through decoration-red-400">{item.before}</span>
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">Replace with</div>
-                                                    <div className="text-sm text-emerald-900 bg-emerald-50 border border-emerald-200 rounded-lg p-3 font-semibold">
-                                                        {item.after}
-                                                    </div>
-                                                </div>
-                                                <div className="text-xs text-slate-700 bg-blue-50 border border-blue-100 rounded-lg p-2">
-                                                    <span className="font-bold">Why this helps:</span> {item.reason}
-                                                </div>
-                                            </div>
-                                        </details>
-                                    ))}
-                                </div>
-                            </CollapsibleSection>
-                        )}
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <button onClick={() => (window.location.href = '/resume-fix-lab')} className="btn-primary py-3 text-sm">
-                                Go to Match & Fix
-                            </button>
-                            <button onClick={() => (window.location.href = '/templates')} className="btn-secondary py-3 text-sm">
-                                Browse Templates
-                            </button>
-                            <button onClick={clearResult} className="btn-secondary py-3 text-sm">
-                                Run New Roast
-                            </button>
-                        </div>
-                    </motion.div>
+                            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                                <button
+                                    onClick={() => (window.location.href = '/resume-fix-lab')}
+                                    className="btn-primary py-4 px-12 group"
+                                >
+                                    Go to Match & Fix
+                                    <MaterialIcon icon="arrow_forward" size={20} className="group-hover:translate-x-1 transition-transform" />
+                                </button>
+                                <button
+                                    onClick={() => (window.location.href = '/templates')}
+                                    className="bg-white/10 text-white px-10 py-4 rounded-full font-black text-sm hover:bg-white/20 transition-all border border-white/10"
+                                >
+                                    Browse Templates
+                                </button>
+                                <button
+                                    onClick={clearResult}
+                                    className="text-slate-400 font-black text-sm px-6 hover:text-white transition-colors"
+                                >
+                                    Run New Scan
+                                </button>
+                            </div>
+                        </motion.section>
+                    </div>
                 )}
             </main>
         </PageLayout>

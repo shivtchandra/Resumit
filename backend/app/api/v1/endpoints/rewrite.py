@@ -447,8 +447,8 @@ async def rewrite_with_brutal_feedback(
         rewriter = get_rewriter()
         
         # Call brutal review with AI when available, fallback otherwise
-        brutal_timeout = max(20.0, float(os.getenv("REWRITE_BRUTAL_TIMEOUT_SECONDS", "60")))
-        fallback_timeout = max(5.0, float(os.getenv("REWRITE_BRUTAL_FALLBACK_TIMEOUT_SECONDS", "15")))
+        brutal_timeout = min(32.0, max(14.0, float(os.getenv("REWRITE_BRUTAL_TIMEOUT_SECONDS", "28"))))
+        fallback_timeout = min(10.0, max(4.0, float(os.getenv("REWRITE_BRUTAL_FALLBACK_TIMEOUT_SECONDS", "8"))))
         try:
             brutal_result = await asyncio.wait_for(
                 run_in_threadpool(

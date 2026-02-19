@@ -21,8 +21,22 @@ class DOCXParser:
         try:
             doc = Document(stream)
             full_text = []
+            
+            # Extract from paragraphs
             for para in doc.paragraphs:
-                full_text.append(para.text)
+                if para.text.strip():
+                    full_text.append(para.text)
+            
+            # Extract from tables
+            for table in doc.tables:
+                for row in table.rows:
+                    row_text = []
+                    for cell in row.cells:
+                        if cell.text.strip():
+                            row_text.append(cell.text.strip())
+                    if row_text:
+                        full_text.append(" | ".join(row_text))
+            
             extracted_text = '\n'.join(full_text)
         except Exception as e:
             logger.error(f"DOCX extraction failed: {e}")

@@ -8,7 +8,6 @@ import { OptimizationSetupConsole } from '../tactical/OptimizationSetupConsole';
 import { MaterialIcon } from '../ui/MaterialIcon';
 import { InterviewCoach } from './InterviewCoach';
 
-const SESSION_KEY = 'resumit_matchfix_result';
 const SESSION_FORM_KEY = 'resumit_matchfix_form';
 
 export const FullRewrite = () => {
@@ -23,24 +22,13 @@ export const FullRewrite = () => {
     const [jobDescription, setJobDescription] = useState(savedForm?.jobDescription || '');
     const [companyName, setCompanyName] = useState(savedForm?.companyName || '');
     const [isRewriting, setIsRewriting] = useState(false);
-    const [brutalResult, setBrutalResult] = useState<BrutalRewriteResult | null>(() => {
-        try {
-            const stored = sessionStorage.getItem(SESSION_KEY);
-            return stored ? JSON.parse(stored) : null;
-        } catch { return null; }
-    });
+    const [brutalResult, setBrutalResult] = useState<BrutalRewriteResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [targetRole, setTargetRole] = useState(savedForm?.targetRole || 'software-engineer');
     const rewriteAbortRef = useRef<AbortController | null>(null);
     const cancelRequestedRef = useRef(false);
 
-    // Persist result to sessionStorage
-    useEffect(() => {
-        if (brutalResult) {
-            try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(brutalResult)); }
-            catch { /* ignore */ }
-        }
-    }, [brutalResult]);
+    // Results are NOT persisted to sessionStorage — prevents data leakage between users.
 
     // Persist form inputs to sessionStorage
     useEffect(() => {
@@ -53,7 +41,6 @@ export const FullRewrite = () => {
 
     const clearSession = useCallback(() => {
         setBrutalResult(null);
-        sessionStorage.removeItem(SESSION_KEY);
     }, []);
 
     const handleRewrite = async (file: File) => {

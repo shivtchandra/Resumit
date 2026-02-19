@@ -36,11 +36,22 @@ class PDFParser:
         extracted_urls = self._extract_hyperlinks(doc)
         
         for page in doc:
-            text = page.get_text()
-            visual_text += text
-            if len(text.strip()) > 50:
+            # Using 'blocks' maintains layout/reading order better for complex PDFs
+            blocks = page.get_text("blocks")
+            # Sort blocks by vertical position, then horizontal position
+            # (top-to-bottom, left-to-right)
+            blocks.sort(key=lambda b: (b[1], b[0]))
+            
+            page_text = ""
+            for block in blocks:
+                # block[4] is the actual text
+                if block[4]:
+                    page_text += block[4] + "\n"
+            
+            visual_text += page_text
+            if len(page_text.strip()) > 50:
                 is_image_based = False
-            total_text_len += len(text)
+            total_text_len += len(page_text)
 
         # 3. Z-Order Analysis
         # If stream_text and visual_text are very different, it implies Z-order fragmentation.

@@ -177,6 +177,25 @@
     direction: ltr;
     -webkit-font-smoothing: antialiased;
   }
+
+  /* ── Premium UI Utilities ── */
+  .glass-card {
+    @apply bg-white/70 backdrop-blur-xl border border-white/20 rounded-premium shadow-premium;
+  }
+
+  .roast-box {
+    @apply relative overflow-hidden rounded-premium border border-slate-200 bg-white shadow-zen;
+  }
+
+  .roast-box::before {
+    content: '';
+    @apply absolute top-0 left-0 w-full h-1 bg-linear-to-r from-brand-primary via-teal-400 to-brand-accent;
+  }
+
+  .score-badge {
+    @apply relative flex items-center justify-center rounded-full font-heading font-black;
+  }
+
 }
 
 /* ── Float animation ── */
