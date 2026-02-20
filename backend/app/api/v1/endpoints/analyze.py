@@ -1877,40 +1877,30 @@ async def generate_ai_analysis_with_fallback(
     detected_github_url: Optional[str] = None,
     detected_linkedin_url: Optional[str] = None,
 ) -> Optional[dict]:
-    """Generate AI analysis with proper timeout and fallback.
+    """Generate AI analysis with fallback.
     Raises RateLimitError if the API is rate-limited so callers can surface a
     user-friendly message instead of silently falling back to heuristics.
     """
-    configured_outer_timeout = float(os.getenv("ANALYZE_AI_TIMEOUT_SECONDS", "90"))
-    # Production requests are typically slower than localhost; avoid too-low
-    # env overrides that force avoidable fallbacks.
-    outer_timeout = min(120.0, max(35.0, configured_outer_timeout))
     try:
-        result = await asyncio.wait_for(
-            run_in_threadpool(
-                build_ai_roast_only,
-                resume_text,
-                job_description,
-                company_name,
-                target_role,
-                candidate_name,
-                project_domain_coverage,
-                feedback_tone,
-                friendliness_score,
-                match_score,
-                missing_keywords,
-                risk_flags,
-                detected_github_url,
-                detected_linkedin_url,
-            ),
-            timeout=outer_timeout,
+        result = await run_in_threadpool(
+            build_ai_roast_only,
+            resume_text,
+            job_description,
+            company_name,
+            target_role,
+            candidate_name,
+            project_domain_coverage,
+            feedback_tone,
+            friendliness_score,
+            match_score,
+            missing_keywords,
+            risk_flags,
+            detected_github_url,
+            detected_linkedin_url,
         )
         validate_ai_output(result, resume_text)
         return result
 
-    except asyncio.TimeoutError:
-        logger.warning("AI analysis timed out after %.0fs.", outer_timeout)
-        return None
     except RuntimeError as e:
         if "__RATE_LIMITED__" in str(e):
             raise RateLimitError("OpenAI rate limit reached") from e
@@ -2097,23 +2087,17 @@ REMINDER: Today is {current_month}. The year is {current_year}. All date evaluat
 Return ONLY valid JSON. The roast_markdown value is a single string with markdown formatting. Use \\n for newlines inside the string."""
 
     try:
-        configured_model_timeout = float(os.getenv("ANALYZE_AI_MODEL_TIMEOUT_SECONDS", "110"))
-        model_timeout = min(150.0, max(30.0, configured_model_timeout))
-        analyze_model = (
-            os.getenv("OPENAI_ANALYZE_MODEL")
-            or os.getenv("OPENAI_MODEL_FAST")
-            or "gpt-4o-mini"
-        ).strip() or "gpt-4o-mini"
+        analyze_model = "gpt-4o"
 
         logger.info(
-            "AI roast starting — model: %s | timeout: %.0fs",
-            analyze_model, model_timeout,
+            "AI roast starting — model: %s",
+            analyze_model,
         )
         ai_text = ai_client._call_gemini(
             prompt,
             max_retries=1,
             max_tokens=2500,
-            timeout_seconds=model_timeout,
+            timeout_seconds=0,
 
             model_name=analyze_model,
             temperature_override=0.7,
@@ -4046,7 +4030,7 @@ async def _run_full_analysis_logic(
         # Use visual_text for AI/Semantic tasks as it preserves reading order better.
         # Fallback to raw_text if visual_text is missing.
         resume_text = parsing_result.get("visual_text") or parsing_result.get("raw_text", "")
-        candidate_name = _extract_candidate_name(resume_text, file.filename)
+        candidate_name = _extract_candidate_name(resume_text, filename)
         project_domain_coverage = _build_project_domain_coverage(resume_text)
         extracted_urls = [str(u).strip() for u in (parsing_result.get("extracted_urls") or []) if str(u).strip()]
         profile_source_text = "\n".join([resume_text] + extracted_urls)
@@ -4198,15 +4182,8 @@ async def _run_full_analysis_logic(
                 detected_profiles.get("github_url"),
             )
 
-        # Await AI — use the env-controlled wait budget only; the inner
-        # generate_ai_analysis_with_fallback already enforces its own hard timeout
-        # so we don't double-clip with _remaining_budget() here.
         try:
-            ai_wait = min(150.0, max(6.0, float(os.getenv("ANALYZE_AI_WAIT_BUDGET_SECONDS", "110"))))
-            ai_generated = await asyncio.wait_for(ai_task, timeout=ai_wait)
-        except asyncio.TimeoutError:
-            ai_task.cancel()
-            logger.warning("AI roast exceeded wait budget (%ss) and was skipped.", ai_wait)
+            ai_generated = await ai_task
         except RateLimitError:
             ai_task.cancel()
             logger.warning("OpenAI rate limit reached — returning 429 to client.")

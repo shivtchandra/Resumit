@@ -28,13 +28,14 @@ class OpenAIClient:
             or self.model_name
         )
         self.temperature = float(os.getenv("OPENAI_TEMPERATURE", "0.0"))
-        self.timeout_seconds = float(os.getenv("OPENAI_TIMEOUT_SECONDS", "25"))
+        raw_timeout = os.getenv("OPENAI_TIMEOUT_SECONDS", "").strip()
+        self.timeout_seconds = float(raw_timeout) if raw_timeout else None
         self.client = OpenAI(api_key=self.api_key)
         
         logger.info(
             f"Initialized OpenAI client with model: {self.model_name}, "
             f"brutal_model: {self.brutal_model_name}, "
-            f"temperature: {self.temperature}, timeout={self.timeout_seconds}s"
+            f"temperature: {self.temperature}, timeout={self.timeout_seconds if self.timeout_seconds is not None else 'none'}"
         )
     
     def _call_gemini(
@@ -87,8 +88,9 @@ class OpenAIClient:
                     ],
                     temperature=effective_temperature,
                     max_tokens=token_budget,
-                    timeout=timeout_budget,
                 )
+                if timeout_budget is not None and float(timeout_budget) > 0:
+                    call_kwargs["timeout"] = float(timeout_budget)
                 if use_json_mode:
                     call_kwargs["response_format"] = {"type": "json_object"}
                 response = self.client.chat.completions.create(**call_kwargs)
