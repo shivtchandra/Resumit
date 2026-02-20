@@ -163,6 +163,9 @@ const mapModernAnalysisResponse = (file: File, data: BackendAnalysisResponse): A
 };
 
 // Analysis API
+// Uses an async job pattern: POST /analyze/full returns a job_id immediately,
+// then we poll GET /analyze/status/{job_id} until done.  This sidesteps
+// Render's hard 30-second HTTP request timeout on the free/starter tier.
 export const analyzeResume = async (
     file: File,
     jobDescription?: string,
@@ -185,22 +188,45 @@ export const analyzeResume = async (
     if (options.linkedinText) formData.append('linkedin_text', options.linkedinText);
     if (options.githubToken) formData.append('github_token', options.githubToken);
 
-    const analyzeTimeout = Number(import.meta.env.VITE_ANALYZE_TIMEOUT_MS || 120000);
-    const response = await api.post<BackendAnalysisResponse>('/api/v1/analyze/full', formData, {
-        headers: {
-            'Content-Type': 'multipart/form-data',
-        },
-        // Keep analyze UX snappy; backend now returns fast fallbacks within this budget.
-        timeout: analyzeTimeout,
-    });
+    // Step 1: Enqueue the job — this returns in <1s
+    const enqueueResponse = await api.post<{ job_id: string; status: string }>(
+        '/api/v1/analyze/full',
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 20000 }
+    );
+    const jobId = enqueueResponse.data.job_id;
+    if (!jobId) throw new Error('Server did not return a job_id.');
 
-    const data = response.data;
+    // Step 2: Poll until done (up to ~3 minutes total)
+    const POLL_INTERVAL_MS = 3000;
+    const POLL_TIMEOUT_MS = Number(import.meta.env.VITE_ANALYZE_TIMEOUT_MS || 180000);
+    const deadline = Date.now() + POLL_TIMEOUT_MS;
 
-    if (typeof data.friendliness_score === 'number') {
-        return mapModernAnalysisResponse(file, data);
+    while (Date.now() < deadline) {
+        await new Promise<void>((res) => setTimeout(res, POLL_INTERVAL_MS));
+
+        const statusResponse = await api.get<{
+            status: 'pending' | 'done' | 'error';
+            result?: BackendAnalysisResponse;
+            error?: string;
+        }>(`/api/v1/analyze/status/${jobId}`, { timeout: 10000 });
+
+        const { status, result, error } = statusResponse.data;
+
+        if (status === 'error') {
+            throw new Error(error || 'Analysis failed on the server.');
+        }
+
+        if (status === 'done' && result) {
+            if (typeof result.friendliness_score === 'number') {
+                return mapModernAnalysisResponse(file, result);
+            }
+            return mapLegacyAnalysisResponse(file, result);
+        }
+        // status === 'pending' → keep polling
     }
 
-    return mapLegacyAnalysisResponse(file, data);
+    throw new Error('Analysis timed out. Please try again.');
 };
 
 // Templates API

@@ -9,3 +9,15 @@ services:
         sync: false
       - key: OPENAI_API_KEY
         sync: false
+      # Analysis now runs as a background job, so these budgets are generous —
+      # Render's 30-second HTTP timeout no longer applies.
+      - key: ANALYZE_TOTAL_BUDGET_SECONDS
+        value: "50"
+      - key: ANALYZE_AI_TIMEOUT_SECONDS
+        value: "45"
+      - key: ANALYZE_AI_MODEL_TIMEOUT_SECONDS
+        value: "40"
+      - key: ANALYZE_AI_WAIT_BUDGET_SECONDS
+        value: "50"
+      - key: ANALYZE_GITHUB_TIMEOUT_SECONDS
+        value: "25"

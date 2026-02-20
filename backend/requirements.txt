@@ -15,3 +15,4 @@ supabase
 PyGithub
 fpdf2
 joblib
+scikit-learn

@@ -2,9 +2,9 @@
 Enhanced analysis endpoint for ATS Emulator V2
 Provides complete analysis matching frontend dashboard expectations
 """
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, BackgroundTasks, UploadFile, File, Form, HTTPException
 from fastapi.concurrency import run_in_threadpool
-from typing import Optional, Any
+from typing import Optional, Any, Dict
 from pydantic import BaseModel
 import asyncio
 import os
@@ -12,6 +12,7 @@ import json
 import logging
 import re
 import time
+import uuid
 from difflib import SequenceMatcher
 
 from app.services.ingestion.pdf_parser import PDFParser
@@ -25,6 +26,22 @@ from app.services.github.repo_analyzer import RepositoryAnalyzer
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Async job store — lets /analyze/full return immediately with a job_id so
+# that Render's 30-second HTTP timeout is never hit.  Polling happens via
+# GET /analyze/status/{job_id}.  Jobs are kept for 10 minutes then evicted.
+# ---------------------------------------------------------------------------
+_JOB_TTL = 600  # seconds
+_jobs: Dict[str, dict] = {}  # job_id → {"status": ..., "result": ..., "error": ..., "created_at": ...}
+
+
+def _evict_old_jobs() -> None:
+    now = time.monotonic()
+    stale = [jid for jid, j in _jobs.items() if now - j["created_at"] > _JOB_TTL]
+    for jid in stale:
+        _jobs.pop(jid, None)
+
 
 # Lightweight services are initialized at import.
 pdf_parser = PDFParser()
@@ -1864,7 +1881,10 @@ async def generate_ai_analysis_with_fallback(
     Raises RateLimitError if the API is rate-limited so callers can surface a
     user-friendly message instead of silently falling back to heuristics.
     """
-    outer_timeout = min(120.0, max(8.0, float(os.getenv("ANALYZE_AI_TIMEOUT_SECONDS", "90"))))
+    configured_outer_timeout = float(os.getenv("ANALYZE_AI_TIMEOUT_SECONDS", "90"))
+    # Production requests are typically slower than localhost; avoid too-low
+    # env overrides that force avoidable fallbacks.
+    outer_timeout = min(120.0, max(35.0, configured_outer_timeout))
     try:
         result = await asyncio.wait_for(
             run_in_threadpool(
@@ -2077,7 +2097,8 @@ REMINDER: Today is {current_month}. The year is {current_year}. All date evaluat
 Return ONLY valid JSON. The roast_markdown value is a single string with markdown formatting. Use \\n for newlines inside the string."""
 
     try:
-        model_timeout = min(150.0, max(8.0, float(os.getenv("ANALYZE_AI_MODEL_TIMEOUT_SECONDS", "110"))))
+        configured_model_timeout = float(os.getenv("ANALYZE_AI_MODEL_TIMEOUT_SECONDS", "110"))
+        model_timeout = min(150.0, max(30.0, configured_model_timeout))
         analyze_model = (
             os.getenv("OPENAI_ANALYZE_MODEL")
             or os.getenv("OPENAI_MODEL_FAST")
@@ -2803,6 +2824,7 @@ def build_github_intel(
         analyze_max_repos = min(14, max(6, int(os.getenv("ANALYZE_GITHUB_MAX_REPOS", "12"))))
 
         profile_data: dict = {}
+        repo_payload: dict = {"repositories": []}
         pygithub_repos: list[dict] = []
         used_pygithub = False
 
@@ -2830,7 +2852,6 @@ def build_github_intel(
                     scrape_github_repositories,
                 )
                 firecrawl_timeout = min(8, max(3, int(os.getenv("ANALYZE_FIRECRAWL_GITHUB_TIMEOUT_SECONDS", "8"))))
-                repo_payload: dict = {}
                 with ThreadPoolExecutor(max_workers=2) as pool:
                     future_profile = pool.submit(scrape_github_profile, username, firecrawl_timeout)
                     future_repos = pool.submit(scrape_github_repositories, username, firecrawl_timeout, analyze_max_repos)
@@ -3987,51 +4008,36 @@ def _offline_templates(role: Optional[str], target_ats: str) -> list[dict]:
     return filtered
 
 
-@router.post("/analyze/full")
-async def full_analysis(
-    file: UploadFile = File(...),
-    job_description: Optional[str] = Form(None),
-    target_role: Optional[str] = Form(None),
-    target_ats: str = Form("all"),
-    analysis_mode: str = Form("jd_or_general"),
-    feedback_tone: str = Form("brutal"),
-    company_name: Optional[str] = Form(None),
-    github_username: Optional[str] = Form(None),
-    linkedin_text: Optional[str] = Form(None),
-    github_token: Optional[str] = Form(None),
-):
-    """
-    Complete ATS analysis matching frontend dashboard expectations.
-    
-    Args:
-        file: Resume file (PDF or DOCX)
-        job_description: Optional job description for matching
-        target_role: Optional target role
-        target_ats: Target ATS system (default: all)
-    
-    Returns:
-        Complete analysis result
-    """
+async def _run_full_analysis_logic(
+    job_id: str,
+    content: bytes,
+    filename: str,
+    job_description: Optional[str],
+    target_role: Optional[str],
+    target_ats: str,
+    analysis_mode: str,
+    feedback_tone: str,
+    company_name: Optional[str],
+    github_username: Optional[str],
+    linkedin_text: Optional[str],
+    github_token: Optional[str],
+) -> None:
+    """Background worker: runs the full analysis and stores result in _jobs."""
     try:
         request_started_at = time.monotonic()
-        total_budget_seconds = min(40.0, max(24.0, float(os.getenv("ANALYZE_TOTAL_BUDGET_SECONDS", "38"))))
+        total_budget_seconds = min(55.0, max(30.0, float(os.getenv("ANALYZE_TOTAL_BUDGET_SECONDS", "50"))))
 
-        # 1. Parse resume
-        content = await file.read()
-        filename = file.filename.lower()
-        
-        if filename.endswith(".pdf"):
+        # 1. Parse resume — content/filename passed in by the caller
+        fn_lower = filename.lower()
+        if fn_lower.endswith(".pdf"):
             parsing_result = pdf_parser.parse(content)
-        elif filename.endswith(".docx"):
+        elif fn_lower.endswith(".docx"):
             parsing_result = docx_parser.parse(content)
         else:
-            raise HTTPException(
-                status_code=400,
-                detail="Unsupported file format. Please upload PDF or DOCX."
-            )
-        
+            raise ValueError("Unsupported file format. Please upload PDF or DOCX.")
+
         if "error" in parsing_result:
-            raise HTTPException(status_code=500, detail=parsing_result["error"])
+            raise ValueError(parsing_result["error"])
         
         # 2. Extract features
         feature_extractor = get_feature_extractor()
@@ -4458,7 +4464,7 @@ async def full_analysis(
 
         # 8. Prepare response
         response = {
-            "filename": file.filename,
+            "filename": filename,
             "file_size_bytes": len(content),
             "word_count": features.get("word_count", 0),
             "friendliness_score": friendliness_score,
@@ -4498,10 +4504,10 @@ async def full_analysis(
             "score_calibration": score_calibration,
         }
         
-        # 9. Store in Supabase (async, don't block response)
+        # 9. Store in Supabase (fire-and-forget, never blocks the response)
         try:
             await store_analysis({
-                "filename": file.filename,
+                "filename": filename,
                 "file_size_bytes": len(content),
                 "friendliness_score": friendliness_score,
                 "match_score": match_score,
@@ -4509,15 +4515,92 @@ async def full_analysis(
                 "resume_text": resume_text
             })
         except Exception as e:
-            # Log but don't fail the request
-            print(f"Failed to store analysis in Supabase: {e}")
-        
-        return response
-        
-    except HTTPException:
-        raise
+            logger.warning("Failed to store analysis in Supabase: %s", e)
+
+        # Publish result to job store so the polling endpoint can return it.
+        if job_id and job_id in _jobs:
+            _jobs[job_id]["status"] = "done"
+            _jobs[job_id]["result"] = response
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+        logger.exception("Background analysis failed for job %s: %s", job_id, e)
+        if job_id and job_id in _jobs:
+            _jobs[job_id]["status"] = "error"
+            _jobs[job_id]["error"] = str(e)
+
+
+@router.post("/analyze/full")
+async def full_analysis(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    job_description: Optional[str] = Form(None),
+    target_role: Optional[str] = Form(None),
+    target_ats: str = Form("all"),
+    analysis_mode: str = Form("jd_or_general"),
+    feedback_tone: str = Form("brutal"),
+    company_name: Optional[str] = Form(None),
+    github_username: Optional[str] = Form(None),
+    linkedin_text: Optional[str] = Form(None),
+    github_token: Optional[str] = Form(None),
+):
+    """
+    Enqueue a full ATS analysis and return a job_id immediately.
+    Poll GET /api/v1/analyze/status/{job_id} for the result.
+    This avoids Render's 30-second HTTP request timeout.
+    """
+    _evict_old_jobs()
+
+    content = await file.read()
+    original_filename = file.filename or "resume"
+
+    fn_lower = original_filename.lower()
+    if not (fn_lower.endswith(".pdf") or fn_lower.endswith(".docx")):
+        raise HTTPException(status_code=400, detail="Unsupported file format. Please upload PDF or DOCX.")
+
+    job_id = str(uuid.uuid4())
+    _jobs[job_id] = {"status": "pending", "result": None, "error": None, "created_at": time.monotonic()}
+
+    background_tasks.add_task(
+        _run_full_analysis_logic,
+        job_id,
+        content,
+        original_filename,
+        job_description,
+        target_role,
+        target_ats,
+        analysis_mode,
+        feedback_tone,
+        company_name,
+        github_username,
+        linkedin_text,
+        github_token,
+    )
+
+    return {"job_id": job_id, "status": "pending"}
+
+
+@router.get("/analyze/status/{job_id}")
+async def get_analysis_status(job_id: str):
+    """
+    Poll for analysis result.
+    Returns {"status": "pending"} while running,
+    {"status": "done", "result": {...}} when finished,
+    {"status": "error", "error": "..."} on failure.
+    """
+    job = _jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found or expired.")
+
+    if job["status"] == "pending":
+        return {"status": "pending"}
+
+    if job["status"] == "error":
+        return {"status": "error", "error": job["error"]}
+
+    # Done — return full result and evict immediately to free memory
+    result = job["result"]
+    _jobs.pop(job_id, None)
+    return {"status": "done", "result": result}
 
 
 # Keep original endpoint for backward compatibility
