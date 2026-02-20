@@ -1,7 +1,8 @@
 import axios from 'axios';
 import type { AnalysisResult, BackendAnalysisResponse, FullRewriteResult, BrutalRewriteResult, InterviewAnswerScoreResult } from '../types';
 
-const DEFAULT_API_BASE_URL = import.meta.env.DEV ? 'http://localhost:8000' : '';
+const PROD_FALLBACK_API_BASE_URL = 'https://resume-backend.onrender.com';
+const DEFAULT_API_BASE_URL = import.meta.env.DEV ? 'http://localhost:8000' : PROD_FALLBACK_API_BASE_URL;
 const RAW_API_BASE_URL = (import.meta.env.VITE_API_URL || DEFAULT_API_BASE_URL).trim();
 const API_BASE_URL = RAW_API_BASE_URL ? RAW_API_BASE_URL.replace(/\/api\/v1\/?$/, '') : '';
 

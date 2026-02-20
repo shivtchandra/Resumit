@@ -1,7 +1,7 @@
 """
 AI-powered rewrite endpoint for resume optimization with Gemini
 """
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
@@ -233,6 +233,7 @@ async def rewrite_section(request: RewriteSectionRequest):
 
 @router.post("/rewrite/full")
 async def rewrite_full(
+    request: Request,
     file: UploadFile = File(...),
     job_description: str = Form(...),
     user_id: str = Form("anonymous")
@@ -359,12 +360,13 @@ async def rewrite_full(
         friendliness_after = friendliness_classifier.predict(rewritten_features)
         
         # Build response
+        public_file_url = f"{str(request.base_url).rstrip('/')}{final_file_url}"
         response = {
             "before_score": visibility_before.get("score", 0),
             "after_score": visibility_after.get("score", 0),
             "before_friendliness": friendliness_before.get("score", 0),
             "after_friendliness": friendliness_after.get("score", 0),
-            "file_url": f"http://localhost:8000{final_file_url}", # Full URL for local dev
+            "file_url": public_file_url,
             "docx_path": str(docx_path),
             "pdf_path": str(pdf_path) if pdf_path else None,
             "original_text": text,  # Add original text for comparison

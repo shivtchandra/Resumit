@@ -47,7 +47,7 @@ def _build_cors_origins() -> list[str]:
 
 allow_all_origins = os.getenv("CORS_ALLOW_ALL", "false").lower() == "true"
 cors_origins = _build_cors_origins()
-cors_origin_regex = os.getenv("CORS_ORIGIN_REGEX", "").strip() or None
+cors_origin_regex = os.getenv("CORS_ORIGIN_REGEX", "").strip() or r"^https://[a-z0-9-]+\.vercel\.app$"
 
 # CORS middleware for frontend
 app.add_middleware(

@@ -2077,7 +2077,7 @@ REMINDER: Today is {current_month}. The year is {current_year}. All date evaluat
 Return ONLY valid JSON. The roast_markdown value is a single string with markdown formatting. Use \\n for newlines inside the string."""
 
     try:
-        model_timeout = min(110.0, max(8.0, float(os.getenv("ANALYZE_AI_MODEL_TIMEOUT_SECONDS", "90"))))
+        model_timeout = min(150.0, max(8.0, float(os.getenv("ANALYZE_AI_MODEL_TIMEOUT_SECONDS", "110"))))
         analyze_model = (
             os.getenv("OPENAI_ANALYZE_MODEL")
             or os.getenv("OPENAI_MODEL_FAST")
@@ -2091,8 +2091,9 @@ Return ONLY valid JSON. The roast_markdown value is a single string with markdow
         ai_text = ai_client._call_gemini(
             prompt,
             max_retries=1,
-            max_tokens=6000,
+            max_tokens=2500,
             timeout_seconds=model_timeout,
+
             model_name=analyze_model,
             temperature_override=0.7,
             use_json_mode=True,
@@ -4195,7 +4196,7 @@ async def full_analysis(
         # generate_ai_analysis_with_fallback already enforces its own hard timeout
         # so we don't double-clip with _remaining_budget() here.
         try:
-            ai_wait = min(120.0, max(6.0, float(os.getenv("ANALYZE_AI_WAIT_BUDGET_SECONDS", "90"))))
+            ai_wait = min(150.0, max(6.0, float(os.getenv("ANALYZE_AI_WAIT_BUDGET_SECONDS", "110"))))
             ai_generated = await asyncio.wait_for(ai_task, timeout=ai_wait)
         except asyncio.TimeoutError:
             ai_task.cancel()
