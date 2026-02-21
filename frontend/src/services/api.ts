@@ -192,24 +192,31 @@ export const analyzeResume = async (
     const enqueueResponse = await api.post<{ job_id: string; status: string }>(
         '/api/v1/analyze/full',
         formData,
-        { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 20000 }
+        { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 0 }
     );
     const jobId = enqueueResponse.data.job_id;
     if (!jobId) throw new Error('Server did not return a job_id.');
 
-    // Step 2: Poll until done (up to ~3 minutes total)
+    // Step 2: Poll until done
     const POLL_INTERVAL_MS = 3000;
-    const POLL_TIMEOUT_MS = Number(import.meta.env.VITE_ANALYZE_TIMEOUT_MS || 180000);
-    const deadline = Date.now() + POLL_TIMEOUT_MS;
-
-    while (Date.now() < deadline) {
+    while (true) {
         await new Promise<void>((res) => setTimeout(res, POLL_INTERVAL_MS));
 
-        const statusResponse = await api.get<{
-            status: 'pending' | 'done' | 'error';
-            result?: BackendAnalysisResponse;
-            error?: string;
-        }>(`/api/v1/analyze/status/${jobId}`, { timeout: 10000 });
+        let statusResponse;
+        try {
+            statusResponse = await api.get<{
+                status: 'pending' | 'done' | 'error';
+                result?: BackendAnalysisResponse;
+                error?: string;
+            }>(`/api/v1/analyze/status/${jobId}`, { timeout: 0 });
+        } catch (error) {
+            const message = error instanceof Error ? error.message.toLowerCase() : '';
+            // Keep polling on transient network hiccups.
+            if (message.includes('timed out') || message.includes('no response from server')) {
+                continue;
+            }
+            throw error;
+        }
 
         const { status, result, error } = statusResponse.data;
 
@@ -226,7 +233,6 @@ export const analyzeResume = async (
         // status === 'pending' → keep polling
     }
 
-    throw new Error('Analysis timed out. Please try again.');
 };
 
 // Templates API
