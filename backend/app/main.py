@@ -67,9 +67,11 @@ app.include_router(github.router, prefix="/api/v1", tags=["github"])
 app.include_router(settings.router, prefix="/api/v1", tags=["settings"])
 
 @app.get("/")
+@app.head("/")
 async def root():
     return {"message": "ATS Emulator V2 API is running"}
 
 @app.get("/health")
+@app.head("/health")
 async def health_check():
     return {"status": "healthy", "version": "2.0.0"}
