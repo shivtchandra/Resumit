@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Ping Backend Health Endpoint
         run: |
-          # Replace the URL below if your production backend URL is different
-          BACKEND_URL="https://resume-backend.onrender.com/health"
+          # Correct production backend URL
+          BACKEND_URL="https://resumit.onrender.com/health"
           echo "Pinging $BACKEND_URL..."
           curl -f -s "$BACKEND_URL" || echo "Warning: Health check failed"
