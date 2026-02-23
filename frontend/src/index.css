@@ -45,6 +45,17 @@
   --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
 }
 
+@layer utilities {
+  .scrollbar-default {
+    -ms-overflow-style: auto;
+    scrollbar-width: auto;
+  }
+
+  .scrollbar-default::-webkit-scrollbar {
+    display: block;
+  }
+}
+
 @layer base {
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
 
@@ -75,7 +86,7 @@
 
   /* ── Gradient text ── */
   .text-gradient {
-    @apply bg-clip-text text-transparent bg-linear-to-r from-brand-primary via-teal-400 to-brand-accent;
+    @apply bg-clip-text text-transparent bg-linear-to-r from-brand-primary to-emerald-400;
   }
 
   /* ── Card system ── */
@@ -196,36 +207,79 @@
     @apply relative flex items-center justify-center rounded-full font-heading font-black;
   }
 
-}
-
-/* ── Float animation ── */
-@keyframes float {
-  0% {
-    transform: translateY(0px);
+  /* ── Mobile Tab System ── */
+  .mobile-tabs-container {
+    @apply sticky top-[72px] z-30 flex gap-1 p-1 bg-slate-100/80 backdrop-blur-md rounded-2xl border border-slate-200 md:hidden mb-6;
   }
 
-  50% {
-    transform: translateY(-6px);
+  .mobile-tab-btn {
+    @apply flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all duration-200 text-text-subtle;
   }
 
-  100% {
-    transform: translateY(0px);
+  .mobile-tab-btn.active {
+    @apply bg-white text-brand-primary shadow-sm;
   }
-}
 
-.animate-float {
-  animation: float 4s ease-in-out infinite;
-}
+  .mobile-tab-icon {
+    @apply mb-0.5;
+  }
 
-/* ── Scrollbar ── */
-::-webkit-scrollbar {
-  width: 6px;
-}
+  .mobile-tab-label {
+    @apply text-[9px] font-black uppercase tracking-wider;
+  }
 
-::-webkit-scrollbar-track {
-  @apply bg-transparent;
-}
+  /* ── Mobile Utilities ── */
+  .hide-on-mobile {
+    @apply hidden md:block;
+  }
 
-::-webkit-scrollbar-thumb {
-  @apply bg-brand-primary/15 rounded-full hover:bg-brand-primary/30;
+  .show-on-mobile {
+    @apply block md:hidden;
+  }
+
+  .mobile-snap-carousel {
+    @apply flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 -mx-4 px-4 md:mx-0 md:px-0 md:grid md:overflow-visible md:pb-0;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .mobile-snap-carousel::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-snap-item {
+    @apply snap-center shrink-0 w-[85%] md:w-auto;
+  }
+
+  /* ── Float animation ── */
+  @keyframes float {
+    0% {
+      transform: translateY(0px);
+    }
+
+    50% {
+      transform: translateY(-6px);
+    }
+
+    100% {
+      transform: translateY(0px);
+    }
+  }
+
+  .animate-float {
+    animation: float 4s ease-in-out infinite;
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-brand-primary/15 rounded-full hover:bg-brand-primary/30;
+  }
 }

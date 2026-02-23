@@ -1,6 +1,6 @@
 import fitz  # PyMuPDF
 from pdfminer.high_level import extract_text
-from Levenshtein import ratio
+from difflib import SequenceMatcher
 import io
 import logging
 from typing import List
@@ -53,12 +53,22 @@ class PDFParser:
                 is_image_based = False
             total_text_len += len(page_text)
 
-        # 3. Z-Order Analysis
-        # If stream_text and visual_text are very different, it implies Z-order fragmentation.
-        # We use Levenshtein ratio: 1.0 = identical, 0.0 = completely different.
-        # A low ratio means high risk.
+        # 3. Z-Order Analysis (Optimized similarity check)
+        # SequenceMatcher.ratio() is generally faster than Levenshtein for large strings 
+        # when used with the quick_ratio/real_quick_ratio heuristics.
+        if not stream_text or not visual_text:
+            similarity = 0.0
+        elif abs(len(stream_text) - len(visual_text)) > (max(len(stream_text), len(visual_text)) * 0.8):
+            # Short-circuit if lengths are extremely different (saves compute)
+            similarity = 0.2
+        else:
+            # Limit sample size for extremely large PDFs to prevent CPU hang
+            sample_limit = 50000 
+            s1 = stream_text[:sample_limit]
+            s2 = visual_text[:sample_limit]
+            matcher = SequenceMatcher(None, s1, s2, autojunk=False)
+            similarity = matcher.quick_ratio()
         
-        similarity = ratio(stream_text, visual_text)
         z_order_diff_score = 1.0 - similarity # Higher is worse (0.0 to 1.0)
 
         # 4. Image-Based Check

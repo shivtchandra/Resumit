@@ -2087,7 +2087,11 @@ REMINDER: Today is {current_month}. The year is {current_year}. All date evaluat
 Return ONLY valid JSON. The roast_markdown value is a single string with markdown formatting. Use \\n for newlines inside the string."""
 
     try:
-        analyze_model = "gpt-4o"
+        analyze_model = (
+            os.getenv("OPENAI_ANALYZE_MODEL")
+            or os.getenv("OPENAI_MODEL")
+            or "gpt-4o-mini"
+        ).strip()
 
         logger.info(
             "AI roast starting — model: %s",
@@ -2095,11 +2099,10 @@ Return ONLY valid JSON. The roast_markdown value is a single string with markdow
         )
         ai_text = ai_client._call_gemini(
             prompt,
+            model_name=analyze_model,
             max_retries=1,
             max_tokens=2500,
             timeout_seconds=0,
-
-            model_name=analyze_model,
             temperature_override=0.7,
             use_json_mode=True,
         )
@@ -4014,9 +4017,9 @@ async def _run_full_analysis_logic(
         # 1. Parse resume — content/filename passed in by the caller
         fn_lower = filename.lower()
         if fn_lower.endswith(".pdf"):
-            parsing_result = pdf_parser.parse(content)
+            parsing_result = await run_in_threadpool(pdf_parser.parse, content)
         elif fn_lower.endswith(".docx"):
-            parsing_result = docx_parser.parse(content)
+            parsing_result = await run_in_threadpool(docx_parser.parse, content)
         else:
             raise ValueError("Unsupported file format. Please upload PDF or DOCX.")
 
@@ -4025,7 +4028,7 @@ async def _run_full_analysis_logic(
         
         # 2. Extract features
         feature_extractor = get_feature_extractor()
-        features = feature_extractor.extract_features(parsing_result)
+        features = await run_in_threadpool(feature_extractor.extract_features, parsing_result)
         
         # Use visual_text for AI/Semantic tasks as it preserves reading order better.
         # Fallback to raw_text if visual_text is missing.
@@ -4043,7 +4046,7 @@ async def _run_full_analysis_logic(
         ][:10]
         
         # 3. ATS Friendliness
-        friendliness_result = friendliness_classifier.predict(features)
+        friendliness_result = await run_in_threadpool(friendliness_classifier.predict, features)
         raw_friendliness_score = friendliness_result.get("score", 0)
         score_calibration = calibrate_friendliness_score(
             raw_friendliness_score=raw_friendliness_score,
@@ -4060,7 +4063,7 @@ async def _run_full_analysis_logic(
         
         if job_description:
             visibility_ranker = get_visibility_ranker()
-            visibility_result = visibility_ranker.rank(resume_text, job_description)
+            visibility_result = await run_in_threadpool(visibility_ranker.rank, resume_text, job_description)
             match_score = visibility_result.get("score", 0)
         
         # 5. Map to frontend format

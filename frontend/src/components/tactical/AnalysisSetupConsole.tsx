@@ -84,7 +84,7 @@ export const AnalysisSetupConsole = ({
             setSelectedTemplateId('');
             onJdChange?.('');
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialData.targetRole]);
 
     const handleFileSelect = useCallback((file: File) => {
@@ -164,109 +164,18 @@ export const AnalysisSetupConsole = ({
             `}</style>
 
             <div className={`zen-card overflow-hidden transition-all duration-300 ${isDragging ? 'border-brand-primary scale-[1.01] shadow-xl' : 'border-border-subtle'}`}>
-                {/* Upload Section */}
-                <div
-                    className={`relative p-10 text-center border-b border-dashed border-border-subtle transition-colors ${isAnalyzing ? 'bg-bg-surface/30' : 'bg-white hover:bg-bg-surface/10'}`}
-                    onDragEnter={handleDrag}
-                    onDragOver={handleDrag}
-                    onDragLeave={handleDrag}
-                    onDrop={handleDrop}
-                >
-                    <input
-                        type="file"
-                        id="setup-file-upload"
-                        className="hidden"
-                        accept=".pdf,.docx"
-                        onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
-                        disabled={isAnalyzing}
-                    />
-
-                    <label htmlFor="setup-file-upload" className={`cursor-pointer flex flex-col items-center gap-6 ${isAnalyzing ? 'pointer-events-none' : ''}`}>
-                        <div className={`w-20 h-20 rounded-3xl flex items-center justify-center transition-all ${isAnalyzing ? 'bg-brand-primary/10 text-brand-primary' : 'bg-bg-page border border-border-subtle group-hover:scale-110'}`}>
-                            {isAnalyzing ? (
-                                <Loader2 className="animate-spin" size={36} />
-                            ) : (
-                                <Upload size={36} className={selectedFile ? 'text-brand-primary' : 'text-text-subtle'} />
-                            )}
-                        </div>
-
-                        <div className="space-y-2">
-                            <h3 className="text-2xl font-heading font-black text-brand-secondary">
-                                {isAnalyzing ? 'SCANNING PROTOCOL ACTIVE' : selectedFile ? 'FILE PREPARED' : (isAnalysisOnly ? 'INITIATE ROAST' : 'INITIATE ANALYSIS')}
-                            </h3>
-                            <p className="text-text-muted max-w-md mx-auto font-medium">
-                                {selectedFile
-                                    ? `${selectedFile.name} ready for deep scan.`
-                                    : (isAnalysisOnly
-                                        ? 'Drop your resume to run a roast + profile signal check.'
-                                        : 'Drag and drop your resume to begin the deep scan protocol.')}
-                            </p>
-                            {!selectedFile && !isAnalyzing && (
-                                <span className="inline-block mt-4 px-4 py-1.5 rounded-lg border border-border-subtle bg-bg-page text-[10px] font-black tracking-widest text-text-subtle">
-                                    SUPPORTED: PDF, DOCX
-                                </span>
-                            )}
-                        </div>
-                    </label>
-
-                    {/* Analyzing View */}
-                    <AnimatePresence>
-                        {isAnalyzing && (
-                            <motion.div
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: 'auto' }}
-                                className="mt-10 space-y-8"
-                            >
-                                <div className="space-y-4 max-w-lg mx-auto">
-                                    <div className="flex justify-between items-center text-[10px] font-black tracking-[0.2em] text-brand-primary">
-                                        <div className="flex items-center gap-2">
-                                            <Clock3 size={14} />
-                                            ELAPSED {String(elapsedSeconds).padStart(2, '0')}s
-                                        </div>
-                                        <div className="animate-pulse">{LIVE_SIGNALS[signalCursor]}...</div>
-                                    </div>
-                                    <div className="h-2 rounded-full bg-slate-100 overflow-hidden relative shadow-inner">
-                                        <motion.div
-                                            className="absolute top-0 left-0 h-full bg-brand-primary"
-                                            animate={{ width: `${progress}%` }}
-                                            style={{ boxShadow: '0 0 10px var(--brand-primary)' }}
-                                        />
-                                    </div>
-                                    <div className="text-right text-xs font-black text-brand-secondary">{Math.round(progress)}% COMPLETE</div>
-                                </div>
-
-                                <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-                                    {ANALYSIS_STAGES.map((stage, idx) => {
-                                        const isComplete = idx < activeStage;
-                                        const isActive = idx === activeStage;
-                                        return (
-                                            <div key={idx} className={`p-3 rounded-xl border text-left transition-all ${isComplete ? 'bg-emerald-50 border-emerald-100' : isActive ? 'bg-brand-primary/10 border-brand-primary/20' : 'bg-white border-border-subtle opacity-40'}`}>
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    {isComplete ? <CheckCircle2 size={12} className="text-emerald-500" /> : <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-brand-primary animate-ping' : 'bg-slate-300'}`} />}
-                                                    <span className={`text-[9px] font-black tracking-widest ${isComplete ? 'text-emerald-700' : isActive ? 'text-brand-primary' : 'text-slate-500'}`}>{stage.label}</span>
-                                                </div>
-                                                {isActive && <div className="text-[8px] text-text-muted leading-tight font-medium">{stage.hint}</div>}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
-
                 {/* Configuration Panel */}
-                <div className="p-10 space-y-10">
+                <div className="px-6 py-8 md:p-10 space-y-6 md:space-y-10 border-b border-border-subtle bg-white">
                     <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-xl bg-brand-primary/10 text-brand-primary">
-                            <Zap size={20} />
+                        <div className="p-2.5 rounded-xl bg-brand-primary/10 text-brand-primary md:p-3">
+                            <Zap size={18} className="md:w-5 md:h-5" />
                         </div>
-                        <h3 className="text-sm font-black text-brand-secondary tracking-[0.2em] uppercase">
-                            {isAnalysisOnly ? 'Roast Signal Inputs' : 'Advanced Resume Intel'}
+                        <h3 className="text-xs md:text-sm font-black text-brand-secondary tracking-[0.2em] uppercase">
+                            {isAnalysisOnly ? 'Roast Inputs' : 'Advanced Resume Intel'}
                         </h3>
                     </div>
 
-                    <div className={`grid grid-cols-1 gap-8 ${isAnalysisOnly ? 'md:grid-cols-2' : 'md:grid-cols-3'}`}>
+                    <div className={`grid grid-cols-1 gap-5 md:gap-8 ${isAnalysisOnly ? 'md:grid-cols-2' : 'md:grid-cols-3'}`}>
                         <div className="space-y-3">
                             <label className="text-[10px] font-black text-text-subtle uppercase tracking-[0.2em] flex items-center gap-2">
                                 <Target size={14} className="text-brand-primary" />
@@ -323,8 +232,8 @@ export const AnalysisSetupConsole = ({
                         </div>
                     </div>
 
-                    <div className={`pt-8 border-t border-border-subtle/50 grid grid-cols-1 gap-8 ${isAnalysisOnly ? '' : 'md:grid-cols-2'}`}>
-                        {!isAnalysisOnly && (
+                    {!isAnalysisOnly && (
+                        <div className="pt-8 border-t border-border-subtle/50">
                             <div className="space-y-6">
                                 <div className="space-y-3">
                                     <label className="text-[10px] font-black text-text-subtle uppercase tracking-[0.2em]">Company Signal</label>
@@ -385,64 +294,117 @@ export const AnalysisSetupConsole = ({
                                     />
                                 </div>
                             </div>
-                        )}
-
-                        <div className="space-y-6">
-                            {isAnalysisOnly && (
-                                <div className="p-4 rounded-2xl border border-brand-primary/20 bg-brand-primary/5 text-sm text-text-muted leading-relaxed">
-                                    <span className="font-black text-brand-secondary uppercase tracking-widest text-[10px] block mb-1">No JD Needed</span>
-                                    Analyze mode intentionally skips JD input. It focuses on roast feedback, GitHub/LinkedIn proof, and certification guidance.
-                                </div>
-                            )}
-                            <div className="p-6 rounded-2xl bg-bg-surface/50 border border-border-subtle space-y-6">
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-text-subtle uppercase tracking-[0.2em] flex items-center gap-2">
-                                        <MaterialIcon icon="code" size={16} className="text-brand-primary" />
-                                        GitHub Proof
-                                    </label>
-                                    <input
-                                        value={initialData.githubUsername || ''}
-                                        onChange={(e) => onGithubChange(e.target.value)}
-                                        placeholder="Username or Repo URL"
-                                        className="soft-input text-sm h-11"
-                                        disabled={isAnalyzing}
-                                    />
-                                </div>
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-text-subtle uppercase tracking-[0.2em] flex items-center gap-2">
-                                        <MaterialIcon icon="badge" size={16} className="text-brand-primary" />
-                                        LinkedIn Depth
-                                    </label>
-                                    <input
-                                        value={initialData.linkedinText || ''}
-                                        onChange={(e) => onLinkedinChange(e.target.value)}
-                                        placeholder="Paste Profile Overview..."
-                                        className="soft-input text-sm h-11"
-                                        disabled={isAnalyzing}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="p-6 bg-brand-secondary rounded-2xl text-white space-y-4 shadow-lg shadow-brand-secondary/20">
-                                <div className="flex items-center gap-3">
-                                    <Sparkles className="text-brand-primary" size={24} />
-                                    <div>
-                                        <div className="text-[9px] font-black tracking-widest uppercase text-slate-400">{isAnalysisOnly ? 'Ready to Roast?' : 'Ready to Scan?'}</div>
-                                        <div className="text-sm font-black italic">{isAnalysisOnly ? 'ROAST_MODE_READY' : 'PROTOCOL_LOADED'}</div>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => selectedFile && onStartAnalysis(selectedFile)}
-                                    disabled={!selectedFile || isAnalyzing}
-                                    className={`w-full py-4 rounded-xl flex items-center justify-center gap-3 font-black tracking-widest uppercase transition-all ${!selectedFile ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-brand-primary text-white hover:scale-[1.02] active:scale-95 shadow-lg shadow-brand-primary/20'}`}
-                                >
-                                    <Scan size={20} />
-                                    {isAnalyzing ? 'Analyzing...' : (isAnalysisOnly ? 'Run Roast Diagnostic' : 'Initiate Deep Scan')}
-                                </button>
-                                {!selectedFile && <div className="text-[10px] text-center text-slate-400 font-medium">{isAnalysisOnly ? 'Upload a resume to run roast diagnostics.' : 'Please upload a resume to unlock scan protocol.'}</div>}
-                            </div>
                         </div>
-                    </div>
+                    )}
+                </div>
+
+                {/* Upload Section */}
+                <div
+                    className={`relative p-6 md:p-10 text-center transition-colors ${isAnalyzing ? 'bg-bg-surface/30' : 'bg-bg-page hover:bg-bg-surface/10'}`}
+                    onDragEnter={handleDrag}
+                    onDragOver={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDrop={handleDrop}
+                >
+                    <input
+                        type="file"
+                        id="setup-file-upload"
+                        className="hidden"
+                        accept=".pdf,.docx"
+                        onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+                        disabled={isAnalyzing}
+                    />
+
+                    <label htmlFor="setup-file-upload" className={`cursor-pointer flex flex-col items-center gap-6 ${isAnalyzing ? 'pointer-events-none' : ''}`}>
+                        <div className={`w-20 h-20 rounded-3xl flex items-center justify-center transition-all ${isAnalyzing ? 'bg-brand-primary/10 text-brand-primary' : 'bg-white border border-border-subtle group-hover:scale-110'}`}>
+                            {isAnalyzing ? (
+                                <Loader2 className="animate-spin" size={36} />
+                            ) : (
+                                <Upload size={36} className={selectedFile ? 'text-brand-primary' : 'text-text-subtle'} />
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
+                            <h3 className="text-2xl font-heading font-black text-brand-secondary">
+                                {isAnalyzing ? 'SCANNING PROTOCOL ACTIVE' : selectedFile ? 'FILE PREPARED' : (isAnalysisOnly ? 'INITIATE ROAST' : 'INITIATE ANALYSIS')}
+                            </h3>
+                            <p className="text-text-muted max-w-md mx-auto font-medium">
+                                {selectedFile
+                                    ? `${selectedFile.name} ready for deep scan.`
+                                    : (isAnalysisOnly
+                                        ? 'Drop your resume to run a roast + profile signal check.'
+                                        : 'Drag and drop your resume to begin the deep scan protocol.')}
+                            </p>
+                            {!selectedFile && !isAnalyzing && (
+                                <span className="inline-block mt-4 px-4 py-1.5 rounded-lg border border-border-subtle bg-white text-[10px] font-black tracking-widest text-text-subtle">
+                                    SUPPORTED: PDF, DOCX
+                                </span>
+                            )}
+                        </div>
+                    </label>
+
+                    {/* Analyzing View */}
+                    <AnimatePresence>
+                        {isAnalyzing && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                className="mt-10 space-y-8"
+                            >
+                                <div className="space-y-4 max-w-lg mx-auto">
+                                    <div className="flex justify-between items-center text-[10px] font-black tracking-[0.2em] text-brand-primary">
+                                        <div className="flex items-center gap-2">
+                                            <Clock3 size={14} />
+                                            ELAPSED {String(elapsedSeconds).padStart(2, '0')}s
+                                        </div>
+                                        <div className="animate-pulse">{LIVE_SIGNALS[signalCursor]}...</div>
+                                    </div>
+                                    <div className="h-2 rounded-full bg-slate-100 overflow-hidden relative shadow-inner">
+                                        <motion.div
+                                            className="absolute top-0 left-0 h-full bg-brand-primary"
+                                            animate={{ width: `${progress}%` }}
+                                            style={{ boxShadow: '0 0 10px var(--brand-primary)' }}
+                                        />
+                                    </div>
+                                    <div className="text-right text-xs font-black text-brand-secondary">{Math.round(progress)}% COMPLETE</div>
+                                </div>
+
+                                <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+                                    {ANALYSIS_STAGES.map((stage, idx) => {
+                                        const isComplete = idx < activeStage;
+                                        const isActive = idx === activeStage;
+                                        return (
+                                            <div key={idx} className={`p-3 rounded-xl border text-left transition-all ${isComplete ? 'bg-emerald-50 border-emerald-100' : isActive ? 'bg-brand-primary/10 border-brand-primary/20' : 'bg-white border-border-subtle opacity-40'}`}>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    {isComplete ? <CheckCircle2 size={12} className="text-emerald-500" /> : <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-brand-primary animate-ping' : 'bg-slate-300'}`} />}
+                                                    <span className={`text-[9px] font-black tracking-widest ${isComplete ? 'text-emerald-700' : isActive ? 'text-brand-primary' : 'text-slate-500'}`}>{stage.label}</span>
+                                                </div>
+                                                {isActive && <div className="text-[8px] text-text-muted leading-tight font-medium">{stage.hint}</div>}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+
+                {/* Final Launch Action */}
+                <div className="bg-white border-t border-border-subtle p-6 flex justify-center">
+                    <button
+                        onClick={() => selectedFile && onStartAnalysis(selectedFile)}
+                        disabled={!selectedFile || isAnalyzing}
+                        className={`group relative w-full flex items-center justify-center gap-4 px-10 py-6 rounded-2xl font-black tracking-widest uppercase transition-all duration-300 ${selectedFile && !isAnalyzing
+                            ? 'bg-linear-to-r from-brand-primary to-emerald-600 text-white shadow-xl shadow-brand-primary/30 hover:scale-[1.01] active:scale-[0.98]'
+                            : 'bg-bg-muted text-text-muted/60 border border-border-subtle cursor-not-allowed shadow-none'
+                            }`}
+                    >
+                        <Sparkles size={24} className={selectedFile && !isAnalyzing ? 'animate-pulse' : 'opacity-40'} />
+                        <span className="text-lg">
+                            {isAnalyzing ? 'Analyzing Document...' : 'Launch Roast Analysis'}
+                        </span>
+                        <MaterialIcon icon="arrow_forward" size={24} className={selectedFile && !isAnalyzing ? 'group-hover:translate-x-2 transition-transform' : 'opacity-40'} />
+                    </button>
                 </div>
             </div>
         </div>

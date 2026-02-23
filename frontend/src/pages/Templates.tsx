@@ -118,7 +118,7 @@ export const Templates = () => {
 
     return (
         <PageLayout header={<Navbar />} maxWidth="full">
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-6 sm:space-y-10">
                 {/* Header Section */}
                 <motion.section
                     initial={{ opacity: 0, y: -10 }}
@@ -143,28 +143,32 @@ export const Templates = () => {
                     </div>
                 </motion.section>
 
-                <PageGuide
-                    badge="STRATEGY"
-                    title="Structure Wins Interviews"
-                    description="While aesthetics matter, information density and section hierarchy are what satisfy both human recruiters and AI algorithms."
-                    whatThisPageDoes="Explore verified blueprints for every stage of your career."
-                    bestUseCase="Best used after you've refined your content in the Analysis tool and need a professional container."
-                    howToUse={[
-                        'Filter by your current career seniority level.',
-                        'Select templates compatible with your target ATS (e.g., Workday).',
-                        'Compare 2-3 visual styles before committing.',
-                        'Focus on the section arrangement that best highlights your strengths.'
-                    ]}
-                    makeMostOfIt={[
-                        'Stick to one primary template to maintain consistency.',
-                        'Avoid complex multi-column layouts if applying to legacy companies.',
-                        'Ensure your most important skills appear in the top 30% of the page.'
-                    ]}
-                    primaryAction={{ label: 'Go to Match & Fix', to: '/resume-fix-lab' }}
-                    secondaryAction={{ label: 'Back to Analysis', to: '/analysis' }}
-                />
+                <div className="hidden md:block">
+                    <PageGuide
+                        badge="STRATEGY"
+                        title="Structure Wins Interviews"
+                        description="While aesthetics matter, information density and section hierarchy are what satisfy both human recruiters and AI algorithms."
+                        whatThisPageDoes="Explore verified blueprints for every stage of your career."
+                        bestUseCase="Best used after you've refined your content in the Analysis tool and need a professional container."
+                        howToUse={[
+                            'Filter by your current career seniority level.',
+                            'Select templates compatible with your target ATS (e.g., Workday).',
+                            'Compare 2-3 visual styles before committing.',
+                            'Focus on the section arrangement that best highlights your strengths.'
+                        ]}
+                        makeMostOfIt={[
+                            'Stick to one primary template to maintain consistency.',
+                            'Avoid complex multi-column layouts if applying to legacy companies.',
+                            'Ensure your most important skills appear in the top 30% of the page.'
+                        ]}
+                        primaryAction={{ label: 'Go to Match & Fix', to: '/resume-fix-lab' }}
+                        secondaryAction={{ label: 'Back to Analysis', to: '/analysis' }}
+                    />
+                </div>
 
-                <WorkflowMap currentStep="templates" />
+                <div className="hidden md:block">
+                    <WorkflowMap currentStep="templates" />
+                </div>
 
                 <section className="bg-white rounded-premium border border-border-subtle p-5 shadow-sm">
                     <div className="text-xs font-black tracking-widest uppercase text-brand-secondary mb-2">Template Safety Check</div>

@@ -21,6 +21,14 @@ export const Analysis = () => {
     const [feedbackTone, setFeedbackTone] = useState<'brutal' | 'professional'>('brutal');
     const [githubUsername, setGithubUsername] = useState('');
     const [linkedinText, setLinkedinText] = useState('');
+    const [activeTab, setActiveTab] = useState<'score' | 'roast' | 'certs' | 'signals'>('score');
+    const [expandedCritiques, setExpandedCritiques] = useState<number[]>([]);
+
+    const toggleCritique = (idx: number) => {
+        setExpandedCritiques(prev =>
+            prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]
+        );
+    };
 
     const clearResult = useCallback(() => {
         setResult(null);
@@ -112,7 +120,7 @@ export const Analysis = () => {
                 <div className="absolute top-[20%] -right-[5%] w-[30%] h-[30%] bg-indigo-500/5 blur-[100px] rounded-full" />
             </div>
 
-            <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-12">
+            <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-12 space-y-6 sm:space-y-12">
                 <header className="text-center space-y-4">
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9 }}
@@ -150,31 +158,35 @@ export const Analysis = () => {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -20 }}
                         >
-                            <PageGuide
-                                badge="ROAST GUIDE"
-                                title="Free-Flow Resume Roast"
-                                description="Upload your resume for a conversational, no-BS critique with specific cert suggestions."
-                                whatThisPageDoes="AI reads your resume and writes a free-flowing roast — quoting exact lines, calling out problems, and recommending certifications."
-                                bestUseCase="Use this first to understand what's weak, then go to Match & Fix for rewriting."
-                                howToUse={[
-                                    'Upload your resume (PDF or DOCX).',
-                                    'Select your target role and tone.',
-                                    'Read the roast — each critique quotes your resume directly.',
-                                    'Check the cert suggestions at the bottom.',
-                                ]}
-                                makeMostOfIt={[
-                                    'Use Brutal tone for the most honest feedback.',
-                                    'Pay attention to blockquoted lines — those are exact resume excerpts.',
-                                    'Move to Match & Fix after digesting the roast.',
-                                ]}
-                                primaryAction={{ label: 'Go to Match & Fix', to: '/resume-fix-lab' }}
-                                secondaryAction={{ label: 'Browse Templates', to: '/templates' }}
-                            />
+                            <div className="hidden md:block">
+                                <PageGuide
+                                    badge="ROAST GUIDE"
+                                    title="Free-Flow Resume Roast"
+                                    description="Upload your resume for a conversational, no-BS critique with specific cert suggestions."
+                                    whatThisPageDoes="AI reads your resume and writes a free-flowing roast — quoting exact lines, calling out problems, and recommending certifications."
+                                    bestUseCase="Use this first to understand what's weak, then go to Match & Fix for rewriting."
+                                    howToUse={[
+                                        'Upload your resume (PDF or DOCX).',
+                                        'Select your target role and tone.',
+                                        'Read the roast — each critique quotes your resume directly.',
+                                        'Check the cert suggestions at the bottom.',
+                                    ]}
+                                    makeMostOfIt={[
+                                        'Use Brutal tone for the most honest feedback.',
+                                        'Pay attention to blockquoted lines — those are exact resume excerpts.',
+                                        'Move to Match & Fix after digesting the roast.',
+                                    ]}
+                                    primaryAction={{ label: 'Go to Match & Fix', to: '/resume-fix-lab' }}
+                                    secondaryAction={{ label: 'Browse Templates', to: '/templates' }}
+                                />
+                            </div>
                         </motion.div>
                     )}
                 </AnimatePresence>
 
-                <WorkflowMap currentStep="analysis" />
+                <div className="hidden md:block">
+                    <WorkflowMap currentStep="analysis" />
+                </div>
 
                 {/* Rate limit UI */}
                 {isRateLimited && (
@@ -261,12 +273,44 @@ export const Analysis = () => {
                         }}
                     />
                 ) : (
-                    <div className="space-y-10">
+                    <div className="space-y-6 md:space-y-10">
+                        {/* MOBILE TABS */}
+                        <div className="mobile-tabs-container">
+                            <button
+                                onClick={() => setActiveTab('score')}
+                                className={`mobile-tab-btn ${activeTab === 'score' ? 'active' : ''}`}
+                            >
+                                <MaterialIcon icon="analytics" size={18} className="mobile-tab-icon" />
+                                <span className="mobile-tab-label">Score</span>
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('roast')}
+                                className={`mobile-tab-btn ${activeTab === 'roast' ? 'active' : ''}`}
+                            >
+                                <MaterialIcon icon="local_fire_department" size={18} className="mobile-tab-icon" />
+                                <span className="mobile-tab-label">Roast</span>
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('certs')}
+                                className={`mobile-tab-btn ${activeTab === 'certs' ? 'active' : ''}`}
+                            >
+                                <MaterialIcon icon="workspace_premium" size={18} className="mobile-tab-icon" />
+                                <span className="mobile-tab-label">Certs</span>
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('signals')}
+                                className={`mobile-tab-btn ${activeTab === 'signals' ? 'active' : ''}`}
+                            >
+                                <MaterialIcon icon="travel_explore" size={18} className="mobile-tab-icon" />
+                                <span className="mobile-tab-label">Signals</span>
+                            </button>
+                        </div>
+
                         {/* HERO SCORE SECTION */}
                         <motion.section
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="relative"
+                            className={`relative ${activeTab !== 'score' ? 'hide-on-mobile' : ''}`}
                         >
                             <div className="absolute inset-0 bg-brand-primary/10 blur-[60px] rounded-full -z-10 opacity-50" />
                             <div className="glass-card overflow-hidden">
@@ -275,8 +319,8 @@ export const Analysis = () => {
                                         <div className="flex flex-wrap items-center gap-3">
                                             {generationMode && (
                                                 <div className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase border flex items-center gap-1.5 ${generationMode === 'ai'
-                                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                    : 'bg-amber-50 text-amber-700 border-amber-200'
                                                     }`}>
                                                     <MaterialIcon icon="memory" size={12} />
                                                     {generationMode === 'ai' ? 'AI Roasted' : 'Heuristic Roast'}
@@ -350,7 +394,7 @@ export const Analysis = () => {
                             initial={{ opacity: 0, scale: 0.98 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ delay: 0.2 }}
-                            className="roast-box"
+                            className={`roast-box ${activeTab !== 'roast' ? 'hide-on-mobile' : ''}`}
                         >
                             <div className="p-8 sm:p-12">
                                 {roastMarkdown ? (
@@ -401,21 +445,47 @@ export const Analysis = () => {
                                                     </ul>
                                                 ),
                                                 li: ({ children, ...props }) => {
-                                                    if (typeof children === 'string' && /^\d+\./.test(children)) {
-                                                        const [num, ...rest] = children.split('.');
+                                                    const childrenArray = Array.isArray(children) ? children : [children];
+                                                    const firstChild = childrenArray[0];
+                                                    const isHeaderMatch = typeof firstChild === 'string' && /^\d+\./.test(firstChild);
+
+                                                    if (isHeaderMatch) {
+                                                        const [num, ...rest] = (firstChild as string).split('.');
+                                                        const idx = parseInt(num);
+                                                        const isExpanded = expandedCritiques.includes(idx);
+
                                                         return (
-                                                            <li className="list-none flex gap-4 items-start bg-slate-50/50 p-5 rounded-inner border border-slate-100 hover:border-brand-primary/20 transition-colors">
-                                                                <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-brand-secondary text-white text-xs font-black shrink-0">
-                                                                    {num}
-                                                                </span>
-                                                                <div className="text-lg text-text-main font-semibold leading-snug">
-                                                                    {rest.join('.')}
+                                                            <li className="list-none flex flex-col gap-2 bg-slate-50/50 p-4 sm:p-5 rounded-inner border border-slate-100 hover:border-brand-primary/20 transition-colors cursor-pointer sm:cursor-default"
+                                                                onClick={() => window.innerWidth < 640 && toggleCritique(idx)}
+                                                            >
+                                                                <div className="flex gap-4 items-start w-full">
+                                                                    <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-brand-secondary text-white text-xs font-black shrink-0">
+                                                                        {num}
+                                                                    </span>
+                                                                    <div className="text-base sm:text-lg text-text-main font-semibold leading-snug flex-1">
+                                                                        {rest.join('.')}
+                                                                    </div>
+                                                                    <div className="show-on-mobile text-brand-primary">
+                                                                        <MaterialIcon icon={isExpanded ? "expand_less" : "expand_more"} size={20} />
+                                                                    </div>
                                                                 </div>
+                                                                <AnimatePresence>
+                                                                    {(isExpanded || window.innerWidth >= 640) && (
+                                                                        <motion.div
+                                                                            initial={{ height: 0, opacity: 0 }}
+                                                                            animate={{ height: "auto", opacity: 1 }}
+                                                                            exit={{ height: 0, opacity: 0 }}
+                                                                            className="overflow-hidden pt-2 text-sm sm:text-base text-text-muted"
+                                                                        >
+                                                                            {childrenArray.slice(1)}
+                                                                        </motion.div>
+                                                                    )}
+                                                                </AnimatePresence>
                                                             </li>
                                                         );
                                                     }
                                                     return (
-                                                        <li {...props} className="text-lg text-text-muted leading-relaxed">
+                                                        <li {...props} className="text-base sm:text-lg text-text-muted leading-relaxed">
                                                             {children}
                                                         </li>
                                                     );
@@ -464,7 +534,7 @@ export const Analysis = () => {
                                 initial={{ opacity: 0, y: 30 }}
                                 whileInView={{ opacity: 1, y: 0 }}
                                 viewport={{ once: true }}
-                                className="space-y-6"
+                                className={`space-y-6 ${activeTab !== 'certs' ? 'hide-on-mobile' : ''}`}
                             >
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200">
@@ -540,7 +610,7 @@ export const Analysis = () => {
                                 initial={{ opacity: 0, y: 30 }}
                                 whileInView={{ opacity: 1, y: 0 }}
                                 viewport={{ once: true }}
-                                className="space-y-6"
+                                className={`space-y-6 ${activeTab !== 'signals' ? 'hide-on-mobile' : ''}`}
                             >
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center shadow-lg shadow-slate-200">

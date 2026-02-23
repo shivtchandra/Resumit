@@ -11,7 +11,7 @@ BACKEND_PID=$!
 sleep 3
 
 # Start Frontend Dev Server
-echo "🎭 Starting Frontend on port 5174..."
+echo "🎭 Starting Frontend on port 5173..."
 cd ../frontend
 npm run dev &
 FRONTEND_PID=$!
@@ -19,7 +19,7 @@ FRONTEND_PID=$!
 echo ""
 echo "✅ Services Started:"
 echo "   Backend API: http://localhost:8000"
-echo "   Frontend:    http://localhost:5174"
+echo "   Frontend:    http://localhost:5173"
 echo ""
 echo "Press Ctrl+C to stop both services"
 

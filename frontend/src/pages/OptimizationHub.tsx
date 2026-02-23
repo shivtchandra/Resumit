@@ -10,7 +10,7 @@ import { Sparkles, FileText } from 'lucide-react';
 export const OptimizationHub = () => {
     return (
         <PageLayout header={<Navbar />} maxWidth="xl">
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-12 space-y-6 sm:space-y-12">
                 <div className="text-center space-y-6 pt-10">
                     <h1 className="page-hero-title text-6xl md:text-8xl leading-[0.9] tracking-tighter">
                         Resume <span className="text-brand-primary">Match & Fix.</span>
@@ -20,26 +20,28 @@ export const OptimizationHub = () => {
                     </p>
                 </div>
 
-                <PageGuide
-                    badge="RESUME MATCH & FIX GUIDE"
-                    title="Turn Diagnostics Into Final Resume Output"
-                    description="This page is execution mode. Use it to rewrite weak content, apply sharper language, and practice interview answers."
-                    whatThisPageDoes="Combines template selection, resume rewrite workflow, and answer scoring so you leave with practical, job-ready content."
-                    bestUseCase="Best after Analysis identifies gaps and you need to transform feedback into an improved resume."
-                    howToUse={[
-                        'Pick or confirm a template strategy for your target role.',
-                        'Upload resume + add JD + set role/company to run the fix engine.',
-                        'Review keep/rewrite/remove outputs and update your final resume draft.',
-                        'Practice expected interview questions and improve low-scoring answers.'
-                    ]}
-                    makeMostOfIt={[
-                        'Use one real target JD per run to avoid generic rewrites.',
-                        'Focus on quantified bullets and business impact, not buzzwords.',
-                        'Re-run Analysis after changes to confirm ATS and risk improvements.'
-                    ]}
-                    primaryAction={{ label: 'Run Analysis First', to: '/analysis' }}
-                    secondaryAction={{ label: 'Browse Templates', to: '/templates' }}
-                />
+                <div className="hidden md:block">
+                    <PageGuide
+                        badge="RESUME MATCH & FIX GUIDE"
+                        title="Turn Diagnostics Into Final Resume Output"
+                        description="This page is execution mode. Use it to rewrite weak content, apply sharper language, and practice interview answers."
+                        whatThisPageDoes="Combines template selection, resume rewrite workflow, and answer scoring so you leave with practical, job-ready content."
+                        bestUseCase="Best after Analysis identifies gaps and you need to transform feedback into an improved resume."
+                        howToUse={[
+                            'Pick or confirm a template strategy for your target role.',
+                            'Upload resume + add JD + set role/company to run the fix engine.',
+                            'Review keep/rewrite/remove outputs and update your final resume draft.',
+                            'Practice expected interview questions and improve low-scoring answers.'
+                        ]}
+                        makeMostOfIt={[
+                            'Use one real target JD per run to avoid generic rewrites.',
+                            'Focus on quantified bullets and business impact, not buzzwords.',
+                            'Re-run Analysis after changes to confirm ATS and risk improvements.'
+                        ]}
+                        primaryAction={{ label: 'Run Analysis First', to: '/analysis' }}
+                        secondaryAction={{ label: 'Browse Templates', to: '/templates' }}
+                    />
+                </div>
 
                 <div className="zen-card p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="p-5 rounded-xl border border-border-subtle bg-bg-muted">
@@ -56,7 +58,9 @@ export const OptimizationHub = () => {
                     </div>
                 </div>
 
-                <WorkflowMap currentStep="fix" />
+                <div className="hidden md:block">
+                    <WorkflowMap currentStep="fix" />
+                </div>
 
                 <div className="bg-white rounded-premium p-8 shadow-zen border border-border-subtle overflow-hidden">
                     <Tabs defaultValue="rewrite" className="w-full">

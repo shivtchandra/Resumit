@@ -132,19 +132,19 @@ export const Landing = () => {
                 </section>
 
                 {/* ── Partners ── */}
-                <section className="py-14 bg-white border-y border-border-subtle">
+                <section className="py-10 md:py-14 bg-white border-y border-border-subtle">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <p className="text-center text-[10px] font-black tracking-[0.3em] uppercase text-text-subtle mb-8">Trusted by Talent at Top Companies</p>
-                        <div className="flex flex-wrap justify-center items-center gap-12 md:gap-20 opacity-30 grayscale hover:grayscale-0 hover:opacity-50 transition-all duration-700">
+                        <p className="text-center text-[10px] font-black tracking-[0.3em] uppercase text-text-subtle mb-6 md:mb-8">Trusted by Talent at Top Companies</p>
+                        <div className="mobile-snap-carousel justify-center items-center gap-12 md:gap-20 opacity-30 grayscale hover:grayscale-0 hover:opacity-50 transition-all duration-700">
                             {['Google', 'Stripe', 'Meta', 'Netflix', 'Airbnb', 'Amazon'].map(brand => (
-                                <span key={brand} className="text-2xl font-black tracking-tighter text-brand-secondary select-none">{brand}</span>
+                                <span key={brand} className="text-xl md:text-2xl font-black tracking-tighter text-brand-secondary select-none mobile-snap-item w-auto px-4 md:px-0">{brand}</span>
                             ))}
                         </div>
                     </div>
                 </section>
 
                 {/* ── Benefits (Bento Grid) ── */}
-                <section className="py-28 bg-bg-muted">
+                <section className="py-16 md:py-28 bg-bg-muted">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
                         <div className="text-center space-y-4">
                             <h2 className="section-heading">Focus on what matters.</h2>
@@ -161,7 +161,7 @@ export const Landing = () => {
                                     <h3 className="text-2xl font-black text-brand-secondary">Find exactly what is broken.</h3>
                                     <p className="text-base text-text-muted leading-relaxed">Our AI analyzes your resume against target JDs to identify ATS flags, keyword gaps, and styling errors instantly.</p>
                                 </div>
-                                <div className="mt-10 p-3 bg-bg-muted rounded-xl border border-border-subtle flex items-center gap-4 translate-y-4 group-hover:translate-y-0 transition-transform">
+                                <div className="mt-10 p-3 bg-bg-muted rounded-xl border border-border-subtle items-center gap-4 translate-y-4 group-hover:translate-y-0 transition-transform hidden md:flex">
                                     <div className="w-9 h-9 rounded-lg bg-brand-accent/15 flex items-center justify-center">
                                         <Zap size={16} className="text-brand-accent" />
                                     </div>
@@ -215,14 +215,14 @@ export const Landing = () => {
                                     <p className="text-sm text-text-muted">Don't just link your profile. We'll show you which repos act as "Proof" for your claims.</p>
                                 </div>
                                 {/* Mini repo cards */}
-                                <div className="grid grid-cols-2 gap-2.5 w-full md:w-auto">
+                                <div className="mobile-snap-carousel w-full md:w-auto">
                                     {[
                                         { name: 'ml-pipeline', lang: 'Python', color: 'bg-blue-400', stars: 24 },
                                         { name: 'api-gateway', lang: 'Go', color: 'bg-cyan-400', stars: 18 },
                                         { name: 'design-sys', lang: 'TypeScript', color: 'bg-blue-500', stars: 42 },
                                         { name: 'infra-iac', lang: 'HCL', color: 'bg-violet-400', stars: 11 },
                                     ].map(repo => (
-                                        <div key={repo.name} className="p-3 md:w-28 bg-slate-50 border border-border-subtle rounded-xl hover:border-brand-primary/30 transition-colors">
+                                        <div key={repo.name} className="p-3 w-28 md:w-28 bg-slate-50 border border-border-subtle rounded-xl hover:border-brand-primary/30 transition-colors mobile-snap-item">
                                             <span className="text-[11px] font-bold text-brand-secondary block truncate">{repo.name}</span>
                                             <div className="flex items-center gap-1.5 mt-1.5">
                                                 <Circle size={6} className={`${repo.color} fill-current`} />
@@ -239,7 +239,7 @@ export const Landing = () => {
                 </section>
 
                 {/* ── How it works ── */}
-                <section className="py-28 bg-white">
+                <section className="py-16 md:py-28 bg-white">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-20">
                         <div className="text-center space-y-4">
                             <h2 className="section-heading">The 3-Step Success Path.</h2>
@@ -271,7 +271,7 @@ export const Landing = () => {
                 </section>
 
                 {/* ── Pricing ── */}
-                <section className="py-28 bg-bg-muted">
+                <section className="py-16 md:py-28 bg-bg-muted">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
                         <div className="text-center space-y-4">
                             <h2 className="section-heading">Simple Pricing.</h2>
@@ -341,24 +341,24 @@ export const Landing = () => {
                 </section>
 
                 {/* ── Testimonials ── */}
-                <section className="py-28 bg-white">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
+                <section className="py-16 md:py-28 bg-white">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12 md:space-y-16">
                         <div className="text-center space-y-4">
-                            <h2 className="section-heading">Loved by people worldwide.</h2>
+                            <h2 className="section-heading text-3xl md:text-5xl">Loved by people worldwide.</h2>
                             <p className="section-subheading">Join the community of people actually landing offers.</p>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="mobile-snap-carousel">
                             {[
                                 { name: 'Alex Rivera', role: 'Software Engineer @ Stripe', text: 'The Roast Report caught issues my career coach missed for months. Landed the interview at Stripe 2 weeks later.' },
                                 { name: 'Sarah Chen', role: 'Product Manager @ Meta', text: 'The interview frameworks are legendary. I felt like I had the cheat codes during the behavioral rounds.' },
                                 { name: 'David Miller', role: 'Full Stack Dev', text: 'Cleanest templates I have ever used. Finally reached a 95% ATS score and the calls haven\'t stopped.' },
                             ].map((t, i) => (
-                                <div key={i} className="zen-card p-7 space-y-5">
+                                <div key={i} className="zen-card p-6 md:p-7 space-y-5 mobile-snap-item">
                                     <div className="flex gap-1 text-brand-accent">
                                         {[1, 2, 3, 4, 5].map(j => <MaterialIcon key={j} icon="star" size={16} />)}
                                     </div>
-                                    <p className="text-text-main font-medium italic leading-relaxed">"{t.text}"</p>
+                                    <p className="text-text-main font-medium italic leading-relaxed text-sm md:text-base">"{t.text}"</p>
                                     <div className="flex items-center gap-3 pt-4 border-t border-border-subtle">
                                         <div className="w-9 h-9 rounded-full bg-brand-primary/15 flex items-center justify-center text-brand-primary font-bold text-xs">
                                             {t.name.split(' ').map(n => n[0]).join('')}
@@ -375,7 +375,7 @@ export const Landing = () => {
                 </section>
 
                 {/* ── FAQ ── */}
-                <section className="py-28 bg-bg-muted">
+                <section className="py-16 md:py-28 bg-bg-muted">
                     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
                         <div className="text-center space-y-4">
                             <h2 className="section-heading text-3xl md:text-4xl">Frequently Asked Questions</h2>
@@ -415,7 +415,7 @@ export const Landing = () => {
                 </section>
 
                 {/* ── Big CTA ── */}
-                <section className="py-28 px-4 sm:px-6 lg:px-8">
+                <section className="py-16 md:py-28 px-4 sm:px-6 lg:px-8">
                     <div className="max-w-7xl mx-auto bg-brand-secondary rounded-3xl p-12 lg:p-20 text-center space-y-8 relative overflow-hidden shadow-xl">
                         <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/10 to-transparent" />
                         <div className="relative z-10 space-y-6">
