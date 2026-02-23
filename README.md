@@ -164,6 +164,20 @@ Frontend will be available at `http://localhost:5173`
 
 ---
 
+## 📡 Ensuring Backend Availability
+
+The backend is hosted on Render's free tier, which automatically spins down after 15 minutes of inactivity. To ensure the application remains responsive, we have implemented a **GitHub Action Pinger**.
+
+### Automated Pinger
+A workflow in [.github/workflows/keep-awake.yml](.github/workflows/keep-awake.yml) is configured to ping the backend's `/health` endpoint every 10 minutes. This prevents the service from sleeping.
+
+### Alternative Solutions
+If the GitHub Action is not suitable, you can use these free external services to achieve the same result:
+- **[Cron-job.org](https://cron-job.org)**: Create a free job to hit your URL every 5-10 minutes.
+- **[UptimeRobot](https://uptimerobot.com)**: Set up a free HTTP monitor with a 5-minute interval.
+
+---
+
 ## 🐛 Troubleshooting
 
 ### Backend won't start
