@@ -108,9 +108,13 @@ async def get_templates(role: str = None, ats_vendor: str = None, experience_lev
         query = query.eq("experience_level", experience_level)
     
     query = query.order("historical_score", desc=True).limit(20)
-    
-    result = query.execute()
-    return result.data if result.data else []
+
+    try:
+        result = query.execute()
+        return result.data if result.data else []
+    except Exception as exc:
+        logger.debug("Supabase query failed, returning empty list: %s", exc)
+        return []
 
 
 async def upload_file_to_storage(bucket: str, file_path: str, file_bytes: bytes) -> str:
