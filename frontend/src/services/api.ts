@@ -516,3 +516,9 @@ export const scoreInterviewAnswer = async (payload: {
     const response = await api.post<InterviewAnswerScoreResult>('/api/v1/analyze/interview/score', payload);
     return response.data;
 };
+
+// Stats API
+export const getStats = async (): Promise<{ analyses_count: number }> => {
+    const response = await api.get<{ analyses_count: number }>('/api/v1/stats');
+    return response.data;
+};

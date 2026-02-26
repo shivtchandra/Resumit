@@ -5,7 +5,8 @@ import { PageLayout } from '../components/layout/PageLayout';
 import { Navbar } from '../components/layout/Navbar';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MaterialIcon } from '../components/ui/MaterialIcon';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getStats } from '../services/api';
 
 const fadeInUp = {
     initial: { opacity: 0, y: 20 },
@@ -23,6 +24,13 @@ const staggerContainer = {
 
 export const Landing = () => {
     const [faqOpen, setFaqOpen] = useState<number | null>(null);
+    const [analysesCount, setAnalysesCount] = useState<number | null>(null);
+
+    useEffect(() => {
+        getStats()
+            .then(data => setAnalysesCount(data.analyses_count))
+            .catch(() => {}); // silent fallback — static text stays
+    }, []);
 
     return (
         <PageLayout header={<Navbar />} maxWidth="full">
@@ -43,7 +51,9 @@ export const Landing = () => {
                         >
                             <motion.div variants={fadeInUp} className="page-badge">
                                 <Sparkles size={14} />
-                                10,000+ Resumes Optimized This Week
+                                {analysesCount !== null
+                                    ? `${analysesCount.toLocaleString()}+ Resumes Analyzed`
+                                    : '10,000+ Resumes Optimized This Week'}
                             </motion.div>
 
                             <motion.h1 variants={fadeInUp} className="text-5xl md:text-7xl lg:text-8xl font-black text-brand-secondary leading-[0.95] tracking-tight max-w-5xl mx-auto">

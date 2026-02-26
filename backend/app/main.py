@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from app.api.v1.endpoints import analyze, rewrite, templates, export, github, settings
+from app.core.supabase_client import get_analysis_count
 
 app = FastAPI(title="ATS Emulator V2 API")
 
@@ -75,3 +76,8 @@ async def root():
 @app.head("/health")
 async def health_check():
     return {"status": "healthy", "version": "2.0.0"}
+
+@app.get("/api/v1/stats")
+async def get_stats():
+    count = await get_analysis_count()
+    return {"analyses_count": count}

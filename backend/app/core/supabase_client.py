@@ -117,6 +117,19 @@ async def get_templates(role: str = None, ats_vendor: str = None, experience_lev
         return []
 
 
+async def get_analysis_count() -> int:
+    """Return total number of analyses stored in Supabase, or 0 on any error."""
+    if not _is_supabase_configured():
+        return 0
+    try:
+        client = get_supabase_client()
+        result = client.table("analyses").select("*", count="exact").execute()
+        return result.count or 0
+    except Exception as exc:
+        logger.debug("Failed to get analysis count: %s", exc)
+        return 0
+
+
 async def upload_file_to_storage(bucket: str, file_path: str, file_bytes: bytes) -> str:
     """
     Upload file to Supabase storage.
