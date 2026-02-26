@@ -1,153 +1,246 @@
-# Resumit (ATS Emulator V2)
+<div align="center">
 
-Resumit is a full-stack resume optimization app that helps users:
-- analyze resume ATS compatibility,
-- get practical rewrite suggestions,
-- compare template options,
-- and turn GitHub projects into role-specific resume proof.
+<h1>⚡ ResuMit</h1>
+<p><strong>The Resume Workflow Built for Humans.</strong></p>
+<p>Diagnose ATS failures, rewrite with AI, match GitHub projects to your target role — all in one place.</p>
 
-It includes a FastAPI backend (analysis + AI services) and a React/Vite frontend.
+<p>
+  <a href="https://resumit-kappa.vercel.app"><img src="https://img.shields.io/badge/Live%20Demo-resumit.app-6366f1?style=for-the-badge&logo=vercel&logoColor=white" /></a>
+  <a href="https://resumit.onrender.com/docs"><img src="https://img.shields.io/badge/API%20Docs-Swagger-85ea2d?style=for-the-badge&logo=swagger&logoColor=black" /></a>
+  <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" />
+  <img src="https://img.shields.io/github/stars/shivtchandra/Resumit?style=for-the-badge&color=f59e0b" />
+</p>
 
-## Core Features
+<p>
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" />
+  <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white" />
+  <img src="https://img.shields.io/badge/FastAPI-latest-009688?style=flat-square&logo=fastapi&logoColor=white" />
+  <img src="https://img.shields.io/badge/scikit--learn-1.7.2-F7931E?style=flat-square&logo=scikitlearn&logoColor=white" />
+  <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?style=flat-square&logo=supabase&logoColor=white" />
+  <img src="https://img.shields.io/badge/OpenAI%20%2F%20Gemini-AI-412991?style=flat-square&logo=openai&logoColor=white" />
+</p>
 
-- Resume analysis with ATS friendliness scoring
-- Async job-based analysis flow for long-running requests
-- Resume rewrite workflows (section and full rewrite)
-- Role-based template recommendations
-- GitHub repository analysis for resume proof strategy
-- PDF export endpoint for generated resume content
+</div>
 
-## Tech Stack
+---
 
-- Frontend: React 19, TypeScript, Vite, Axios, Framer Motion
-- Backend: FastAPI, Uvicorn, scikit-learn, Supabase, OpenAI/Gemini integrations
-- Deployment: Vercel (frontend), Render (backend)
+## 🧠 What is ResuMit?
 
-## Repository Structure
+Most resume tools just check formatting. **ResuMit actually emulates what ATS software does** — parsing your PDF the way Workday, Greenhouse, Taleo, and iCIMS parse it — then gives you a scored breakdown of exactly why your resume gets dropped before a human reads it.
 
-```text
-resume/
-├── backend/
-│   ├── app/
-│   │   ├── api/v1/endpoints/      # analyze, rewrite, templates, github, export, settings
-│   │   ├── services/              # ingestion, ML, rewrite, github, export, compliance
-│   │   └── core/                  # Supabase client and shared backend config
-│   ├── data/models/               # trained ML artifacts
-│   ├── templates/                 # ATS template markdown files
-│   ├── previews/                  # generated template preview PDFs
-│   ├── requirements*.txt
-│   ├── supabase_schema.sql
-│   └── README_API.md
-├── frontend/
-│   ├── src/
-│   │   ├── pages/                 # Landing, Analysis, Templates, GitHub, Optimization Hub
-│   │   ├── components/
-│   │   ├── services/api.ts
-│   │   └── types/
-│   ├── package.json
-│   └── vercel.json
-├── .github/workflows/keep-awake.yml
-└── start.sh                        # starts backend + frontend locally
+Then it helps you fix it: AI rewrites, ATS-optimized templates, GitHub repo scoring, and interview prep — all in one coherent workflow.
+
+```
+Upload Resume → ATS Score + Roast → AI Rewrite → Pick Template → GitHub Proof Strategy → Export
 ```
 
-## Local Development
+---
+
+## ✨ Features
+
+### 📊 ATS Compatibility Analyzer
+- Emulates real ATS parsers (Workday, Taleo, Greenhouse, iCIMS, Lever)
+- Detects **image-based PDFs**, z-order fragmentation, floating objects, missing contact fields
+- ML-powered friendliness score (0–100) + risk classification (Safe / Moderate / High Risk)
+- Keyword coverage heatmap against job description
+- Async job queue — no 30-second timeouts
+
+### 🤖 AI-Powered Rewrite Engine
+- Section-level and full-resume rewrites
+- Two modes: **Brutal** (no sugarcoating) and **Professional** (constructive)
+- Dual provider: **Google Gemini** + **OpenAI GPT-4o** with automatic fallback
+- Match & Fix lab — structured rewrite workflow tied to your target JD
+
+### 🐙 GitHub Proof Strategy
+- Analyzes your GitHub repos and ranks them by relevance to the target role
+- Flags weak repos, suggests improvements
+- Generates interview prep questions from your actual projects
+- Maps repositories to resume bullet points
+
+### 🎨 ATS-Optimized Templates
+- 50+ templates tagged by role, experience level, and ATS vendor compatibility
+- Filter by: role, experience level, ATS system
+- PDF preview in-browser before applying
+- Real historical ATS success rates
+
+### 📈 Live Analysis Counter
+- Landing page badge reflects the real number of resumes analyzed — pulled live from the database
+
+### 🎯 Interview Prep
+- Score your answers to real interview questions
+- Feedback tied to your resume content and target role
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|---|---|
+| **Frontend** | React 19, TypeScript, Vite, TailwindCSS v4, Framer Motion |
+| **UI Components** | Radix UI, Lucide Icons, Recharts |
+| **Backend** | FastAPI, Uvicorn, Python 3.14 |
+| **ML / NLP** | scikit-learn, BM25, spaCy, sentence-transformers |
+| **AI** | Google Gemini 2.0, OpenAI GPT-4o-mini |
+| **Document Parsing** | PyMuPDF, pdfminer.six, python-docx, pytesseract |
+| **Database** | Supabase (PostgreSQL) |
+| **Auth / Storage** | Supabase Storage |
+| **Payments** | Razorpay |
+| **Deployment** | Vercel (frontend) + Render (backend) |
+
+---
+
+## 🚀 Getting Started
 
 ### Prerequisites
 
 - Node.js 18+
 - Python 3.9+
-- `pip` and `venv`
+- A Supabase project (free tier works)
+- At least one AI key: OpenAI **or** Google Gemini
 
-### 1) Backend setup
+### 1 — Clone
+
+```bash
+git clone https://github.com/shivtchandra/Resumit.git
+cd Resumit
+```
+
+### 2 — Backend
 
 ```bash
 cd backend
 python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-api.txt
-cp .env.example .env
-```
-
-Start backend:
-
-```bash
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env             # then fill in your keys
 uvicorn app.main:app --reload --port 8000
 ```
 
-Backend will be available at `http://localhost:8000`.
+Backend runs at → `http://localhost:8000`
+Swagger docs → `http://localhost:8000/docs`
 
-### 2) Frontend setup
+### 3 — Frontend
 
 ```bash
 cd frontend
 npm install
-cp .env.example .env
+cp .env.example .env             # set VITE_API_URL=http://localhost:8000
 npm run dev
 ```
 
-Frontend will be available at `http://localhost:5173`.
+Frontend runs at → `http://localhost:5173`
 
-### 3) Start both services (optional)
-
-From project root:
+### 4 — One command (both services)
 
 ```bash
 ./start.sh
 ```
 
-## Environment Variables
+---
+
+## 🔑 Environment Variables
 
 ### Backend (`backend/.env`)
 
-Commonly used variables:
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_KEY`
-- `OPENAI_API_KEY` and/or `GEMINI_API_KEY`
-- `GITHUB_TOKEN` (optional but recommended for higher GitHub API limits)
-- `FIRECRAWL_API_KEY` (optional; used for enhanced GitHub/profile scraping)
-
-See `backend/.env.example` for the full list, including model/time budget tuning variables.
+| Variable | Required | Description |
+|---|---|---|
+| `SUPABASE_URL` | ✅ | Your Supabase project URL |
+| `SUPABASE_ANON_KEY` | ✅ | Supabase anon/public key |
+| `SUPABASE_SERVICE_KEY` | ✅ | Supabase service role key |
+| `OPENAI_API_KEY` | ⚠️ one of these | OpenAI API key |
+| `GEMINI_API_KEY` | ⚠️ one of these | Google Gemini API key |
+| `GITHUB_TOKEN` | 🔶 optional | Higher GitHub API rate limits |
+| `FIRECRAWL_API_KEY` | 🔶 optional | Enhanced GitHub profile scraping |
 
 ### Frontend (`frontend/.env`)
 
-- `VITE_API_URL=http://localhost:8000/api/v1`
+| Variable | Value |
+|---|---|
+| `VITE_API_URL` | `http://localhost:8000` (dev) or your Render URL (prod) |
 
-## API Overview
+---
 
-Base URL: `http://localhost:8000`
+## 📡 API Reference
 
-- `GET /health` - service health check
-- `POST /api/v1/analyze/full` - enqueue full analysis (returns `job_id`)
-- `GET /api/v1/analyze/status/{job_id}` - poll analysis status/result
-- `POST /api/v1/rewrite/section` - rewrite one section
-- `POST /api/v1/rewrite/full` - rewrite full resume
-- `POST /api/v1/github/analyze` - analyze and rank GitHub repositories
-- `GET /api/v1/templates/recommend` - template recommendations
-- `POST /api/v1/export/pdf` - generate PDF from structured content
-- `GET /api/v1/settings` - frontend runtime feature flags
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/health` | Health check |
+| `GET` | `/api/v1/stats` | Live analysis count |
+| `POST` | `/api/v1/analyze/full` | Enqueue resume analysis → returns `job_id` |
+| `GET` | `/api/v1/analyze/status/{job_id}` | Poll result |
+| `POST` | `/api/v1/rewrite/section` | AI rewrite single section |
+| `POST` | `/api/v1/rewrite/full` | Full resume rewrite |
+| `POST` | `/api/v1/rewrite/brutal` | Harsh-mode full rewrite |
+| `GET` | `/api/v1/templates/recommend` | Template recommendations |
+| `POST` | `/api/v1/github/analyze` | Rank GitHub repos by role |
+| `POST` | `/api/v1/export/pdf` | Export resume as PDF |
+| `GET` | `/api/v1/settings` | Frontend feature flags |
 
-Interactive API docs are available at:
-- `http://localhost:8000/docs`
+Full interactive docs: [`/docs`](https://resumit.onrender.com/docs)
 
-## Typical Product Flow
+---
 
-1. Upload resume in Analysis (`/analysis`) for ATS diagnostics and critique.
-2. Move to Match & Fix (`/resume-fix-lab`) for structured rewrite.
-3. Use GitHub Strategy (`/github`) to pick repos that strengthen claims.
-4. Export or apply improvements to final resume version.
+## 🗂️ Project Structure
 
-## Deployment Notes
+```
+Resumit/
+├── backend/
+│   ├── app/
+│   │   ├── api/v1/endpoints/      # analyze · rewrite · templates · github · export · settings
+│   │   ├── services/              # ingestion · ML models · AI clients · compliance
+│   │   └── core/                  # Supabase client
+│   ├── data/models/               # Pre-trained sklearn .joblib artifacts
+│   ├── scripts/                   # Model training scripts
+│   ├── supabase_schema.sql        # DB schema (run once in Supabase SQL editor)
+│   └── render.yaml                # Render deploy config
+├── frontend/
+│   ├── src/
+│   │   ├── pages/                 # Landing · Analysis · Templates · GitHub · OptimizationHub · Pricing
+│   │   ├── components/            # UI + layout components
+│   │   ├── services/api.ts        # Axios client + typed API helpers
+│   │   └── types/                 # TypeScript interfaces
+│   └── vercel.json                # Vercel SPA routing config
+├── .github/workflows/
+│   └── keep-awake.yml             # Cron ping to prevent Render cold starts
+└── start.sh                       # Start both services locally
+```
 
-- Backend deployment config lives in `backend/render.yaml`.
-- Frontend routing config for SPA deployment lives in `frontend/vercel.json`.
-- The workflow `.github/workflows/keep-awake.yml` pings the Render health endpoint on a schedule to reduce cold starts.
+---
 
-## Additional Documentation
+## 🗄️ Database Setup
 
-- Backend details: `backend/README_API.md`
-- Template/design references:
-  - `ATS_OPTIMIZED_TEMPLATES.md`
-  - `ATS_TEMPLATES_COMPLETE.md`
-  - `PRODUCTION_TEMPLATES_SUMMARY.md`
-  - `PROFESSIONAL_DESIGN_CHECKLIST.md`
+Run `backend/supabase_schema.sql` in your Supabase SQL editor once to create:
+
+- `analyses` — stores every resume analysis result
+- `templates` — ATS-optimized template metadata
+- `sessions` — anonymous session tracking
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Here's how:
+
+1. Fork the repo
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Commit your changes: `git commit -m 'add: your feature'`
+4. Push: `git push origin feature/your-feature`
+5. Open a Pull Request
+
+Please keep PRs focused. If you're adding a big feature, open an issue first to discuss.
+
+---
+
+## 📄 License
+
+MIT — see [LICENSE](LICENSE) for details.
+
+---
+
+<div align="center">
+
+**Built with ❤️ by [Shivat Chandra](https://github.com/shivtchandra)**
+
+If ResuMit helped you land an interview — drop a ⭐ It genuinely helps.
+
+</div>
