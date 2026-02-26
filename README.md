@@ -1,6 +1,6 @@
 <div align="center">
 
-<h1>⚡ ResuMit</h1>
+<h1>⚡ Resumit</h1>
 <p><strong>The Resume Workflow Built for Humans.</strong></p>
 <p>Diagnose ATS failures, rewrite with AI, match GitHub projects to your target role — all in one place.</p>
 
