@@ -1,208 +1,153 @@
-# ATS Emulator V2 - Production Application
+# Resumit (ATS Emulator V2)
 
-## 🚀 Quick Start
+Resumit is a full-stack resume optimization app that helps users:
+- analyze resume ATS compatibility,
+- get practical rewrite suggestions,
+- compare template options,
+- and turn GitHub projects into role-specific resume proof.
+
+It includes a FastAPI backend (analysis + AI services) and a React/Vite frontend.
+
+## Core Features
+
+- Resume analysis with ATS friendliness scoring
+- Async job-based analysis flow for long-running requests
+- Resume rewrite workflows (section and full rewrite)
+- Role-based template recommendations
+- GitHub repository analysis for resume proof strategy
+- PDF export endpoint for generated resume content
+
+## Tech Stack
+
+- Frontend: React 19, TypeScript, Vite, Axios, Framer Motion
+- Backend: FastAPI, Uvicorn, scikit-learn, Supabase, OpenAI/Gemini integrations
+- Deployment: Vercel (frontend), Render (backend)
+
+## Repository Structure
+
+```text
+resume/
+├── backend/
+│   ├── app/
+│   │   ├── api/v1/endpoints/      # analyze, rewrite, templates, github, export, settings
+│   │   ├── services/              # ingestion, ML, rewrite, github, export, compliance
+│   │   └── core/                  # Supabase client and shared backend config
+│   ├── data/models/               # trained ML artifacts
+│   ├── templates/                 # ATS template markdown files
+│   ├── previews/                  # generated template preview PDFs
+│   ├── requirements*.txt
+│   ├── supabase_schema.sql
+│   └── README_API.md
+├── frontend/
+│   ├── src/
+│   │   ├── pages/                 # Landing, Analysis, Templates, GitHub, Optimization Hub
+│   │   ├── components/
+│   │   ├── services/api.ts
+│   │   └── types/
+│   ├── package.json
+│   └── vercel.json
+├── .github/workflows/keep-awake.yml
+└── start.sh                        # starts backend + frontend locally
+```
+
+## Local Development
 
 ### Prerequisites
-- Node.js 18+ and npm
-- Python 3.8+
-- Supabase account (for database and storage)
-- Gemini or OpenAI API key (for AI rewrite)
 
-### Backend Setup
+- Node.js 18+
+- Python 3.9+
+- `pip` and `venv`
+
+### 1) Backend setup
 
 ```bash
 cd backend
-
-# Install dependencies
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements-api.txt
-
-# Configure environment
 cp .env.example .env
-# Edit .env and add your credentials:
-# - SUPABASE_URL
-# - SUPABASE_ANON_KEY
-# - SUPABASE_SERVICE_KEY
-# - GEMINI_API_KEY (or OPENAI_API_KEY)
+```
 
-# Run Supabase schema
-# Go to your Supabase project → SQL Editor
-# Copy and run the contents of supabase_schema.sql
+Start backend:
 
-# Start backend server
+```bash
 uvicorn app.main:app --reload --port 8000
 ```
 
-Backend will be available at `http://localhost:8000`
+Backend will be available at `http://localhost:8000`.
 
-### Frontend Setup
+### 2) Frontend setup
 
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Configure environment
 cp .env.example .env
-# Edit .env:
-# VITE_API_URL=http://localhost:8000/api/v1
-
-# Start development server
 npm run dev
 ```
 
-Frontend will be available at `http://localhost:5173`
+Frontend will be available at `http://localhost:5173`.
 
----
+### 3) Start both services (optional)
 
-## 📁 Project Structure
+From project root:
 
-```
-/Users/shivat/Downloads/Document/resume/
-├── backend/                    # FastAPI backend
-│   ├── app/
-│   │   ├── api/v1/endpoints/  # API routes
-│   │   ├── core/              # Supabase client
-│   │   ├── services/          # Business logic
-│   │   └── main.py            # FastAPI app
-│   ├── supabase_schema.sql    # Database schema
-│   ├── requirements-api.txt   # Python dependencies
-│   └── README_API.md          # Backend documentation
-│
-├── frontend/                   # React + Vite frontend
-│   ├── src/
-│   │   ├── components/        # React components
-│   │   ├── pages/             # Page components
-│   │   ├── services/          # API client
-│   │   ├── types/             # TypeScript types
-│   │   └── index.css          # Design system
-│   └── package.json
-│
-└── ats-emulator-v2/           # HTML prototype (reference)
-    ├── index.html
-    ├── templates.html
-    ├── analysis.html
-    └── src/styles/            # CSS design system
+```bash
+./start.sh
 ```
 
----
+## Environment Variables
 
-## 🎨 Design System
+### Backend (`backend/.env`)
 
-### Color Palette (Dark Premium SaaS)
+Commonly used variables:
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_KEY`
+- `OPENAI_API_KEY` and/or `GEMINI_API_KEY`
+- `GITHUB_TOKEN` (optional but recommended for higher GitHub API limits)
+- `FIRECRAWL_API_KEY` (optional; used for enhanced GitHub/profile scraping)
 
-```css
-/* Backgrounds */
---color-bg-dark: #0f1419       /* Main background */
---color-bg-elevated: #1a1f2e   /* Elevated surfaces */
---color-bg-card: #1e2433       /* Card backgrounds */
+See `backend/.env.example` for the full list, including model/time budget tuning variables.
 
-/* Accents */
---color-accent-cyan: #00d9ff   /* Primary brand */
---color-accent-amber: #ffb84d  /* Warnings */
---color-accent-green: #10b981  /* Success */
---color-accent-red: #ff4757    /* Errors */
+### Frontend (`frontend/.env`)
 
-/* Text */
---color-text-primary: #ffffff
---color-text-secondary: #a0aec0
---color-text-tertiary: #64748b
-```
+- `VITE_API_URL=http://localhost:8000/api/v1`
 
-### Typography
+## API Overview
 
-- **Headings**: Space Grotesk (400, 500, 600, 700)
-- **Body**: Inter (300, 400, 500, 600, 700)
-- **Code**: JetBrains Mono
+Base URL: `http://localhost:8000`
 
----
+- `GET /health` - service health check
+- `POST /api/v1/analyze/full` - enqueue full analysis (returns `job_id`)
+- `GET /api/v1/analyze/status/{job_id}` - poll analysis status/result
+- `POST /api/v1/rewrite/section` - rewrite one section
+- `POST /api/v1/rewrite/full` - rewrite full resume
+- `POST /api/v1/github/analyze` - analyze and rank GitHub repositories
+- `GET /api/v1/templates/recommend` - template recommendations
+- `POST /api/v1/export/pdf` - generate PDF from structured content
+- `GET /api/v1/settings` - frontend runtime feature flags
 
-## 🔌 API Endpoints
+Interactive API docs are available at:
+- `http://localhost:8000/docs`
 
-### Analysis
-- `POST /api/v1/analyze/full` - Complete ATS analysis
-  - **Input**: Resume file (PDF/DOCX), job description, target role/ATS
-  - **Output**: Scores, vendor compatibility, issues, extracted data
+## Typical Product Flow
 
-### Templates
-- `GET /api/v1/templates/recommend` - Get ATS-verified templates
-  - **Query**: `role`, `ats_vendor`, `experience_level`
-- `GET /api/v1/templates/{id}` - Template details
-- `POST /api/v1/templates/export` - Generate filled template
+1. Upload resume in Analysis (`/analysis`) for ATS diagnostics and critique.
+2. Move to Match & Fix (`/resume-fix-lab`) for structured rewrite.
+3. Use GitHub Strategy (`/github`) to pick repos that strengthen claims.
+4. Export or apply improvements to final resume version.
 
-### Rewrite
-- `POST /api/v1/rewrite/section` - AI-powered section rewrite
-  - **Input**: Section name, content, job description, ATS rules
-  - **Output**: Original, rewritten, improvements
+## Deployment Notes
 
-### Health
-- `GET /health` - Health check
+- Backend deployment config lives in `backend/render.yaml`.
+- Frontend routing config for SPA deployment lives in `frontend/vercel.json`.
+- The workflow `.github/workflows/keep-awake.yml` pings the Render health endpoint on a schedule to reduce cold starts.
 
----
+## Additional Documentation
 
-## 📊 Current Status
-
-### ✅ Completed
-- Premium SaaS HTML prototype (4 pages)
-- Backend API with ML models
-- Supabase integration
-- AI rewrite (Gemini/OpenAI)
-- API client with TypeScript types
-- Dark theme design system
-
-### 🚧 In Progress
-- React component migration
-- Resume viewer implementation
-- Page implementations (Landing, Templates, Analysis)
-- End-to-end testing
-
-### ⏳ Planned
-- Template export (DOCX/PDF generation)
-- Authentication (future phase)
-- Payments (future phase)
-- Team features (future phase)
-
----
-
-## 📡 Ensuring Backend Availability
-
-The backend is hosted on Render's free tier, which automatically spins down after 15 minutes of inactivity. To ensure the application remains responsive, we have implemented a **GitHub Action Pinger**.
-
-### Automated Pinger
-A workflow in [.github/workflows/keep-awake.yml](.github/workflows/keep-awake.yml) is configured to ping the backend's `/health` endpoint every 10 minutes. This prevents the service from sleeping.
-
-### Alternative Solutions
-If the GitHub Action is not suitable, you can use these free external services to achieve the same result:
-- **[Cron-job.org](https://cron-job.org)**: Create a free job to hit your URL every 5-10 minutes.
-- **[UptimeRobot](https://uptimerobot.com)**: Set up a free HTTP monitor with a 5-minute interval.
-
----
-
-## 🐛 Troubleshooting
-
-### Backend won't start
-- Check Python version: `python --version` (need 3.8+)
-- Verify dependencies: `pip install -r requirements-api.txt`
-- Check Supabase credentials in `.env`
-
-### Frontend won't start
-- Check Node version: `node --version` (need 18+)
-- Clear node_modules: `rm -rf node_modules && npm install`
-- Check API URL in `.env`
-
-### API calls failing
-- Verify backend is running: `curl http://localhost:8000/health`
-- Check CORS settings in `backend/app/main.py`
-- Verify API_BASE_URL in frontend
-
----
-
-## 📚 Additional Documentation
-
-- **Backend API**: See `backend/README_API.md`
-- **Implementation Plan**: See implementation plan artifact
-- **Component Mapping**: See migration strategy in implementation plan
-
----
-
-For detailed setup instructions, API documentation, and deployment guide, see `backend/README_API.md`.
+- Backend details: `backend/README_API.md`
+- Template/design references:
+  - `ATS_OPTIMIZED_TEMPLATES.md`
+  - `ATS_TEMPLATES_COMPLETE.md`
+  - `PRODUCTION_TEMPLATES_SUMMARY.md`
+  - `PROFESSIONAL_DESIGN_CHECKLIST.md`
