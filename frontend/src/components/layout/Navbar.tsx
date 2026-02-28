@@ -7,9 +7,9 @@ const navLinks = [
     { path: '/', label: 'Home', icon: 'home' },
     { path: '/analysis', label: 'Analyze', icon: 'auto_awesome' },
     { path: '/templates', label: 'Templates', icon: 'grid_view' },
-    { path: '/resume-fix-lab', label: 'Match & Fix', icon: 'edit_note' },
+    // { path: '/resume-fix-lab', label: 'Match & Fix', icon: 'edit_note' },
     // { path: '/github', label: 'GitHub', icon: 'code' },
-    { path: '/pricing', label: 'Pricing', icon: 'payments' },
+    // { path: '/pricing', label: 'Pricing', icon: 'payments' },
 ];
 
 export const Navbar = () => {

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Scan, CheckCircle2, Loader2, Clock3, Target, Zap, Sparkles, Search, RotateCcw } from 'lucide-react';
+import { Upload, Scan, CheckCircle2, Loader2, Clock3, Target, Zap, Sparkles, Search, RotateCcw, ChevronDown } from 'lucide-react';
 import { MaterialIcon } from '../ui/MaterialIcon';
 import { getJDTemplatesByRole, getJDTemplateById } from '../../data/jdTemplates';
 
@@ -64,6 +64,7 @@ export const AnalysisSetupConsole = ({
     const [signalCursor, setSignalCursor] = useState(0);
     const [selectedTemplateId, setSelectedTemplateId] = useState('');
     const isAnalysisOnly = variant === 'analysis';
+    const selectClassName = 'soft-input font-bold text-base md:text-sm h-13 md:h-12 appearance-none pr-12 bg-white';
 
     // Derive filtered templates from current target role
     const roleTemplates = getJDTemplatesByRole(initialData.targetRole);
@@ -181,19 +182,25 @@ export const AnalysisSetupConsole = ({
                                 <Target size={14} className="text-brand-primary" />
                                 Target Role
                             </label>
-                            <select
-                                value={initialData.targetRole}
-                                onChange={(e) => onRoleChange(e.target.value)}
-                                className="soft-input font-bold text-sm h-12"
-                                disabled={isAnalyzing}
-                            >
-                                <option value="software-engineer">Software Engineer</option>
-                                <option value="frontend-developer">Frontend Developer</option>
-                                <option value="backend-developer">Backend Developer</option>
-                                <option value="full-stack-developer">Full Stack Developer</option>
-                                <option value="data-scientist">Data Scientist</option>
-                                <option value="product-manager">Product Manager</option>
-                            </select>
+                            <div className="relative">
+                                <select
+                                    value={initialData.targetRole}
+                                    onChange={(e) => onRoleChange(e.target.value)}
+                                    className={selectClassName}
+                                    disabled={isAnalyzing}
+                                >
+                                    <option value="software-engineer">Software Engineer</option>
+                                    <option value="frontend-developer">Frontend Developer</option>
+                                    <option value="backend-developer">Backend Developer</option>
+                                    <option value="full-stack-developer">Full Stack Developer</option>
+                                    <option value="data-scientist">Data Scientist</option>
+                                    <option value="product-manager">Product Manager</option>
+                                </select>
+                                <ChevronDown
+                                    size={18}
+                                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-text-subtle"
+                                />
+                            </div>
                         </div>
 
                         {!isAnalysisOnly && (
@@ -202,16 +209,22 @@ export const AnalysisSetupConsole = ({
                                     <Search size={14} className="text-brand-primary" />
                                     Analysis Mode
                                 </label>
-                                <select
-                                    value={initialData.analysisMode}
-                                    onChange={(e) => onModeChange?.(e.target.value as any)}
-                                    className="soft-input font-bold text-sm h-12"
-                                    disabled={isAnalyzing}
-                                >
-                                    <option value="jd_or_general">JD + General</option>
-                                    <option value="jd_only">JD only</option>
-                                    <option value="general_only">General only</option>
-                                </select>
+                                <div className="relative">
+                                    <select
+                                        value={initialData.analysisMode}
+                                        onChange={(e) => onModeChange?.(e.target.value as any)}
+                                        className={selectClassName}
+                                        disabled={isAnalyzing}
+                                    >
+                                        <option value="jd_or_general">JD + General</option>
+                                        <option value="jd_only">JD only</option>
+                                        <option value="general_only">General only</option>
+                                    </select>
+                                    <ChevronDown
+                                        size={18}
+                                        className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-text-subtle"
+                                    />
+                                </div>
                             </div>
                         )}
 
@@ -220,15 +233,21 @@ export const AnalysisSetupConsole = ({
                                 <Search size={14} className="text-brand-primary" />
                                 Roast Level
                             </label>
-                            <select
-                                value={initialData.feedbackTone}
-                                onChange={(e) => onToneChange(e.target.value as any)}
-                                className="soft-input font-bold text-sm h-12"
-                                disabled={isAnalyzing}
-                            >
-                                <option value="brutal">Brutal Roast</option>
-                                <option value="professional">Professional</option>
-                            </select>
+                            <div className="relative">
+                                <select
+                                    value={initialData.feedbackTone}
+                                    onChange={(e) => onToneChange(e.target.value as any)}
+                                    className={selectClassName}
+                                    disabled={isAnalyzing}
+                                >
+                                    <option value="brutal">Brutal Roast</option>
+                                    <option value="professional">Professional</option>
+                                </select>
+                                <ChevronDown
+                                    size={18}
+                                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-text-subtle"
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -247,32 +266,38 @@ export const AnalysisSetupConsole = ({
                                 </div>
 
                                 <div className="space-y-3">
-                                    <div className="flex justify-between items-center">
+                                    <div className="flex flex-col md:flex-row justify-between md:items-center gap-2 md:gap-3">
                                         <label className="text-[10px] font-black text-text-subtle uppercase tracking-[0.2em]">Job Description Intel</label>
-                                        <div className="flex gap-2">
-                                            <select
-                                                value={selectedTemplateId}
-                                                onChange={(e) => {
-                                                    const id = e.target.value;
-                                                    setSelectedTemplateId(id);
-                                                    const template = getJDTemplateById(id);
-                                                    if (template) {
-                                                        onJdChange?.(template.jd);
-                                                        onCompanyChange?.(template.company);
-                                                    } else {
-                                                        onJdChange?.('');
-                                                    }
-                                                }}
-                                                className="text-[10px] font-bold border-none bg-bg-surface px-3 py-1 rounded-full outline-none"
-                                                disabled={isAnalyzing}
-                                            >
-                                                <option value="">Choose Template...</option>
-                                                {roleTemplates.map(t => (
-                                                    <option key={t.id} value={t.id}>
-                                                        {t.company} — {t.title}
-                                                    </option>
-                                                ))}
-                                            </select>
+                                        <div className="flex items-center gap-2 w-full md:w-auto">
+                                            <div className="relative w-full md:w-auto">
+                                                <select
+                                                    value={selectedTemplateId}
+                                                    onChange={(e) => {
+                                                        const id = e.target.value;
+                                                        setSelectedTemplateId(id);
+                                                        const template = getJDTemplateById(id);
+                                                        if (template) {
+                                                            onJdChange?.(template.jd);
+                                                            onCompanyChange?.(template.company);
+                                                        } else {
+                                                            onJdChange?.('');
+                                                        }
+                                                    }}
+                                                    className="w-full md:w-auto text-base md:text-xs font-bold border border-border-subtle bg-bg-surface pl-3 pr-9 py-2.5 md:py-2 rounded-xl md:rounded-full outline-none appearance-none"
+                                                    disabled={isAnalyzing}
+                                                >
+                                                    <option value="">Choose Template...</option>
+                                                    {roleTemplates.map(t => (
+                                                        <option key={t.id} value={t.id}>
+                                                            {t.company} — {t.title}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <ChevronDown
+                                                    size={16}
+                                                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-subtle"
+                                                />
+                                            </div>
                                             <button
                                                 onClick={() => {
                                                     setSelectedTemplateId('');
