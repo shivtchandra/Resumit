@@ -423,19 +423,23 @@ Explanation must be under 60 characters total. Use "✓" bullets. NO paragraphs.
             Dictionary with marked-up resume, changes, company expectations, and harsh review
         """
         system_prompt = (
-            "You are a senior hiring manager and ATS specialist. "
-            "Return strict JSON only. Never invent experience. Be blunt but practical."
+            "You are a brutally honest senior technical recruiter at a FAANG company "
+            "who has screened 50,000+ resumes. You have zero patience for generic bullets, "
+            "tutorial projects, or vague claims. You speak like a real recruiter — direct, "
+            "sometimes harsh, always actionable. When you see a weak project, you call it "
+            "out by name. When a bullet is vague, you quote it and explain exactly why it fails. "
+            "Return strict JSON only."
         )
         company_context = company_name.strip() if company_name else "the company"
         brutal_timeout = float(
             os.getenv(
                 "OPENAI_BRUTAL_TIMEOUT_SECONDS",
-                str(max(12.0, min(24.0, self.timeout_seconds + 2.0))),
+                str(max(12.0, min(45.0, (self.timeout_seconds or 30.0) + 2.0))),
             )
         )
-        brutal_max_tokens = int(os.getenv("OPENAI_BRUTAL_MAX_TOKENS", "1200"))
-        resume_excerpt_limit = int(os.getenv("OPENAI_BRUTAL_RESUME_CHARS", "6500"))
-        jd_excerpt_limit = int(os.getenv("OPENAI_BRUTAL_JD_CHARS", "2200"))
+        brutal_max_tokens = int(os.getenv("OPENAI_BRUTAL_MAX_TOKENS", "4096"))
+        resume_excerpt_limit = int(os.getenv("OPENAI_BRUTAL_RESUME_CHARS", "8000"))
+        jd_excerpt_limit = int(os.getenv("OPENAI_BRUTAL_JD_CHARS", "3000"))
 
         payload = {
             "company": company_context,
@@ -443,64 +447,77 @@ Explanation must be under 60 characters total. Use "✓" bullets. NO paragraphs.
             "job_description_excerpt": job_description[:jd_excerpt_limit],
         }
 
-        user_prompt = f"""Rewrite and review this resume for the target role.
+        user_prompt = f"""You are reviewing this resume for a {company_context} role. Be BRUTALLY honest.
 
-Rules:
-- Preserve truthful claims. Do not fabricate companies, dates, metrics, or tools.
-- Keep format close to original.
-- In marked_up_resume, wrap additions with <ADD>, removals with <DEL>, rewrites with <REWRITE>.
-- Keep output concise and practical.
-- Focus on highest-impact fixes only.
+PERSONA: You are a senior recruiter at {company_context} who sees 200+ resumes/day.
+You have 6 seconds per resume. You are tired of generic bullets and tutorial projects.
 
-Return JSON with this exact top-level shape:
+YOUR JOB:
+1. Identify the 5-10 highest-impact changes needed to match this JD
+2. Roast every weak point — quote specific lines from the resume, name specific projects
+3. Tell them exactly what to fix and how long each fix takes
+
+CRITICAL RULES FOR HARSH REVIEW:
+- If a project is just a tutorial/course project, SAY SO: "Your [Project Name] is a tutorial project. Every CS student has this. It tells me nothing about your ability to ship production code."
+- If a bullet has no metrics, QUOTE IT: "'Developed web application' — this tells me nothing. How many users? What was the latency improvement? What business problem did it solve?"
+- If skills don't match JD, be specific: "The JD explicitly requires [X] but your resume shows zero evidence of it anywhere."
+- For strengths: only list things that GENUINELY stand out. If nothing stands out, say "Nothing here would make me pause scrolling. That's the problem."
+- For weaknesses: be specific — quote the actual weak bullet/project and explain WHY it's weak
+- For missing_or_weak_skills: map EACH to a specific JD requirement, quote the JD line
+- For would_I_interview_you: "yes" only if genuinely strong. "maybe" if borderline. "no" if you'd skip.
+- For top_3_actions: give specific, actionable steps with realistic time estimates
+
+DO NOT include the full rewritten resume text. Focus ONLY on the review and changes.
+
+Return JSON with this exact shape:
 {{
-  "plain_text": "rewritten resume text without tags",
-  "marked_up_resume": "rewritten text with <ADD>/<DEL>/<REWRITE> tags",
   "changes": [
     {{
-      "section": "Summary|Experience|Skills|Header",
+      "section": "Summary|Experience|Skills|Header|Projects",
       "type": "add|remove|rewrite",
-      "before": "original text",
-      "after": "new text",
-      "reason": "why changed",
-      "jd_signal": "what signal this sends to hiring team"
+      "before": "exact original text being changed (quote it)",
+      "after": "improved replacement text",
+      "reason": "why this change matters for THIS specific JD — be specific",
+      "jd_signal": "which JD requirement this directly addresses"
     }}
   ],
   "company_expectations": {{
-    "role_summary": "1 sentence",
-    "what_the_company_cares_about": ["3-5 items"],
-    "ideal_candidate_snapshot": ["3-5 items"]
+    "role_summary": "What {company_context} actually wants for this specific role — reference JD details",
+    "what_the_company_cares_about": ["3-5 specific things extracted from THIS JD, not generic values like 'teamwork'"],
+    "ideal_candidate_snapshot": ["3-5 concrete traits with evidence expectations, e.g. 'Has built and owned a production service handling >1000 RPS'"]
   }},
   "harsh_review": {{
-    "overall_verdict": "1 sentence",
-    "strengths": ["3-5 items"],
-    "weaknesses": ["4-8 items"],
+    "overall_verdict": "1 brutal sentence a real recruiter would think. Be specific to THIS resume.",
+    "strengths": ["Only genuine strengths. Quote specific resume content that actually works. Max 3-5 items."],
+    "weaknesses": ["Quote specific bullets/projects that are weak and explain WHY they're weak. Be brutal. 4-8 items."],
     "missing_or_weak_skills": [
       {{
-        "skill": "name",
-        "why_it_matters": "business impact",
-        "how_to_build_it": "specific course/project steps",
-        "success_story": "short practical example"
+        "skill": "exact skill from JD",
+        "why_it_matters": "why {company_context} specifically needs this — quote the JD requirement",
+        "how_to_build_it": "specific project or action to demonstrate this skill, with concrete steps (not 'take a course')",
+        "success_story": "what a strong candidate's bullet looks like for this skill — give an actual example bullet"
       }}
     ],
     "would_I_interview_you": "yes|no|maybe",
-    "rationale": "decision rationale",
+    "rationale": "Honest 2-3 sentence assessment. Reference specific resume content AND specific JD gaps. Be direct.",
     "top_3_actions": [
       {{
-        "action": "specific step",
-        "how_to_do_it": "clear execution plan",
-        "resources": ["resource 1", "resource 2"],
-        "time_estimate": "duration",
-        "what_helped_others": "short evidence"
+        "action": "specific action they can do TODAY — not generic advice like 'add metrics'",
+        "how_to_do_it": "step-by-step execution plan with concrete examples of what the improved bullet should look like",
+        "resources": ["specific tools, courses, or references by name"],
+        "time_estimate": "realistic hours/days for this specific fix",
+        "what_helped_others": "concrete before/after example showing the improvement"
       }}
     ]
   }}
 }}
 
 Constraints:
-- Return 4-10 total change items.
-- Keep each list focused and non-repetitive.
-- Keep each string under 220 characters when possible.
+- Return 5-10 changes, focus on highest-impact lines that need rewriting
+- Every strength/weakness MUST quote specific text from the resume
+- Every missing skill MUST reference a specific line from the JD
+- Be harsh but constructive — they should feel urgency to fix things TODAY
+- Keep each string focused and direct — no filler phrases
 
 Input JSON:
 {json.dumps(payload)}"""

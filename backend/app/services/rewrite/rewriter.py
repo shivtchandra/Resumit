@@ -335,17 +335,21 @@ class ResumeRewriter:
                     job_description=job_description,
                     company_name=company_name,
                 )
+                if ai_result is None:
+                    raise ValueError("AI client returned None")
                 merged = self._merge_brutal_payload(
                     ai_result=ai_result,
                     fallback_result=fallback_result,
                 )
+                ai_interview = ai_result.get("interview_prep") if isinstance(ai_result, dict) else None
+                fallback_interview = self._generate_interview_prep(
+                    original_resume_text=original_resume_text,
+                    job_description=job_description,
+                    company_name=company_name,
+                )
                 merged["interview_prep"] = self._merge_interview_prep(
-                    ai_interview=ai_result.get("interview_prep") if isinstance(ai_result, dict) else None,
-                    fallback_interview=self._generate_interview_prep(
-                        original_resume_text=original_resume_text,
-                        job_description=job_description,
-                        company_name=company_name,
-                    ),
+                    ai_interview=ai_interview,
+                    fallback_interview=fallback_interview,
                 )
                 merged = self._stabilize_brutal_payload(
                     result=merged,
@@ -362,7 +366,8 @@ class ResumeRewriter:
                 merged["generation_mode"] = mode
                 return merged
             except Exception as exc:
-                logger.warning("AI brutal review failed, switching to fallback: %s", exc)
+                import traceback
+                logger.warning("AI brutal review failed, switching to fallback: %s\n%s", exc, traceback.format_exc())
 
         fallback_result["generation_mode"] = "fallback"
         fallback_result["interview_prep"] = self._merge_interview_prep(
@@ -468,79 +473,79 @@ class ResumeRewriter:
         strengths = []
         weaknesses = []
         if with_numbers:
-            strengths.append("Some experience lines include numbers, which gives at least partial impact evidence.")
+            strengths.append("Some bullets have numbers — that's the bare minimum, not a strength. But at least you tried.")
         else:
-            weaknesses.append("Most bullets lack measurable outcomes; this reads as responsibilities, not impact.")
+            weaknesses.append("Zero quantified outcomes. Every bullet reads like a job description copy-paste. Recruiters see through this instantly.")
 
         if has_linkedin:
-            strengths.append("LinkedIn signal is present, which helps recruiter trust and verification.")
+            strengths.append("LinkedIn is present. Good — recruiters will check it within 30 seconds of reading your resume.")
         else:
-            weaknesses.append("LinkedIn URL is missing or unclear in the header.")
+            weaknesses.append("No LinkedIn URL. In 2024+, this is a red flag. Recruiters assume you have something to hide.")
 
         if has_github:
-            strengths.append("GitHub signal is present, useful proof for technical screening.")
+            strengths.append("GitHub link found. This helps if your repos aren't full of tutorial code.")
         else:
-            weaknesses.append("GitHub URL is missing or unclear for a technical profile.")
+            weaknesses.append("No GitHub link on a technical resume. Recruiters immediately question your coding ability.")
 
         if len(label_heavy_lines) >= 3:
-            weaknesses.append("Too many bullets are label-heavy (Objective/Description) instead of impact statements.")
+            weaknesses.append("Resume is stuffed with label-heavy lines ('Objective:', 'Description:', 'Outcome:'). This screams junior template. Remove them.")
 
         if len(lines) < 20:
-            weaknesses.append("Resume appears thin; hiring managers may assume low ownership depth.")
+            weaknesses.append("Resume is thin — looks like you barely have experience. Even if you do, the layout is not selling it.")
         if missing:
-            weaknesses.append("Several job-description signals are missing from the resume language.")
+            weaknesses.append(f"Missing {len(missing)} critical JD signals. The ATS will likely filter you out before a human ever sees this.")
         if jd_signals and not missing:
-            strengths.append("Most major JD signals are already represented somewhere in your resume.")
+            strengths.append("Most JD keywords are present. Good coverage, but keyword stuffing alone won't save a weak resume.")
 
         harsh_review = {
             "overall_verdict": (
-                "Close, but still needs tightening before interviews."
+                "You're close but not close enough. A recruiter with 200 applications would skip yours."
                 if strengths and missing
-                else "Needs significant tightening before interviews."
+                else "This resume needs serious work. As it stands, it's a fast rejection."
             ),
-            "strengths": strengths[:4] or ["Resume has a workable baseline but lacks convincing depth."],
-            "weaknesses": weaknesses[:6] or ["Positioning is generic and not role-targeted enough."],
+            "strengths": strengths[:4] or ["Honestly? Nothing stands out. That's the core problem."],
+            "weaknesses": weaknesses[:6] or ["Generic, unfocused, and indistinguishable from 90% of applicants."],
             "missing_or_weak_skills": [
                 {
                     "skill": kw,
-                    "why_it_matters": f"'{kw}' appears in the target role requirements and is often screened early.",
+                    "why_it_matters": f"'{kw}' is explicitly in this JD. If you can't show it, the ATS filters you and the recruiter never sees your name.",
                     "how_to_build_it": self._build_skill_gap_advice(kw, evidence_lines),
                     "success_story": self._success_story_hint(kw),
                 }
                 for kw in missing[:6]
             ],
             "risk_flags": ["LOW_METRIC_DENSITY", "GENERIC_LANGUAGE"] + (["MISSING_JD_TERMS"] if missing else []),
-            "would_I_interview_you": "maybe" if strengths else "no",
+            "would_I_interview_you": "maybe" if len(strengths) >= 3 else "no",
             "rationale": (
-                "Current draft can pass basic screening but still lacks enough role-specific evidence to become an interview magnet."
+                "Some signals are there but the overall presentation wouldn't survive a 6-second recruiter scan. Fix the gaps or get auto-rejected."
                 if missing
-                else "Current draft is fairly aligned, but stronger metric-backed bullets would improve interview probability."
+                else "Keywords check out but the resume lacks depth. You'd survive ATS but not a human review."
             ),
             "top_3_actions": [
                 {
-                    "action": "Rewrite top 5 bullets with quantified outcomes",
-                    "how_to_do_it": "Use action + scope + metric + result format.",
-                    "resources": ["STAR method", "impact bullet templates"],
+                    "action": "Rewrite your top 5 bullets with real numbers",
+                    "how_to_do_it": "Every bullet needs: what you did + the scale + the measurable result. 'Improved API performance by 40%, reducing P99 latency from 800ms to 200ms' — not 'Worked on API improvements'.",
+                    "resources": ["STAR method", "XYZ formula"],
                     "time_estimate": "60-90 minutes",
-                    "what_helped_others": "Concrete metrics increased callback rates."
+                    "what_helped_others": "Candidates who added metrics saw 2-3x more callbacks."
                 },
                 {
-                    "action": "Align resume language to target JD",
+                    "action": "Match your language to the JD — word for word",
                     "how_to_do_it": (
-                        f"Add truthful evidence for: {', '.join(missing[:3])}."
+                        f"You're missing: {', '.join(missing[:3])}. If these are truthful, weave them into your bullets today."
                         if missing
-                        else "Keep JD terms naturally aligned across summary, skills, and projects."
+                        else "Mirror the JD phrasing in your summary, skills, and project descriptions."
                     ),
-                    "resources": ["JD keyword checklist"],
+                    "resources": ["JD keyword mapping"],
                     "time_estimate": "30 minutes",
-                    "what_helped_others": "Improved ATS matching on first pass."
+                    "what_helped_others": "ATS keyword match jumped from 40% to 80%+ after alignment."
                 },
                 {
-                    "action": "Remove weak filler lines",
-                    "how_to_do_it": "Drop vague statements and replace with evidence.",
-                    "resources": ["resume anti-pattern checklist"],
+                    "action": "Cut every line that doesn't prove something",
+                    "how_to_do_it": "If a bullet doesn't have a number, a deliverable, or a concrete outcome — delete it. Filler hurts more than gaps.",
+                    "resources": ["Resume anti-pattern guide"],
                     "time_estimate": "20 minutes",
-                    "what_helped_others": "Sharper narrative for recruiters."
+                    "what_helped_others": "Shorter, sharper resumes consistently outperform longer generic ones."
                 },
             ],
         }
@@ -1239,7 +1244,8 @@ class ResumeRewriter:
             merged["plain_text"] = ai_plain_text
         if use_ai_marked:
             merged["marked_up_resume"] = ai_marked
-        if ai_changes and (use_ai_plain or use_ai_marked or len(ai_changes) >= 5):
+        # Always prefer AI changes when they exist (AI may not return plain_text/marked_up_resume)
+        if ai_changes and len(ai_changes) >= 1:
             merged["changes"] = ai_changes
 
         ai_company = ai_result.get("company_expectations")

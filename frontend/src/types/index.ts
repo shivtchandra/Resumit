@@ -408,6 +408,10 @@ export interface BrutalRewriteResult {
         prep_plan: string[];
     };
     original_text: string;
+    alignment_score?: number;
+    ats_score?: number;
+    matched_keywords?: string[];
+    missing_keywords?: string[];
 }
 
 export interface InterviewAnswerScoreResult {

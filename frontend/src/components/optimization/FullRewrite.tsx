@@ -3,7 +3,7 @@ import { CheckCircle } from 'lucide-react';
 import { rewriteWithBrutalFeedback } from '@/services/api';
 import type { BrutalRewriteResult } from '@/types';
 import { BrutalFitReview } from './BrutalFitReview';
-import { HighlightedResume } from './HighlightedResume';
+import { AlignmentScoreCard } from './AlignmentScoreCard';
 import { OptimizationSetupConsole } from '../tactical/OptimizationSetupConsole';
 import { MaterialIcon } from '../ui/MaterialIcon';
 import { InterviewCoach } from './InterviewCoach';
@@ -114,16 +114,18 @@ export const FullRewrite = () => {
                     </div>
                 </div>
 
-                {/* The Recalibrated Resume */}
+                {/* JD Alignment & ATS Score */}
                 <div className="space-y-4">
                     <div className="flex items-center gap-3 ml-2">
                         <div className="w-8 h-8 rounded-lg bg-brand-primary/10 text-brand-primary flex items-center justify-center font-black">1</div>
-                        <h2 className="text-sm font-black text-brand-secondary tracking-widest uppercase">The Recalibrated Resume</h2>
+                        <h2 className="text-sm font-black text-brand-secondary tracking-widest uppercase">JD Alignment & ATS Score</h2>
                     </div>
-                    <HighlightedResume
-                        plainText={brutalResult.plain_text}
-                        markedUpText={brutalResult.marked_up_resume}
-                        changes={brutalResult.changes}
+                    <AlignmentScoreCard
+                        alignmentScore={brutalResult.alignment_score ?? 0}
+                        atsScore={brutalResult.ats_score ?? 0}
+                        matchedKeywords={brutalResult.matched_keywords ?? []}
+                        missingKeywords={brutalResult.missing_keywords ?? []}
+                        companyName={companyName || undefined}
                     />
                 </div>
 

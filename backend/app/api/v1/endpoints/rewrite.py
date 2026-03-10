@@ -443,86 +443,51 @@ async def rewrite_with_brutal_feedback(
         
         if not original_text:
             raise HTTPException(status_code=400, detail="Could not extract text from resume")
+
+        # Compute alignment and ATS scores using existing services
+        alignment_score = 0.0
+        ats_score = 0.0
+        matched_keywords: List[str] = []
+        missing_keywords: List[str] = []
+        try:
+            visibility_ranker = get_visibility_ranker()
+            visibility_result = visibility_ranker.rank(original_text, job_description)
+            alignment_score = round(visibility_result.get("score", 0) or 0, 1)
+            # Use rewriter's better keyword extractor for display (it filters noise)
+            rewriter_tmp = get_rewriter()
+            all_jd_kw = rewriter_tmp._extract_jd_keywords(job_description, limit=20)
+            resume_lower = original_text.lower()
+            for kw in all_jd_kw:
+                if rewriter_tmp._signal_present(resume_lower, kw):
+                    matched_keywords.append(kw)
+                else:
+                    missing_keywords.append(kw)
+        except Exception as exc:
+            logger.warning("Alignment score computation skipped: %s", exc)
+
+        try:
+            from app.services.features.extractor import FeatureExtractor
+            feature_extractor = FeatureExtractor()
+            features = feature_extractor.extract_features(parsing_result)
+            friendliness_classifier = get_friendliness_classifier()
+            friendliness_result = friendliness_classifier.predict(features)
+            ats_score = round(friendliness_result.get("score", 0), 1)
+        except Exception as exc:
+            logger.warning("ATS score computation skipped: %s", exc)
         
         # Get rewriter with brutal review capability
         logger.info("Generating brutal review")
         rewriter = get_rewriter()
         
-        # Call brutal review with AI when available, fallback otherwise
-        brutal_timeout = min(32.0, max(14.0, float(os.getenv("REWRITE_BRUTAL_TIMEOUT_SECONDS", "28"))))
-        fallback_timeout = min(10.0, max(4.0, float(os.getenv("REWRITE_BRUTAL_FALLBACK_TIMEOUT_SECONDS", "8"))))
-        try:
-            brutal_result = await asyncio.wait_for(
-                run_in_threadpool(
-                    rewriter.rewrite_with_brutal_review,
-                    original_text,
-                    job_description,
-                    company_name,
-                    detected_linkedin_url=detected_linkedin_url,
-                    detected_github_url=detected_github_url,
-                ),
-                timeout=brutal_timeout,
-            )
-        except asyncio.TimeoutError:
-            logger.warning("Brutal rewrite timed out after %ss, forcing deterministic fallback.", brutal_timeout)
-            warnings.append(
-                "AI rewrite timed out. Returned deterministic fallback rewrite with practical fixes."
-            )
-            try:
-                brutal_result = await asyncio.wait_for(
-                    run_in_threadpool(
-                        rewriter._fallback_brutal_review,
-                        original_text,
-                        job_description,
-                        company_name,
-                        detected_linkedin_url=detected_linkedin_url,
-                        detected_github_url=detected_github_url,
-                    ),
-                    timeout=fallback_timeout,
-                )
-            except asyncio.TimeoutError:
-                logger.warning(
-                    "Fallback brutal rewrite also timed out after %ss. Returning minimal payload.",
-                    fallback_timeout,
-                )
-                warnings.append(
-                    "Fallback rewrite was slow. Returned minimal practical output; retry once for a richer result."
-                )
-                brutal_result = {
-                    "plain_text": original_text,
-                    "marked_up_resume": original_text,
-                    "changes": [],
-                    "company_expectations": {
-                        "role_summary": "Role-fit signal could not be fully generated in time.",
-                        "what_the_company_cares_about": [],
-                        "ideal_candidate_snapshot": [],
-                    },
-                    "harsh_review": {
-                        "overall_verdict": "Partial output due to timeout.",
-                        "strengths": [],
-                        "weaknesses": [
-                            "Generation timed out before deep rewrite completed."
-                        ],
-                        "missing_or_weak_skills": [],
-                        "risk_flags": ["timeout_partial_output"],
-                        "would_I_interview_you": "maybe",
-                        "rationale": "Retry once with the same JD for a complete AI rewrite.",
-                        "top_3_actions": [
-                            {
-                                "action": "Retry the same run once",
-                                "how_to_do_it": "Use the same resume and JD to reuse warm caches.",
-                                "resources": [],
-                                "time_estimate": "1 minute",
-                                "what_helped_others": "Second run usually returns the full payload on warm instances.",
-                            }
-                        ],
-                    },
-                    "interview_prep": {},
-                    "generation_mode": "fallback_timeout_minimal",
-                }
-
-            if isinstance(brutal_result, dict) and "generation_mode" not in brutal_result:
-                brutal_result["generation_mode"] = "fallback_timeout"
+        # Call brutal review — no timeout, let AI take as long as it needs
+        brutal_result = await run_in_threadpool(
+            rewriter.rewrite_with_brutal_review,
+            original_text,
+            job_description,
+            company_name,
+            detected_linkedin_url=detected_linkedin_url,
+            detected_github_url=detected_github_url,
+        )
 
         return {
             "plain_text": brutal_result.get("plain_text", ""),
@@ -536,6 +501,10 @@ async def rewrite_with_brutal_feedback(
             "original_text": original_text,
             "detected_linkedin_url": detected_linkedin_url,
             "detected_github_url": detected_github_url,
+            "alignment_score": alignment_score,
+            "ats_score": ats_score,
+            "matched_keywords": matched_keywords,
+            "missing_keywords": missing_keywords,
         }
         
     except Exception as e:
