@@ -164,7 +164,7 @@ export const Analysis = () => {
                                     title="Free-Flow Resume Roast"
                                     description="Upload your resume for a conversational, no-BS critique with specific cert suggestions."
                                     whatThisPageDoes="AI reads your resume and writes a free-flowing roast — quoting exact lines, calling out problems, and recommending certifications."
-                                    bestUseCase="Use this first to understand what's weak, then go to Match & Fix for rewriting."
+                                    bestUseCase="Use this first to understand what's weak. The Rewrite Lab is shipping soon."
                                     howToUse={[
                                         'Upload your resume (PDF or DOCX).',
                                         'Select your target role and tone.',
@@ -174,9 +174,8 @@ export const Analysis = () => {
                                     makeMostOfIt={[
                                         'Use Brutal tone for the most honest feedback.',
                                         'Pay attention to blockquoted lines — those are exact resume excerpts.',
-                                        'Move to Match & Fix after digesting the roast.',
+                                        'Use this page alongside Templates while Match & Fix is in progress.',
                                     ]}
-                                    primaryAction={{ label: 'Go to Match & Fix', to: '/resume-fix-lab' }}
                                     secondaryAction={{ label: 'Browse Templates', to: '/templates' }}
                                 />
                             </div>
@@ -752,11 +751,10 @@ export const Analysis = () => {
                             </div>
                             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                                 <button
-                                    onClick={() => (window.location.href = '/resume-fix-lab')}
-                                    className="btn-primary py-4 px-12 group"
+                                    type="button"
+                                    className="btn-secondary py-4 px-12 cursor-default opacity-70"
                                 >
-                                    Go to Match & Fix
-                                    <MaterialIcon icon="arrow_forward" size={20} className="group-hover:translate-x-1 transition-transform" />
+                                    Match &amp; Fix coming soon
                                 </button>
                                 <button
                                     onClick={() => (window.location.href = '/templates')}

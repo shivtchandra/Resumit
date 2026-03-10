@@ -480,10 +480,19 @@ export const Landing = () => {
                                 transition={{ ...revealUp.transition, delay: 0.2 }}
                                 className="pt-1"
                             >
-                                <Link to={currentDemo.to} className="btn-primary">
-                                    Open {currentDemo.title}
-                                    <ArrowRight size={17} />
-                                </Link>
+                                {currentDemo.id === 'rewrite' ? (
+                                    <button
+                                        type="button"
+                                        className="btn-secondary cursor-default opacity-70"
+                                    >
+                                        Coming soon
+                                    </button>
+                                ) : (
+                                    <Link to={currentDemo.to} className="btn-primary">
+                                        Open {currentDemo.title}
+                                        <ArrowRight size={17} />
+                                    </Link>
+                                )}
                             </motion.div>
                         </motion.div>
 
@@ -619,20 +628,36 @@ export const Landing = () => {
                                     viewport={{ once: true, amount: 0.2 }}
                                     transition={{ duration: 0.4, delay: i * 0.06 }}
                                 >
-                                    <Link to={phase.to} className="relative z-10 no-underline group">
-                                        <div className="bg-white rounded-2xl border border-border-subtle p-7 h-full transition-all duration-300 group-hover:shadow-premium group-hover:-translate-y-1">
-                                            <div className="w-14 h-14 rounded-full border-2 border-brand-primary text-brand-primary flex items-center justify-center mb-5">
-                                                <phase.icon size={24} />
-                                            </div>
-                                            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-brand-primary mb-2">Phase {phase.step}</p>
-                                            <h3 className="text-2xl font-black text-brand-secondary mb-2.5">{phase.title}</h3>
-                                            <p className="text-sm text-text-muted leading-relaxed">{phase.text}</p>
-                                            <div className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-brand-primary">
-                                                Open Module
-                                                <ArrowRight size={14} />
+                                    {phase.step === '02' ? (
+                                        <div className="relative z-10 group">
+                                            <div className="bg-white rounded-2xl border border-border-subtle p-7 h-full transition-all duration-300 group-hover:shadow-premium">
+                                                <div className="w-14 h-14 rounded-full border-2 border-dashed border-border-subtle text-text-subtle flex items-center justify-center mb-5">
+                                                    <phase.icon size={24} />
+                                                </div>
+                                                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-text-subtle mb-2">Phase {phase.step}</p>
+                                                <h3 className="text-2xl font-black text-brand-secondary mb-2.5">{phase.title}</h3>
+                                                <p className="text-sm text-text-muted leading-relaxed">{phase.text}</p>
+                                                <div className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-text-subtle">
+                                                    Coming soon
+                                                </div>
                                             </div>
                                         </div>
-                                    </Link>
+                                    ) : (
+                                        <Link to={phase.to} className="relative z-10 no-underline group">
+                                            <div className="bg-white rounded-2xl border border-border-subtle p-7 h-full transition-all duration-300 group-hover:shadow-premium group-hover:-translate-y-1">
+                                                <div className="w-14 h-14 rounded-full border-2 border-brand-primary text-brand-primary flex items-center justify-center mb-5">
+                                                    <phase.icon size={24} />
+                                                </div>
+                                                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-brand-primary mb-2">Phase {phase.step}</p>
+                                                <h3 className="text-2xl font-black text-brand-secondary mb-2.5">{phase.title}</h3>
+                                                <p className="text-sm text-text-muted leading-relaxed">{phase.text}</p>
+                                                <div className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-brand-primary">
+                                                    Open Module
+                                                    <ArrowRight size={14} />
+                                                </div>
+                                            </div>
+                                        </Link>
+                                    )}
                                 </motion.div>
                             ))}
                         </div>
