@@ -26,30 +26,31 @@ export const PDFPreviewModal = ({ template, onClose }: PDFPreviewModalProps) => 
         setIsDownloading(true);
         try {
             const canvas = await html2canvas(element, {
-                scale: 2, // Higher quality
+                scale: 2,
                 useCORS: true,
                 logging: false,
-                backgroundColor: '#ffffff'
+                backgroundColor: '#ffffff',
             });
 
             const imgData = canvas.toDataURL('image/png');
             const pdf = new jsPDF({
                 orientation: 'portrait',
                 unit: 'mm',
-                format: 'a4'
+                format: 'a4',
             });
 
-            const imgWidth = 210; // A4 width in mm
-            const pageHeight = 297; // A4 height in mm
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = pageWidth;
             const imgHeight = (canvas.height * imgWidth) / canvas.width;
-            let heightLeft = imgHeight;
             let position = 0;
 
+            // First page: full raster; only the top `pageHeight` mm is visible on paper.
             pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
+            let heightLeft = imgHeight - pageHeight;
 
-            // Handle multi-page resumes
-            while (heightLeft >= 0) {
+            // Continuation pages: shift image up. Use `>` not `>=` so we do not add a blank page when content ends exactly at a page boundary.
+            while (heightLeft > 0) {
                 position = heightLeft - imgHeight;
                 pdf.addPage();
                 pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
@@ -112,7 +113,7 @@ export const PDFPreviewModal = ({ template, onClose }: PDFPreviewModalProps) => 
                 <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50">
                     <div
                         id="resume-preview-content"
-                        className="mx-auto bg-white shadow-premium rounded-sm overflow-hidden"
+                        className="mx-auto bg-white shadow-premium rounded-sm overflow-visible"
                         style={{ ...resumeStyles.pdfContainer, maxWidth: '210mm' }}
                     >
                         {/* Resume Header */}

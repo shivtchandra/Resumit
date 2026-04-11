@@ -207,22 +207,22 @@ export const visualStyles: Record<VisualStyleType, StyleConfig> = {
     contemporary: {
         pdfContainer: {
             background: '#ffffff',
-            padding: '0',
+            backgroundColor: '#ffffff',
+            padding: '0 0 3rem',
             fontFamily: "'Arial', 'Helvetica', sans-serif",
             color: '#000',
-            lineHeight: '1.5'
+            lineHeight: '1.5',
         },
         resumeHeader: {
             textAlign: 'left',
             paddingBottom: '0',
             borderBottom: 'none',
-            background: '#4a5568',
+            background: '#2563eb',
+            backgroundColor: '#2563eb',
             color: '#ffffff',
             padding: '2rem 3rem',
-            marginLeft: '-3rem',
-            marginRight: '-3rem',
-            marginTop: '-3rem',
-            marginBottom: '2rem'
+            margin: 0,
+            marginBottom: '2rem',
         },
         name: {
             fontSize: '2rem',
@@ -243,7 +243,7 @@ export const visualStyles: Record<VisualStyleType, StyleConfig> = {
         section: {
             marginBottom: '1.5rem',
             paddingLeft: '3rem',
-            paddingRight: '3rem'
+            paddingRight: '3rem',
         },
         sectionTitle: {
             fontSize: '1rem',
