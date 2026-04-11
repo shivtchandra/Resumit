@@ -2,7 +2,7 @@
 // Streamlined for performance while maintaining quality
 
 import type { ResumeTemplate, ResumeContent } from './realisticTemplates';
-import { softwareEngineerTemplates } from './realisticTemplates';
+import { softwareEngineerTemplates, trendingTechTemplates } from './realisticTemplates';
 
 // Helper function to create template
 const createTemplate = (
@@ -690,6 +690,7 @@ const getMarketingTemplates = (): ResumeTemplate[] => [
 export const getProductionTemplates = (): ResumeTemplate[] => {
     const templates = [
         ...softwareEngineerTemplates,
+        ...trendingTechTemplates,
         ...getDataScientistTemplates(),
         ...getProductManagerTemplates(),
         ...getDesignerTemplates(),

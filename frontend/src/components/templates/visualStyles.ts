@@ -304,16 +304,18 @@ export const visualStyles: Record<VisualStyleType, StyleConfig> = {
     }
 };
 
-// Helper function to get style based on template ID
+/**
+ * Pick classic | modern | contemporary from `template_id`.
+ * Previously used substring checks like `includes('001')`, which matched unrelated ids
+ * and sent almost everything to the same default style. FNV-1a gives stable variety per id.
+ */
 export const getVisualStyleForTemplate = (templateId: string): VisualStyleType => {
-    // Classic style (serif, centered, traditional)
-    if (templateId.includes('001') || templateId.includes('004') || templateId.includes('006')) {
-        return 'classic';
+    const styles: VisualStyleType[] = ['modern', 'classic', 'contemporary'];
+    const s = String(templateId || 'default');
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < s.length; i++) {
+        h ^= s.charCodeAt(i);
+        h = Math.imul(h, 16777619) >>> 0;
     }
-    // Contemporary style (modern header, blue accents)
-    if (templateId.includes('003') || templateId.includes('005') || templateId.includes('010')) {
-        return 'contemporary';
-    }
-    // Modern style (left-aligned, clean, sans-serif) - default
-    return 'modern';
+    return styles[h % 3];
 };

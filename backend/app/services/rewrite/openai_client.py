@@ -196,10 +196,14 @@ class OpenAIClient:
         try:
             return json.loads(text)
         except json.JSONDecodeError as e:
-            logger.error(f"JSON decode error: {e}")
-            logger.error(f"Response text: {text[:500]}")
-
+            logger.warning(f"Initial JSON decode failed: {e}. Attempting repair...")
+            
+            # Step 1: Clean up common LLM artifacts
             candidate = self._extract_json_object(text)
+            if not candidate:
+                # If no balanced object, maybe it's truncated. Try to force-close it.
+                candidate = self._repair_truncated_json(text)
+            
             if candidate:
                 for attempt in (
                     candidate,
@@ -213,14 +217,73 @@ class OpenAIClient:
                     except json.JSONDecodeError:
                         continue
             
-            # Fallback: try to extract bullets from plain text
+            logger.error(f"JSON decode failed after repair attempts. Error: {e}")
+            logger.error(f"Response text start: {text[:500]}")
+            
+            # Fallback: try to extract bullets from plain text as last resort
             lines = text.split('\n')
-            bullets = [line.strip('- •*').strip() for line in lines if line.strip() and not line.strip().startswith('{')]
+            bullets = [line.strip('- •*').strip() for line in lines if line.strip() and not (line.strip().startswith('{') or line.strip().startswith('}'))]
             
             return {
                 "bullets": bullets if bullets else ["Failed to parse response"],
-                "explanation": "Parsed from plain text due to JSON error"
+                "explanation": "Extracted from potentially truncated response due to JSON error"
             }
+
+    def _repair_truncated_json(self, text: str) -> Optional[str]:
+        """Try to repair a truncated JSON string by adding missing closing braces/brackets."""
+        text = text.strip()
+        if not text:
+            return None
+            
+        # If it doesn't even start with an object or array, give up
+        if not (text.startswith('{') or text.startswith('[')):
+            return None
+            
+        # Find the last "safe" points (e.g., after a value, comma, or key)
+        # For simplicity, we'll try to walk the stack and close everything.
+        stack = []
+        is_in_string = False
+        is_escaped = False
+        
+        last_good_idx = 0
+        
+        for i, char in enumerate(text):
+            if is_in_string:
+                if is_escaped:
+                    is_escaped = False
+                elif char == '\\':
+                    is_escaped = True
+                elif char == '"':
+                    is_in_string = False
+                continue
+            
+            if char == '"':
+                is_in_string = True
+                continue
+            elif char in '{[':
+                stack.append('}' if char == '{' else ']')
+            elif char in '}]':
+                if stack and stack[-1] == char:
+                    stack.pop()
+                else:
+                    # Malformed JSON (mismatched brackets)
+                    pass
+            
+            # Update last_good_idx if we're at a point where a value could have ended
+            if char in ' ,:tf' or char.isdigit() or char in '}]"':
+                last_good_idx = i
+        
+        # If we're inside a string, close it first
+        repaired = text
+        if is_in_string:
+            repaired += '"'
+            
+        # Now close all pending brackets in reverse order
+        while stack:
+            closing = stack.pop()
+            repaired += closing
+            
+        return repaired
 
     def _extract_json_object(self, text: str) -> Optional[str]:
         """Extract first balanced JSON object from mixed content."""
@@ -607,9 +670,9 @@ Resume:
             or "gpt-5.2"
         ).strip()
         target_model = explicit_model or fast_model or smart_model
-        max_tokens = int(os.getenv("OPENAI_MATCHFIX_MAX_TOKENS", "1800"))
+        max_tokens = int(os.getenv("OPENAI_MATCHFIX_MAX_TOKENS", "6000"))
         temperature = float(os.getenv("OPENAI_MATCHFIX_TEMPERATURE", "0.2"))
-        matchfix_timeout_raw = os.getenv("OPENAI_MATCHFIX_TIMEOUT_SECONDS", "85").strip()
+        matchfix_timeout_raw = os.getenv("OPENAI_MATCHFIX_TIMEOUT_SECONDS", "180").strip()
         matchfix_timeout = float(matchfix_timeout_raw) if matchfix_timeout_raw else None
         enrich_retry = os.getenv("OPENAI_MATCHFIX_ENRICH_RETRY", "0").strip().lower() in ("1", "true", "yes")
         primary_effort = (os.getenv("OPENAI_MATCHFIX_REASONING_EFFORT", "none") or "").strip().lower()

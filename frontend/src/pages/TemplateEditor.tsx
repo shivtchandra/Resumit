@@ -1,13 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
+import type { CSSProperties } from 'react';
 import { MaterialIcon } from '../components/ui/MaterialIcon';
 import { PageLayout } from '../components/layout/PageLayout';
 import { Navbar } from '../components/layout/Navbar';
-import { PageGuide } from '../components/layout/PageGuide';
 import { WorkflowMap } from '../components/layout/WorkflowMap';
 import { getProductionTemplates } from '../data/allTemplates';
+import { visualStyles, getVisualStyleForTemplate, type VisualStyleType } from '../components/templates/visualStyles';
 
 const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 1024;
+
+function contactLinksStyleFor(visualType: VisualStyleType, headerTextAlign: CSSProperties['textAlign']): CSSProperties {
+    return {
+        marginTop: '0.5rem',
+        fontSize: '0.8125rem',
+        display: 'flex',
+        flexWrap: 'wrap',
+        justifyContent: headerTextAlign === 'center' ? 'center' : 'flex-start',
+        gap: '0.35rem 0.75rem',
+        color: visualType === 'contemporary' ? '#e2e8f0' : '#444',
+    };
+}
 
 // Editable resume data interface
 interface EditableResumeData {
@@ -49,125 +62,56 @@ interface EditableResumeData {
     certifications?: string[];
 }
 
-// PDF Preview Styles – kept as inline since they mimic a printed document
-const pdfStyles = {
-    pdfContainer: {
-        background: '#ffffff',
-        borderRadius: 'var(--radius-sm)',
-        padding: isMobile() ? '1.25rem' : '3rem',
-        maxWidth: '50rem',
-        width: '100%',
-        margin: '0 auto',
-        boxShadow: 'var(--shadow-soft)',
-        fontFamily: "'Arial', sans-serif",
-        color: '#000'
-    },
-    resumeHeader: {
-        textAlign: 'center' as const,
-        marginBottom: '2rem',
-        paddingBottom: '1rem',
-        borderBottom: '2px solid #000'
-    },
-    name: {
-        fontSize: '2rem',
-        fontWeight: 700,
-        marginBottom: '0.5rem',
-        color: '#000'
-    },
-    contact: {
-        fontSize: '0.875rem',
-        color: '#333',
-        display: 'flex',
-        flexWrap: 'wrap' as const,
-        justifyContent: 'center',
-        gap: '0.5rem 1rem'
-    },
-    contactLinks: {
-        marginTop: '0.5rem',
-        fontSize: '0.8125rem',
-        color: '#444',
-        display: 'flex',
-        flexWrap: 'wrap' as const,
-        justifyContent: 'center',
-        gap: '0.35rem 0.75rem'
-    },
-    pdfSection: {
-        marginBottom: '1.5rem'
-    },
-    pdfSectionTitle: {
-        fontSize: '1.125rem',
-        fontWeight: 700,
-        textTransform: 'uppercase' as const,
-        letterSpacing: '0.05em',
-        marginBottom: '0.75rem',
-        borderBottom: '1px solid #000',
-        paddingBottom: '0.25rem',
-        color: '#000'
-    },
-    text: {
-        fontSize: '0.875rem',
-        lineHeight: '1.6',
-        color: '#222'
-    },
-    bullet: {
-        fontSize: '0.875rem',
-        lineHeight: '1.6',
-        color: '#222',
-        marginBottom: '0.5rem',
-        paddingLeft: '1.5rem',
-        position: 'relative' as const
-    },
-    skillCategory: {
-        marginBottom: '0.5rem'
-    },
-    skillCategoryName: {
-        fontWeight: 600,
-        fontSize: '0.875rem',
-        marginRight: '0.5rem',
-        color: '#000'
-    },
-    expTitle: {
-        fontWeight: 700,
-        fontSize: '0.9375rem',
-        marginBottom: '0.25rem',
-        color: '#000'
-    },
-    expMeta: {
-        fontSize: '0.875rem',
-        color: '#555',
-        marginBottom: '0.5rem'
-    }
-};
-
 export const TemplateEditor = () => {
     const { id } = useParams();
     const [resumeData, setResumeData] = useState<EditableResumeData | null>(null);
 
-    useEffect(() => {
-        const loadTemplate = async () => {
-            const templates = await getProductionTemplates();
-            const template = templates.find(t => t.metadata.template_id === id);
+    const visualStyleType = useMemo(
+        () => getVisualStyleForTemplate(id || ''),
+        [id]
+    );
+    const resumeStyles = visualStyles[visualStyleType];
+    const contactLinksStyle = useMemo(
+        () => contactLinksStyleFor(visualStyleType, resumeStyles.resumeHeader.textAlign),
+        [visualStyleType, resumeStyles.resumeHeader.textAlign]
+    );
 
-            if (template && template.content) {
+    useEffect(() => {
+        let cancelled = false;
+
+        const loadTemplate = async () => {
+            if (!id) {
+                setResumeData(null);
+                return;
+            }
+            setResumeData(null);
+            const templates = await getProductionTemplates();
+            if (cancelled) return;
+            const template = templates.find((t) => t.metadata.template_id === id);
+
+            if (template?.content) {
                 setResumeData({
                     personalInfo: template.content.personalInfo,
                     summary: template.content.summary,
                     skills: template.content.skills,
                     experience: template.content.experience,
                     projects: template.content.projects,
-                    education: template.content.education.map(edu => ({
+                    education: template.content.education.map((edu) => ({
                         ...edu,
                         gpa: edu.gpa,
-                        coursework: edu.coursework
+                        coursework: edu.coursework,
                     })),
-                    certifications: template.content.certifications
+                    certifications: template.content.certifications,
                 });
+            } else {
+                setResumeData(null);
             }
         };
 
-        if (id) {
-            loadTemplate();
-        }
+        void loadTemplate();
+        return () => {
+            cancelled = true;
+        };
     }, [id]);
 
     const handleDownloadPDF = () => {
@@ -470,13 +414,24 @@ export const TemplateEditor = () => {
                     )}
                 </div>
 
-                {/* Preview Panel */}
+                {/* Preview Panel — uses same visualStyles + mapping as PDF quick preview */}
                 <div className="w-full lg:w-[60%] overflow-y-auto p-4 lg:p-12 bg-bg-page flex justify-center items-start">
-                    <div id="resume-preview" style={pdfStyles.pdfContainer}>
+                    <div
+                        id="resume-preview"
+                        style={{
+                            ...resumeStyles.pdfContainer,
+                            borderRadius: 'var(--radius-sm)',
+                            maxWidth: '50rem',
+                            width: '100%',
+                            margin: '0 auto',
+                            boxShadow: 'var(--shadow-soft)',
+                            padding: isMobile() ? '1.25rem' : resumeStyles.pdfContainer.padding,
+                        }}
+                    >
                         {/* Header */}
-                        <div style={pdfStyles.resumeHeader}>
-                            <h1 style={pdfStyles.name}>{resumeData.personalInfo.name}</h1>
-                            <div style={pdfStyles.contact}>
+                        <div style={resumeStyles.resumeHeader}>
+                            <h1 style={resumeStyles.name}>{resumeData.personalInfo.name}</h1>
+                            <div style={resumeStyles.contact}>
                                 <span>{resumeData.personalInfo.location}</span>
                                 <span>•</span>
                                 <span>{resumeData.personalInfo.phone}</span>
@@ -484,7 +439,7 @@ export const TemplateEditor = () => {
                                 <span>{resumeData.personalInfo.email}</span>
                             </div>
                             {profileLinks.length > 0 && (
-                                <div style={pdfStyles.contactLinks}>
+                                <div style={contactLinksStyle}>
                                     {profileLinks.map((link, idx) => (
                                         <span key={`${link}-${idx}`}>
                                             {idx > 0 ? '• ' : ''}
@@ -496,33 +451,33 @@ export const TemplateEditor = () => {
                         </div>
 
                         {/* Summary */}
-                        <div style={pdfStyles.pdfSection}>
-                            <h2 style={pdfStyles.pdfSectionTitle}>Professional Summary</h2>
-                            <p style={pdfStyles.text}>{resumeData.summary}</p>
+                        <div style={resumeStyles.section}>
+                            <h2 style={resumeStyles.sectionTitle}>Professional Summary</h2>
+                            <p style={resumeStyles.text}>{resumeData.summary}</p>
                         </div>
 
                         {/* Skills */}
-                        <div style={pdfStyles.pdfSection}>
-                            <h2 style={pdfStyles.pdfSectionTitle}>Core Skills</h2>
+                        <div style={resumeStyles.section}>
+                            <h2 style={resumeStyles.sectionTitle}>Core Skills</h2>
                             {resumeData.skills.map((skillGroup, idx) => (
-                                <div key={idx} style={pdfStyles.skillCategory}>
-                                    <span style={pdfStyles.skillCategoryName}>{skillGroup.category}:</span>
-                                    <span style={pdfStyles.text}>{skillGroup.items.join(', ')}</span>
+                                <div key={idx} style={resumeStyles.skillCategory}>
+                                    <span style={resumeStyles.skillCategoryName}>{skillGroup.category}:</span>
+                                    <span style={resumeStyles.text}>{skillGroup.items.join(', ')}</span>
                                 </div>
                             ))}
                         </div>
 
                         {/* Experience */}
-                        <div style={pdfStyles.pdfSection}>
-                            <h2 style={pdfStyles.pdfSectionTitle}>Professional Experience</h2>
+                        <div style={resumeStyles.section}>
+                            <h2 style={resumeStyles.sectionTitle}>Professional Experience</h2>
                             {resumeData.experience.map((exp, idx) => (
                                 <div key={idx} style={{ marginBottom: '1.25rem' }}>
-                                    <div style={pdfStyles.expTitle}>{exp.title}</div>
-                                    <div style={pdfStyles.expMeta}>
+                                    <div style={resumeStyles.jobTitle}>{exp.title}</div>
+                                    <div style={resumeStyles.jobMeta}>
                                         {exp.company} • {exp.location} • {exp.startDate} - {exp.endDate}
                                     </div>
                                     {exp.bullets.map((bullet, bidx) => (
-                                        <div key={bidx} style={pdfStyles.bullet}>
+                                        <div key={bidx} style={resumeStyles.bullet}>
                                             <span style={{ position: 'absolute', left: 0 }}>•</span>
                                             {bullet}
                                         </div>
@@ -533,13 +488,13 @@ export const TemplateEditor = () => {
 
                         {/* Projects */}
                         {resumeData.projects && resumeData.projects.length > 0 && (
-                            <div style={pdfStyles.pdfSection}>
-                                <h2 style={pdfStyles.pdfSectionTitle}>Projects</h2>
+                            <div style={resumeStyles.section}>
+                                <h2 style={resumeStyles.sectionTitle}>Projects</h2>
                                 {resumeData.projects.map((project, idx) => (
                                     <div key={idx} style={{ marginBottom: '1rem' }}>
-                                        <div style={pdfStyles.expTitle}>{project.name}</div>
-                                        <p style={pdfStyles.text}>{project.description}</p>
-                                        <p style={{ ...pdfStyles.text, marginTop: '0.25rem' }}>
+                                        <div style={resumeStyles.projectTitle}>{project.name}</div>
+                                        <p style={resumeStyles.text}>{project.description}</p>
+                                        <p style={{ ...resumeStyles.text, marginTop: '0.25rem' }}>
                                             Technologies: {project.technologies.join(', ')}
                                         </p>
                                     </div>
@@ -548,23 +503,24 @@ export const TemplateEditor = () => {
                         )}
 
                         {/* Education */}
-                        <div style={pdfStyles.pdfSection}>
-                            <h2 style={pdfStyles.pdfSectionTitle}>Education</h2>
+                        <div style={resumeStyles.section}>
+                            <h2 style={resumeStyles.sectionTitle}>Education</h2>
                             {resumeData.education.map((edu, idx) => (
                                 <div key={idx} style={{ marginBottom: '1rem' }}>
-                                    <div style={pdfStyles.expTitle}>{edu.school}</div>
-                                    <div style={pdfStyles.text}>{edu.degree}</div>
-                                    <div style={pdfStyles.text}>{edu.location} • {edu.graduationDate}</div>
+                                    <div style={resumeStyles.degreeTitle}>{edu.degree}</div>
+                                    <div style={resumeStyles.jobMeta}>
+                                        {edu.school} • {edu.location} • {edu.graduationDate}
+                                    </div>
                                 </div>
                             ))}
                         </div>
 
                         {/* Certifications */}
                         {resumeData.certifications && resumeData.certifications.length > 0 && (
-                            <div style={pdfStyles.pdfSection}>
-                                <h2 style={pdfStyles.pdfSectionTitle}>Certifications</h2>
+                            <div style={resumeStyles.section}>
+                                <h2 style={resumeStyles.sectionTitle}>Certifications</h2>
                                 {resumeData.certifications.map((cert, idx) => (
-                                    <div key={idx} style={pdfStyles.bullet}>
+                                    <div key={idx} style={resumeStyles.bullet}>
                                         <span style={{ position: 'absolute', left: 0 }}>•</span>
                                         {cert}
                                     </div>

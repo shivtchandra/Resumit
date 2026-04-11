@@ -1234,6 +1234,487 @@ export const softwareEngineerTemplates: ResumeTemplate[] = [
                 'Certified Kubernetes Administrator (CKA)'
             ]
         }
+    },
+
+    // Entry — API-first & observability (2024–2026 market: platform teams want tracing + contract tests)
+    {
+        metadata: {
+            template_id: 'se-entry-011',
+            role: 'Software Engineer',
+            experience_level: 'Entry',
+            ats_success_rate: 0.96,
+            template_name: 'Entry SWE — APIs, Observability & Reliability',
+            ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
+            description: 'For candidates targeting backend/platform roles: REST/GraphQL, OpenTelemetry, SLOs, and on-call hygiene.'
+        },
+        content: {
+            personalInfo: {
+                name: 'Jordan Lee',
+                email: 'jordan.lee@email.com',
+                phone: '+1-206-555-0312',
+                location: 'Seattle, WA',
+                linkedin: 'linkedin.com/in/jordanlee-dev',
+                github: 'github.com/jordanlee'
+            },
+            summary: 'Software engineer focused on reliable APIs and production visibility. Shipped typed REST and GraphQL endpoints with OpenAPI contracts, added structured logging and distributed tracing (OpenTelemetry), and cut p95 latency 28% on a read-heavy service. Comfortable with PostgreSQL, Redis, Docker, and CI-driven testing.',
+            guidanceNotes: {
+                summary: 'Lead with reliability themes: latency, error budgets, tracing, and tests — not buzzwords.',
+                experience: 'Quantify traffic, SLAs, and incidents prevented or MTTR improved.',
+                projects: 'Show one API design + one observability or load-test story.'
+            },
+            skills: [
+                { category: 'Backend', items: ['TypeScript', 'Node.js', 'REST', 'GraphQL', 'PostgreSQL', 'Redis'] },
+                { category: 'Reliability', items: ['OpenTelemetry', 'Structured logging', 'SLOs', 'Load testing (k6)', 'Feature flags'] },
+                { category: 'Delivery', items: ['Docker', 'GitHub Actions', 'JUnit/Jest', 'OpenAPI', 'Code review'] }
+            ],
+            experience: [{
+                title: 'Software Engineer Intern',
+                company: 'Northwind Commerce',
+                location: 'Seattle, WA',
+                startDate: 'June 2024',
+                endDate: 'August 2024',
+                bullets: [
+                    'Implemented idempotent checkout webhooks with PostgreSQL advisory locks, eliminating duplicate charges in load tests (10K RPS)',
+                    'Added OpenTelemetry spans across 12 services; reduced mean time to diagnose incidents from 45m to 18m',
+                    'Wrote contract tests (Pact) between catalog and pricing services, catching 6 breaking changes pre-release'
+                ]
+            }],
+            projects: [{
+                name: 'Rate-Limit Gateway',
+                description: 'Edge gateway with token bucket limits, JWT validation, and Prometheus metrics; load-tested to 25K RPS on a single node.',
+                technologies: ['Go', 'Redis', 'Prometheus', 'Docker']
+            }],
+            education: [{
+                degree: 'B.S. Computer Science',
+                school: 'University of Washington',
+                location: 'Seattle, WA',
+                graduationDate: '2025',
+                details: 'Concentration: distributed systems'
+            }],
+            certifications: ['AWS Cloud Practitioner']
+        }
+    },
+
+    // Mid — AI-adjacent product engineering (market: copilots, evals, guardrails without fake “AI researcher” claims)
+    {
+        metadata: {
+            template_id: 'se-mid-002',
+            role: 'Software Engineer',
+            experience_level: 'Mid',
+            ats_success_rate: 0.94,
+            template_name: 'Mid SWE — Product Features + LLM Tooling',
+            ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
+            description: 'For engineers shipping LLM-backed features: retrieval, evals, caching, safety filters, and cost-aware design.'
+        },
+        content: {
+            personalInfo: {
+                name: 'Samira Okonkwo',
+                email: 'samira.okonkwo@email.com',
+                phone: '+1-347-555-0441',
+                location: 'New York, NY',
+                linkedin: 'linkedin.com/in/samiraokonkwo',
+                github: 'github.com/sokonkwo'
+            },
+            summary: 'Full-stack engineer (4 years) shipping customer-facing features with pragmatic LLM integration: retrieval-augmented Q&A, prompt/version management, and offline evaluation sets. Reduced median answer latency 35% via caching and batching, and cut monthly inference cost 22% with tiered models and guardrails.',
+            guidanceNotes: {
+                summary: 'Tie LLM work to product metrics: latency, cost, quality scores — avoid vague “used ChatGPT”.',
+                experience: 'Separate model training claims from shipping: RAG, eval harnesses, red-team fixes you deployed.',
+                skills: 'List vector DB + framework (e.g. pgvector, LangChain) only if truthful.'
+            },
+            skills: [
+                { category: 'Application', items: ['TypeScript', 'React', 'Next.js', 'Node.js', 'PostgreSQL', 'Redis'] },
+                { category: 'LLM integration', items: ['RAG pipelines', 'Prompt/version store', 'Offline evals', 'Content filters', 'Streaming SSE'] },
+                { category: 'Ops', items: ['Kubernetes', 'Docker', 'GitHub Actions', 'OpenTelemetry', 'Feature flags'] }
+            ],
+            experience: [
+                {
+                    title: 'Software Engineer',
+                    company: 'HelioDocs',
+                    location: 'New York, NY',
+                    startDate: 'April 2022',
+                    endDate: 'Present',
+                    bullets: [
+                        'Owned in-app “doc assistant”: hybrid search over pgvector + BM25, citation UI, and per-tenant rate limits; NPS +12 in pilot cohort',
+                        'Built nightly eval job comparing golden Q&A set vs model outputs; blocked 4 regressions before prod',
+                        'Implemented streaming responses with backpressure and circuit breakers when upstream LLM degraded'
+                    ]
+                },
+                {
+                    title: 'Software Developer',
+                    company: 'Ledgerly',
+                    location: 'Remote',
+                    startDate: 'August 2020',
+                    endDate: 'March 2022',
+                    bullets: [
+                        'Migrated reporting service to read replicas and keyset pagination, cutting p99 from 4.2s to 780ms'
+                    ]
+                }
+            ],
+            projects: [{
+                name: 'Eval Notebook + CI',
+                description: 'GitHub Action that runs structured evals on PRs for prompt/template changes; posts diff summary to PR.',
+                technologies: ['Python', 'pytest', 'GitHub Actions', 'OpenAI API']
+            }],
+            education: [{
+                degree: 'B.S. Information Systems',
+                school: 'NYU',
+                location: 'New York, NY',
+                graduationDate: '2020'
+            }],
+            certifications: []
+        }
+    },
+
+    // Senior — security & supply chain (market: SSDF, SBOM, secrets scanning in CI)
+    {
+        metadata: {
+            template_id: 'se-senior-002',
+            role: 'Software Engineer',
+            experience_level: 'Senior',
+            ats_success_rate: 0.95,
+            template_name: 'Senior SWE — Application Security & Supply Chain',
+            ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
+            description: 'For senior ICs leading secure SDLC: dependency risk, SBOM, signing, secrets, and threat modeling with product teams.'
+        },
+        content: {
+            personalInfo: {
+                name: 'Chris Okada',
+                email: 'chris.okada@email.com',
+                phone: '+1-408-555-0780',
+                location: 'San Jose, CA',
+                linkedin: 'linkedin.com/in/chrisokada',
+                github: 'github.com/cokada'
+            },
+            summary: 'Senior software engineer specializing in secure delivery for SaaS: SBOM generation in CI, Sigstore/cosign for release artifacts, GitHub Advanced Security rollouts, and threat modeling for major features. Partnered with security and compliance to pass SOC 2 Type II with zero critical findings on scoped services.',
+            guidanceNotes: {
+                summary: 'Name frameworks you influenced org-wide, not only tickets you closed.',
+                experience: 'Use before/after for risk: CVE exposure time, secret leaks prevented, policy coverage %.',
+                skills: 'Mention standards (SLSA, SSDF, NIST) only if you can speak to real work.'
+            },
+            skills: [
+                { category: 'Security engineering', items: ['Threat modeling', 'SSDF', 'SAST/DAST in CI', 'Secrets scanning', 'SBOM (Syft/CycloneDX)'] },
+                { category: 'Platform', items: ['Kubernetes', 'Terraform', 'Go', 'Python', 'OIDC/OAuth2', 'mTLS'] },
+                { category: 'Reliability', items: ['SLOs', 'Incident command', 'Chaos testing', 'Progressive delivery'] }
+            ],
+            experience: [
+                {
+                    title: 'Senior Software Engineer',
+                    company: 'Northbridge SaaS',
+                    location: 'San Jose, CA',
+                    startDate: 'January 2021',
+                    endDate: 'Present',
+                    bullets: [
+                        'Led org-wide adoption of signed container images and admission policies; blocked 140+ unsigned deploy attempts first quarter',
+                        'Implemented dependency update bot with CVSS gates and auto-cherry-pick for patch trains; reduced median exposure window from 11d to 2d',
+                        'Ran quarterly threat models for payments surface; drove 18 concrete controls into service templates'
+                    ]
+                },
+                {
+                    title: 'Software Engineer',
+                    company: 'BrightMetrics',
+                    location: 'San Francisco, CA',
+                    startDate: 'June 2017',
+                    endDate: 'December 2020',
+                    bullets: [
+                        'Built centralized audit log pipeline (Kafka → warehouse) supporting fraud investigations'
+                    ]
+                }
+            ],
+            education: [{
+                degree: 'B.S. Computer Engineering',
+                school: 'San Jose State University',
+                location: 'San Jose, CA',
+                graduationDate: '2017'
+            }],
+            certifications: ['AWS Security – Specialty']
+        }
+    }
+];
+
+/**
+ * Extra catalog rows aligned with common 2025–2026 hiring themes:
+ * TypeScript-first full-stack, platform/Kubernetes, high-scale backend, ML serving, Core Web Vitals–aware frontend.
+ */
+export const trendingTechTemplates: ResumeTemplate[] = [
+    {
+        metadata: {
+            template_id: 'fs-mid-001',
+            role: 'Full Stack Developer',
+            experience_level: 'Mid',
+            ats_success_rate: 0.94,
+            template_name: 'Full Stack — Next.js, TypeScript & Edge',
+            ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
+            description: 'Trending stack: App Router/SSR, typed APIs, caching, and pragmatic AI-assist in the SDLC (Copilot/Cursor) without fluff.'
+        },
+        content: {
+            personalInfo: {
+                name: 'Riley Chen',
+                email: 'riley.chen@email.com',
+                phone: '+1-604-555-0201',
+                location: 'Vancouver, BC',
+                linkedin: 'linkedin.com/in/rileychen-fs',
+                github: 'github.com/rileychen'
+            },
+            summary: 'Full-stack engineer shipping TypeScript end-to-end: Next.js (App Router), React Server Components where they cut TTFB, tRPC/REST boundaries, and PostgreSQL/Redis. Improved Core Web Vitals (LCP −35%) on marketing + app surfaces and standardized design tokens + a11y lint rules across 4 product squads.',
+            guidanceNotes: {
+                summary: 'Pair framework buzz with measurable UX/perf and release cadence.',
+                experience: 'Call out caching layers, streaming, auth patterns, and how you reviewed AI-generated PRs safely.',
+                projects: 'One SSR/edge story + one data/API correctness story beats a long tool list.'
+            },
+            skills: [
+                { category: 'Frontend', items: ['Next.js', 'React', 'TypeScript', 'Tailwind', 'TanStack Query', 'a11y (axe)'] },
+                { category: 'Backend & data', items: ['Node.js', 'tRPC/REST', 'PostgreSQL', 'Prisma/Drizzle', 'Redis', 'Zod'] },
+                { category: 'Delivery', items: ['Vercel/edge', 'GitHub Actions', 'Playwright', 'OpenTelemetry', 'Feature flags'] }
+            ],
+            experience: [{
+                title: 'Full Stack Engineer',
+                company: 'Northwind Labs',
+                location: 'Remote (NA)',
+                startDate: 'March 2022',
+                endDate: 'Present',
+                bullets: [
+                    'Led migration of customer dashboard to App Router + streaming; LCP 4.1s → 1.9s on 3G-throttled profiles',
+                    'Introduced contract-first APIs with Zod + generated clients; cut integration defects 31% quarter over quarter',
+                    'Partnered with design on tokenized UI; reduced duplicate components 40% and sped up build times via Turbopack'
+                ]
+            }],
+            projects: [{
+                name: 'Edge auth + partial prerendering',
+                description: 'Session refresh at the edge with secure cookies; PPR for marketing pages while keeping app routes dynamic.',
+                technologies: ['Next.js', 'Redis', 'PostgreSQL', 'Playwright']
+            }],
+            education: [{
+                degree: 'B.S. Computer Science',
+                school: 'UBC',
+                location: 'Vancouver, BC',
+                graduationDate: '2020'
+            }],
+            certifications: []
+        }
+    },
+    {
+        metadata: {
+            template_id: 'de-mid-001',
+            role: 'DevOps Engineer',
+            experience_level: 'Mid',
+            ats_success_rate: 0.93,
+            template_name: 'DevOps / Platform — Kubernetes, GitOps & FinOps',
+            ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
+            description: 'Platform roles want GitOps, progressive delivery, and cost guardrails — not just “I used Jenkins once”.'
+        },
+        content: {
+            personalInfo: {
+                name: 'Morgan Singh',
+                email: 'morgan.singh@email.com',
+                phone: '+1-416-555-0188',
+                location: 'Toronto, ON',
+                linkedin: 'linkedin.com/in/morgansingh-devops',
+                github: 'github.com/msingh'
+            },
+            summary: 'DevOps engineer owning Kubernetes clusters (EKS), GitOps with Argo CD, and Terraform modules used by 25+ services. Cut non-prod cloud spend 19% with rightsizing + schedule policies while keeping deploy frequency flat. Drove SLO-based alerting and runbooks that reduced noisy pages 55%.',
+            guidanceNotes: {
+                summary: 'Tie infra work to deploy risk, cost, and incident noise — hiring managers scan for that.',
+                experience: 'Quantify cluster count, blast radius reductions, and MTTR/MTTD improvements.',
+                skills: 'Prefer IaC + policy-as-code (OPA/Kyverno) over vague “Kubernetes expert”.'
+            },
+            skills: [
+                { category: 'Kubernetes & delivery', items: ['EKS', 'Argo CD', 'Helm', 'Kustomize', 'Progressive delivery', 'Canary analysis'] },
+                { category: 'IaC & security', items: ['Terraform', 'OPA/Gatekeeper', 'OIDC federation', 'Secrets (Vault/SM)', 'SBOM in CI'] },
+                { category: 'Observability', items: ['Prometheus', 'Grafana', 'Loki', 'OpenTelemetry', 'SLO burn alerts'] }
+            ],
+            experience: [{
+                title: 'DevOps Engineer',
+                company: 'Cirrus Payments',
+                location: 'Toronto, ON',
+                startDate: 'January 2021',
+                endDate: 'Present',
+                bullets: [
+                    'Built reusable Terraform stacks for multi-account AWS; onboarding new service teams from 3 days to ~4 hours',
+                    'Implemented Argo Rollouts with automated analysis; cut failed prod releases caught post-deploy by 60%',
+                    'Championed FinOps dashboards + budget alarms; reclaimed idle preview envs saving ~$9K/month'
+                ]
+            }],
+            projects: [{
+                name: 'Cluster hardening baseline',
+                description: 'Kyverno policies + Falco sidecars + image signing checklist rolled out to 8 clusters.',
+                technologies: ['Kubernetes', 'Kyverno', 'Cosign', 'Terraform']
+            }],
+            education: [{
+                degree: 'B.Eng. Software Engineering',
+                school: 'University of Waterloo',
+                location: 'Waterloo, ON',
+                graduationDate: '2019'
+            }],
+            certifications: ['CKA']
+        }
+    },
+    {
+        metadata: {
+            template_id: 'be-senior-001',
+            role: 'Backend Developer',
+            experience_level: 'Senior',
+            ats_success_rate: 0.95,
+            template_name: 'Backend — Event-Driven & High-Throughput APIs',
+            ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
+            description: 'Kafka/outbox patterns, idempotency, and backpressure — common asks for senior backend loops in 2025–2026.'
+        },
+        content: {
+            personalInfo: {
+                name: 'Elena Vasquez',
+                email: 'elena.vasquez@email.com',
+                phone: '+1-512-555-0604',
+                location: 'Austin, TX',
+                linkedin: 'linkedin.com/in/elenavasquez-backend',
+                github: 'github.com/evasquez'
+            },
+            summary: 'Senior backend engineer focused on event-driven systems and correctness under load. Owned billing pipeline processing 40M+ events/day on Kafka with outbox + idempotent consumers; eliminated duplicate charges and held p99 under 400ms during peak. Strong in Java/Spring and Go for services, plus PostgreSQL tuning.',
+            guidanceNotes: {
+                summary: 'Lead with throughput, consistency model, and failure modes you engineered for.',
+                experience: 'Mention exactly-once vs at-least-once honestly; hiring staff values precision.',
+                skills: 'Kafka without consumer group/lag story is weak — add one.'
+            },
+            skills: [
+                { category: 'Languages & frameworks', items: ['Java', 'Spring Boot', 'Go', 'gRPC', 'JUnit', 'Testcontainers'] },
+                { category: 'Data & messaging', items: ['Kafka', 'PostgreSQL', 'Debezium', 'Redis', 'Outbox pattern'] },
+                { category: 'Reliability', items: ['Backpressure', 'Circuit breakers', 'Load shedding', 'Chaos drills', 'SLOs'] }
+            ],
+            experience: [{
+                title: 'Senior Backend Engineer',
+                company: 'Orbit Commerce',
+                location: 'Austin, TX',
+                startDate: 'February 2019',
+                endDate: 'Present',
+                bullets: [
+                    'Redesigned order capture with saga + outbox; reduced cross-service inconsistencies from ~0.8% to <0.02% of orders',
+                    'Cut Kafka consumer lag spikes with partition rebalancing playbook and autoscaling hooks tied to lag metrics',
+                    'Mentored 4 engineers on distributed tracing and tail-based sampling; shaved median incident triage 28%'
+                ]
+            }],
+            projects: [{
+                name: 'Replayable event journal',
+                description: 'Compacted topic + deterministic replay tooling for support engineers to rebuild account state safely.',
+                technologies: ['Kafka', 'Go', 'PostgreSQL']
+            }],
+            education: [{
+                degree: 'M.S. Computer Science',
+                school: 'UT Austin',
+                location: 'Austin, TX',
+                graduationDate: '2018'
+            }],
+            certifications: []
+        }
+    },
+    {
+        metadata: {
+            template_id: 'fe-mid-001',
+            role: 'Frontend Developer',
+            experience_level: 'Mid',
+            ats_success_rate: 0.93,
+            template_name: 'Frontend — Performance, a11y & Design Systems',
+            ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
+            description: 'Hiring loops still reward measurable UX: INP/LCP, bundle budgets, and accessible component libraries.'
+        },
+        content: {
+            personalInfo: {
+                name: 'Noah Williams',
+                email: 'noah.williams@email.com',
+                phone: '+1-303-555-0140',
+                location: 'Denver, CO',
+                linkedin: 'linkedin.com/in/noahwilliams-fe',
+                github: 'github.com/noahwfe'
+            },
+            summary: 'Frontend engineer (4 years) specializing in performance and accessibility for dense SaaS tables and dashboards. Dropped INP on primary grid from 480ms to 120ms via virtualization, scheduler tweaks, and deferring non-critical work. Co-maintained company design system (React + Storybook) used by 12 teams.',
+            guidanceNotes: {
+                summary: 'Put Web Vitals numbers in the first screen of content when possible.',
+                experience: 'Show how you profiled (React Profiler, Lighthouse traces) and what you changed in code.',
+                skills: 'List a11y patterns (focus management, live regions) if you truly shipped them.'
+            },
+            skills: [
+                { category: 'UI engineering', items: ['React', 'TypeScript', 'TanStack Virtual', 'Storybook', 'CSS modules', 'Radix UI'] },
+                { category: 'Quality', items: ['axe-core', 'jest-axe', 'Playwright', 'Visual regression', 'Bundle analysis'] },
+                { category: 'Perf', items: ['INP/LCP budgets', 'Code splitting', 'Prefetch discipline', 'Service worker caching'] }
+            ],
+            experience: [{
+                title: 'Frontend Engineer',
+                company: 'Atlas Analytics',
+                location: 'Denver, CO',
+                startDate: 'May 2021',
+                endDate: 'Present',
+                bullets: [
+                    'Virtualized 10K-row tables + sticky headers; scroll jank tickets −70% in two releases',
+                    'Added interactionId polyfill path + long-animation-frame logging; caught 3 regressions pre-prod',
+                    'Shipped keyboard-first flows for bulk actions; WCAG audit issues on billing module from 38 → 6'
+                ]
+            }],
+            projects: [{
+                name: 'Design token CI',
+                description: 'Style-dictionary pipeline + Chromatic checks blocking token drift across packages.',
+                technologies: ['React', 'Storybook', 'GitHub Actions']
+            }],
+            education: [{
+                degree: 'B.A. Digital Media',
+                school: 'CU Boulder',
+                location: 'Boulder, CO',
+                graduationDate: '2021'
+            }],
+            certifications: []
+        }
+    },
+    {
+        metadata: {
+            template_id: 'mle-mid-001',
+            role: 'Machine Learning Engineer',
+            experience_level: 'Mid',
+            ats_success_rate: 0.92,
+            template_name: 'MLE — Training Pipelines, Evals & Model Serving',
+            ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
+            description: 'Distinct from pure DS: shipping training jobs, registries, and low-latency inference with observability.'
+        },
+        content: {
+            personalInfo: {
+                name: 'Priya Natarajan',
+                email: 'priya.natarajan@email.com',
+                phone: '+1-650-555-0229',
+                location: 'Mountain View, CA',
+                linkedin: 'linkedin.com/in/priyanatarajan-ml',
+                github: 'github.com/pnatarajan'
+            },
+            summary: 'Machine learning engineer bridging research prototypes and production. Built Airflow + GPU training pipelines with data versioning (DVC), offline/online metric parity checks, and TorchServe endpoints behind autoscaling with p99 latency SLOs. Shipped ranking model refresh reducing false positives 12% without regressing CTR.',
+            guidanceNotes: {
+                summary: 'Separate offline metrics from live A/B outcomes you can name.',
+                experience: 'Include serving footprint: QPS, batch vs real-time, and rollback strategy.',
+                skills: 'Mention feature store only if usage is credible; otherwise stick to warehouse + cache patterns.'
+            },
+            skills: [
+                { category: 'ML core', items: ['PyTorch', 'scikit-learn', 'XGBoost', 'Ray Tune', 'Weights & Biases'] },
+                { category: 'Pipelines', items: ['Airflow', 'Spark', 'DVC', 'Great Expectations', 'Feature pipelines'] },
+                { category: 'Serving', items: ['TorchServe', 'Triton', 'gRPC', 'Kubernetes', 'Prometheus', 'Model registry'] }
+            ],
+            experience: [{
+                title: 'Machine Learning Engineer',
+                company: 'SignalRank',
+                location: 'Mountain View, CA',
+                startDate: 'June 2021',
+                endDate: 'Present',
+                bullets: [
+                    'Owned retraining DAG with drift monitors; cut stale-model incidents from ~6/quarter to 1',
+                    'Implemented shadow traffic for new rankers; caught calibration issue before 100% rollout',
+                    'Reduced GPU waste 24% with mixed-precision defaults + spot-friendly checkpointing'
+                ]
+            }],
+            projects: [{
+                name: 'Latency budget guard',
+                description: 'Synthetic load + percentile alerts on inference pods tied to HPA and circuit-breaking clients.',
+                technologies: ['Kubernetes', 'Prometheus', 'Python', 'TorchServe']
+            }],
+            education: [{
+                degree: 'M.S. Machine Learning',
+                school: 'Georgia Tech',
+                location: 'Atlanta, GA',
+                graduationDate: '2021'
+            }],
+            certifications: []
+        }
     }
 ];
 
