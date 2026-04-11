@@ -57,7 +57,7 @@
 }
 
 @layer base {
-  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
 
   * {
     @apply border-border-subtle;
@@ -226,6 +226,23 @@
 
   .mobile-tab-label {
     @apply text-[9px] font-black uppercase tracking-wider;
+  }
+
+  /* ── TekkDevv Branding ── */
+  .glass-pill {
+    @apply inline-flex items-center justify-center font-black uppercase tracking-widest text-white/50 border border-white/10 rounded-full backdrop-blur-md transition-all duration-300;
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .glass-pill:hover {
+    @apply border-white/20 text-white/80;
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateY(-1px);
+  }
+
+  .display-heading {
+    @apply font-black leading-tight tracking-tighter;
+    font-family: 'Instrument Serif', serif;
   }
 
   /* ── Mobile Utilities ── */

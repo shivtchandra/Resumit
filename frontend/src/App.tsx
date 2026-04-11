@@ -10,6 +10,8 @@ import { TermsPage } from './pages/TermsPage';
 import { ComingSoon } from './pages/ComingSoon';
 import { OptimizationHub } from './pages/OptimizationHub';
 
+import { TekDevBadge } from './components/ui/Branding';
+
 function App() {
     return (
         <ErrorBoundary>
@@ -29,6 +31,7 @@ function App() {
                     <Route path="/editor" element={<TemplateEditor />} />
                     <Route path="/coming-soon" element={<ComingSoon />} />
                 </Routes>
+                <TekDevBadge fixed />
             </BrowserRouter>
         </ErrorBoundary>
     );

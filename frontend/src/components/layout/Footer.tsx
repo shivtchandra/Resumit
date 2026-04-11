@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { Github, Linkedin, Mail } from 'lucide-react';
 import { MaterialIcon } from '../ui/MaterialIcon';
 
+import { TekDevBadge } from '../ui/Branding';
+
 export const Footer = () => {
     const year = new Date().getFullYear();
 
@@ -53,8 +55,6 @@ export const Footer = () => {
                         <ul className="space-y-3">
                             <li><Link to="/analysis" className="text-sm text-text-muted hover:text-brand-primary no-underline font-medium transition-colors">Resume Analysis</Link></li>
                             <li><Link to="/templates" className="text-sm text-text-muted hover:text-brand-primary no-underline font-medium transition-colors">ATS Templates</Link></li>
-                            {/* <li><Link to="/resume-fix-lab" className="text-sm text-text-muted hover:text-brand-primary no-underline font-medium transition-colors">Match & Fix</Link></li> */}
-                            {/* <li><Link to="/github" className="text-sm text-text-muted hover:text-brand-primary no-underline font-medium transition-colors">GitHub Audit</Link></li> */}
                         </ul>
                     </div>
 
@@ -62,7 +62,6 @@ export const Footer = () => {
                     <div>
                         <h4 className="text-xs font-black tracking-widest text-brand-secondary uppercase mb-5">Support</h4>
                         <ul className="space-y-3">
-                            {/* <li><Link to="/pricing" className="text-sm text-text-muted hover:text-brand-primary no-underline font-medium transition-colors">Pricing</Link></li> */}
                             <li><a href="https://resumit.onrender.com/docs" target="_blank" rel="noreferrer" className="text-sm text-text-muted hover:text-brand-primary no-underline font-medium transition-colors">Docs</a></li>
                             <li><a href="mailto:shivachandra9490@gmail.com" className="text-sm text-text-muted hover:text-brand-primary no-underline font-medium transition-colors">Contact</a></li>
                         </ul>
@@ -82,3 +81,4 @@ export const Footer = () => {
         </footer>
     );
 };
+
