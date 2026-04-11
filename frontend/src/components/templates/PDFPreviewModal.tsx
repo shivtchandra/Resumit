@@ -11,6 +11,67 @@ interface PDFPreviewModalProps {
     onClose: () => void;
 }
 
+/** Clone resume node off-screen so Framer Motion / scroll parents do not distort html2canvas bounds. */
+function cloneResumeNodeForCapture(source: HTMLElement): { clone: HTMLElement; cleanup: () => void } {
+    const clone = source.cloneNode(true) as HTMLElement;
+    const w = Math.ceil(source.getBoundingClientRect().width);
+    clone.style.boxSizing = 'border-box';
+    clone.style.position = 'fixed';
+    clone.style.left = '-10000px';
+    clone.style.top = '0';
+    clone.style.zIndex = '0';
+    clone.style.pointerEvents = 'none';
+    clone.style.width = `${w}px`;
+    clone.style.height = 'auto';
+    clone.style.maxHeight = 'none';
+    clone.style.overflow = 'visible';
+    clone.style.transform = 'none';
+    clone.style.margin = '0';
+    document.body.appendChild(clone);
+    return {
+        clone,
+        cleanup: () => {
+            clone.remove();
+        },
+    };
+}
+
+/** Build PDF from one tall canvas by slicing into A4-height strips (avoids float drift + phantom pages). */
+function appendCanvasSlicedToPdf(
+    pdf: import('jspdf').jsPDF,
+    fullCanvas: HTMLCanvasElement,
+    pageWidthMm: number,
+    pageHeightMm: number
+): void {
+    const imgWidthMm = pageWidthMm;
+    const imgHeightMm = (fullCanvas.height * imgWidthMm) / fullCanvas.width;
+    const pxPerMm = fullCanvas.width / imgWidthMm;
+    const pageHeightPx = pageHeightMm * pxPerMm;
+    const totalPages = Math.max(1, Math.ceil(fullCanvas.height / pageHeightPx - 1e-6));
+
+    for (let p = 0; p < totalPages; p++) {
+        if (p > 0) {
+            pdf.addPage();
+        }
+        const sy = Math.round(p * pageHeightPx);
+        const sh = Math.min(Math.round(pageHeightPx), fullCanvas.height - sy);
+        if (sh <= 0) break;
+
+        const slice = document.createElement('canvas');
+        slice.width = fullCanvas.width;
+        slice.height = sh;
+        const ctx = slice.getContext('2d');
+        if (!ctx) continue;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, slice.width, slice.height);
+        ctx.drawImage(fullCanvas, 0, sy, fullCanvas.width, sh, 0, 0, fullCanvas.width, sh);
+
+        const sliceMmH = (sh * imgWidthMm) / fullCanvas.width;
+        const data = slice.toDataURL('image/png');
+        pdf.addImage(data, 'PNG', 0, 0, imgWidthMm, sliceMmH);
+    }
+}
+
 export const PDFPreviewModal = ({ template, onClose }: PDFPreviewModalProps) => {
     const { content, metadata } = template;
     const [isDownloading, setIsDownloading] = useState(false);
@@ -24,43 +85,39 @@ export const PDFPreviewModal = ({ template, onClose }: PDFPreviewModalProps) => 
         if (!element) return;
 
         setIsDownloading(true);
+        const { clone, cleanup } = cloneResumeNodeForCapture(element);
         try {
-            const canvas = await html2canvas(element, {
+            const canvas = await html2canvas(clone, {
                 scale: 2,
                 useCORS: true,
                 logging: false,
                 backgroundColor: '#ffffff',
+                onclone: (clonedDoc) => {
+                    const s = clonedDoc.createElement('style');
+                    s.textContent = `
+                        *, *::before, *::after {
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                        }
+                    `;
+                    clonedDoc.head.appendChild(s);
+                },
             });
 
-            const imgData = canvas.toDataURL('image/png');
             const pdf = new jsPDF({
                 orientation: 'portrait',
                 unit: 'mm',
                 format: 'a4',
             });
-
             const pageWidth = pdf.internal.pageSize.getWidth();
             const pageHeight = pdf.internal.pageSize.getHeight();
-            const imgWidth = pageWidth;
-            const imgHeight = (canvas.height * imgWidth) / canvas.width;
-            let position = 0;
-
-            // First page: full raster; only the top `pageHeight` mm is visible on paper.
-            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-            let heightLeft = imgHeight - pageHeight;
-
-            // Continuation pages: shift image up. Use `>` not `>=` so we do not add a blank page when content ends exactly at a page boundary.
-            while (heightLeft > 0) {
-                position = heightLeft - imgHeight;
-                pdf.addPage();
-                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
-            }
+            appendCanvasSlicedToPdf(pdf, canvas, pageWidth, pageHeight);
 
             pdf.save(`${metadata.template_name.replace(/\s+/g, '_')}_Resume.pdf`);
         } catch (error) {
             console.error('PDF generation failed:', error);
         } finally {
+            cleanup();
             setIsDownloading(false);
         }
     };
