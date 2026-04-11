@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { CheckCircle } from 'lucide-react';
-import { rewriteWithBrutalFeedback } from '@/services/api';
-import type { BrutalRewriteResult } from '@/types';
-import { BrutalFitReview } from './BrutalFitReview';
+import { rewriteWithMatchFixStream } from '@/services/api';
+import type { MatchFixResult } from '@/types';
 import { AlignmentScoreCard } from './AlignmentScoreCard';
 import { OptimizationSetupConsole } from '../tactical/OptimizationSetupConsole';
 import { MaterialIcon } from '../ui/MaterialIcon';
-import { InterviewCoach } from './InterviewCoach';
+import { MatchFixReportView } from './MatchFixReportView';
 
 const SESSION_FORM_KEY = 'resumit_matchfix_form';
 
@@ -20,9 +19,10 @@ export const FullRewrite = () => {
     })();
 
     const [jobDescription, setJobDescription] = useState(savedForm?.jobDescription || '');
+    const [jdInputMode, setJdInputMode] = useState<'paste' | 'url'>(savedForm?.jdInputMode === 'url' ? 'url' : 'paste');
     const [companyName, setCompanyName] = useState(savedForm?.companyName || '');
     const [isRewriting, setIsRewriting] = useState(false);
-    const [brutalResult, setBrutalResult] = useState<BrutalRewriteResult | null>(null);
+    const [matchFixResult, setMatchFixResult] = useState<MatchFixResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [targetRole, setTargetRole] = useState(savedForm?.targetRole || 'software-engineer');
     const rewriteAbortRef = useRef<AbortController | null>(null);
@@ -34,34 +34,45 @@ export const FullRewrite = () => {
     useEffect(() => {
         try {
             sessionStorage.setItem(SESSION_FORM_KEY, JSON.stringify({
-                jobDescription, companyName, targetRole
+                jobDescription, companyName, targetRole, jdInputMode
             }));
         } catch { /* ignore */ }
-    }, [jobDescription, companyName, targetRole]);
+    }, [jobDescription, companyName, targetRole, jdInputMode]);
 
     const clearSession = useCallback(() => {
-        setBrutalResult(null);
+        setMatchFixResult(null);
     }, []);
 
     const handleRewrite = async (file: File) => {
-        if (!file || !jobDescription.trim()) return;
+        if (!file) return;
+        if (jdInputMode === 'url') {
+            try {
+                const u = new URL(jobDescription.trim());
+                if (u.protocol !== 'http:' && u.protocol !== 'https:') return;
+            } catch {
+                return;
+            }
+        } else if (!jobDescription.trim()) {
+            return;
+        }
         rewriteAbortRef.current?.abort();
         const controller = new AbortController();
         rewriteAbortRef.current = controller;
         cancelRequestedRef.current = false;
         setIsRewriting(true);
         setError(null);
-        setBrutalResult(null);
+        setMatchFixResult(null);
 
         try {
-            const response = await rewriteWithBrutalFeedback(
+            const response = await rewriteWithMatchFixStream(
                 file,
                 jobDescription,
+                targetRole,
                 companyName.trim() || undefined,
                 'anonymous',
                 controller.signal
             );
-            setBrutalResult(response);
+            setMatchFixResult(response);
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Failed to analyze resume';
             if (cancelRequestedRef.current || /canceled/i.test(message)) {
@@ -85,7 +96,13 @@ export const FullRewrite = () => {
     }, []);
 
     // Render results view
-    if (brutalResult) {
+    if (matchFixResult) {
+        const report = matchFixResult.report;
+        const alignment = matchFixResult.alignment_score ?? report.overview.fit_score_estimate ?? 0;
+        const ats = matchFixResult.ats_score ?? alignment;
+        const matchedKeywords = report.keyword_map?.present_in_resume || matchFixResult.matched_keywords || [];
+        const missingKeywords = report.keyword_map?.missing_from_resume || matchFixResult.missing_keywords || [];
+
         return (
             <div className="max-w-5xl mx-auto space-y-12 pb-20">
                 {/* Hero Success State */}
@@ -99,9 +116,9 @@ export const FullRewrite = () => {
                         We've recalibrated your resume for the <span className="text-brand-primary font-bold">{companyName || 'target'}</span> {targetRole.replace('-', ' ')} role.
                     </p>
 
-                    {brutalResult.warnings && brutalResult.warnings.length > 0 && (
+                    {report.overview.biggest_blockers?.length > 0 && (
                         <div className="grid gap-1 p-3 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 text-sm font-semibold mb-4 text-left">
-                            {brutalResult.warnings.map((warning, idx) => (
+                            {report.overview.biggest_blockers.map((warning, idx) => (
                                 <div key={idx} className="flex gap-2 items-start">
                                     <span className="text-amber-500">•</span> {warning}
                                 </div>
@@ -121,40 +138,22 @@ export const FullRewrite = () => {
                         <h2 className="text-sm font-black text-brand-secondary tracking-widest uppercase">JD Alignment & ATS Score</h2>
                     </div>
                     <AlignmentScoreCard
-                        alignmentScore={brutalResult.alignment_score ?? 0}
-                        atsScore={brutalResult.ats_score ?? 0}
-                        matchedKeywords={brutalResult.matched_keywords ?? []}
-                        missingKeywords={brutalResult.missing_keywords ?? []}
+                        alignmentScore={alignment}
+                        atsScore={ats}
+                        matchedKeywords={matchedKeywords}
+                        missingKeywords={missingKeywords}
                         companyName={companyName || undefined}
                     />
                 </div>
 
-                {/* The Brutal Fit Review */}
+                {/* Match & Fix Report */}
                 <div className="space-y-4">
                     <div className="flex items-center gap-3 ml-2">
                         <div className="w-8 h-8 rounded-lg bg-brand-primary/10 text-brand-primary flex items-center justify-center font-black">2</div>
-                        <h2 className="text-sm font-black text-brand-secondary tracking-widest uppercase">Brutal Alignment Feedback</h2>
+                        <h2 className="text-sm font-black text-brand-secondary tracking-widest uppercase">Match & Fix Report</h2>
                     </div>
-                    <BrutalFitReview
-                        companyExpectations={brutalResult.company_expectations}
-                        harshReview={brutalResult.harsh_review}
-                    />
+                    <MatchFixReportView result={matchFixResult} />
                 </div>
-
-                {/* The Interview Coach */}
-                {brutalResult.interview_prep && (
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3 ml-2">
-                            <div className="w-8 h-8 rounded-lg bg-brand-primary/10 text-brand-primary flex items-center justify-center font-black">3</div>
-                            <h2 className="text-sm font-black text-brand-secondary tracking-widest uppercase">Tactical Interview Drill</h2>
-                        </div>
-                        <InterviewCoach
-                            interviewPrep={brutalResult.interview_prep}
-                            targetRole={targetRole}
-                            jobDescription={jobDescription}
-                        />
-                    </div>
-                )}
             </div>
         );
     }
@@ -172,12 +171,14 @@ export const FullRewrite = () => {
                 onStartFix={handleRewrite}
                 isFixing={isRewriting}
                 onJdChange={setJobDescription}
+                onJdInputModeChange={setJdInputMode}
                 onRoleChange={setTargetRole}
                 onCompanyChange={setCompanyName}
                 initialData={{
                     targetRole,
                     companyName,
-                    jobDescription
+                    jobDescription,
+                    jdInputMode
                 }}
             />
         </div>

@@ -72,6 +72,9 @@ The API will be available at `http://localhost:8000`
 - `POST /api/v1/rewrite/section` - AI-powered section rewrite
   - Body: `{section, content, job_description, ats_rules}`
   - Returns: original, rewritten, improvements
+- `POST /api/v1/rewrite/match-fix` - Structured JD-vs-resume fit report (OpenAI)
+  - Upload resume + job description
+  - Returns: JD requirements, matches, misses, resume changes, project/cert suggestions, action plan
 
 ### Health
 - `GET /health` - Health check
@@ -99,6 +102,15 @@ curl -X POST http://localhost:8000/api/v1/rewrite/section \
     "content": "Experienced software engineer...",
     "job_description": "Looking for Python developer..."
   }'
+```
+
+### Test Match & Fix Endpoint
+```bash
+curl -X POST http://localhost:8000/api/v1/rewrite/match-fix \
+  -F "file=@test_resume.pdf" \
+  -F "job_description=Looking for a backend engineer with Python, FastAPI, AWS, and CI/CD." \
+  -F "target_role=backend engineer" \
+  -F "company_name=Acme"
 ```
 
 ## Architecture

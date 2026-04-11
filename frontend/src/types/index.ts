@@ -422,3 +422,166 @@ export interface InterviewAnswerScoreResult {
     improved_answer: string;
     evaluation_mode: 'ai' | 'heuristic' | string;
 }
+
+export interface MatchFixOverview {
+    fit_score_estimate: number;
+    fit_summary: string;
+    biggest_blockers: string[];
+}
+
+export interface MatchFixRequirement {
+    id: string;
+    requirement: string;
+    priority: 'must_have' | 'important' | 'nice_to_have' | string;
+    jd_evidence: string;
+}
+
+export interface MatchFixMatch {
+    requirement_id: string;
+    requirement: string;
+    resume_evidence: string;
+    why_it_matches: string;
+    confidence: 'high' | 'medium' | 'low' | string;
+}
+
+export interface MatchFixMiss {
+    requirement_id: string;
+    requirement: string;
+    gap_type: 'missing' | 'weak_evidence' | 'keyword_missing' | string;
+    what_is_missing: string;
+    where_to_fix: string;
+    proof_to_add: string;
+}
+
+export interface MatchFixResumeChange {
+    section: string;
+    current_line: string;
+    recommended_change: string;
+    jd_signal: string;
+    reason: string;
+}
+
+export interface MatchFixProjectSuggestion {
+    project_name: string;
+    why_this_project: string;
+    skills_proved: string[];
+    scope: 'small' | 'medium' | 'large' | string;
+    deliverables: string[];
+    resume_bullet_example: string;
+    timeline: string;
+}
+
+export interface MatchFixCertificationSuggestion {
+    name: string;
+    provider: string;
+    why_this_person_needs_it: string;
+    gap_it_closes: string;
+    time_to_complete: string;
+    cost_estimate: string;
+    url?: string;
+}
+
+export interface MatchFixActionPlanItem {
+    horizon: '48_hours' | '2_weeks' | '30_days' | string;
+    actions: string[];
+}
+
+export interface MatchFixCompanyInsights {
+    hiring_intensity: 'aggressive' | 'moderate' | 'low' | 'freeze' | 'unknown' | string;
+    hiring_trend: 'increasing' | 'stable' | 'decreasing' | 'unknown' | string;
+    hiring_focus: string[];
+    hiring_style: 'mass' | 'selective' | 'bullseye' | 'unknown' | string;
+    risk_signals: string[];
+    strategy_signal: string;
+    getting_in_difficulty: 'low' | 'medium' | 'high' | 'unknown' | string;
+    hiring_score: number;
+    candidate_advice: string;
+    confidence: 'high' | 'medium' | 'low' | string;
+    note?: string;
+}
+
+export interface MatchFixCoachingTrack {
+    who_for: string;
+    focus: string;
+    next_14_days: string[];
+    next_30_days: string[];
+    portfolio_focus: string[];
+    interview_focus: string[];
+}
+
+export interface InterviewPrepResource {
+    name: string;
+    type: string;
+    what_to_study: string;
+    time_needed: string;
+}
+
+export interface InterviewPrepWeekItem {
+    topic: string;
+    why_this_first: string;
+    resources: InterviewPrepResource[];
+}
+
+export interface InterviewPrepMonthItem {
+    topic: string;
+    why: string;
+    resources: InterviewPrepResource[];
+}
+
+export interface InterviewPrepQuestion {
+    question: string;
+    type: string;
+    why_they_ask_this: string;
+    how_to_prepare: string;
+    prep_resource: string;
+}
+
+export interface InterviewPrepMockPlan {
+    platform: string;
+    schedule: string;
+    focus_areas: string[];
+}
+
+export interface InterviewPrep {
+    estimated_total_prep_time: string;
+    this_week: InterviewPrepWeekItem[];
+    this_month: InterviewPrepMonthItem[];
+    likely_interview_questions: InterviewPrepQuestion[];
+    mock_interview_plan: InterviewPrepMockPlan;
+}
+
+export interface MatchFixReport {
+    overview: MatchFixOverview;
+    jd_requirements: MatchFixRequirement[];
+    matches: MatchFixMatch[];
+    misses: MatchFixMiss[];
+    resume_changes: MatchFixResumeChange[];
+    project_suggestions: MatchFixProjectSuggestion[];
+    certification_suggestions: MatchFixCertificationSuggestion[];
+    keyword_map: {
+        exact_jd_keywords: string[];
+        present_in_resume: string[];
+        missing_from_resume: string[];
+    };
+    company_insights?: MatchFixCompanyInsights;
+    action_plan: MatchFixActionPlanItem[];
+    coaching_tracks: {
+        student_track: MatchFixCoachingTrack;
+        professional_track: MatchFixCoachingTrack;
+    };
+    interview_prep?: InterviewPrep;
+}
+
+export interface MatchFixResult {
+    generation_mode: 'openai' | string;
+    filename: string;
+    target_role?: string;
+    company_name?: string;
+    detected_linkedin_url?: string;
+    detected_github_url?: string;
+    alignment_score?: number;
+    ats_score?: number;
+    matched_keywords?: string[];
+    missing_keywords?: string[];
+    report: MatchFixReport;
+}

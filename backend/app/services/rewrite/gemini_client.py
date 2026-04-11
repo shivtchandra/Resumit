@@ -83,7 +83,7 @@ class GeminiClient:
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY not found in environment variables")
         
-        self.model_name = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp")
+        self.model_name = os.getenv("GEMINI_MODEL", "gemini-3.1-flash")
         self.temperature = float(os.getenv("GEMINI_TEMPERATURE", "0.0"))
         self.model = None
         

@@ -1,10 +1,18 @@
 import axios from 'axios';
-import type { AnalysisResult, BackendAnalysisResponse, FullRewriteResult, BrutalRewriteResult, InterviewAnswerScoreResult } from '../types';
+import type {
+    AnalysisResult,
+    BackendAnalysisResponse,
+    FullRewriteResult,
+    BrutalRewriteResult,
+    InterviewAnswerScoreResult,
+    MatchFixReport,
+    MatchFixResult,
+} from '../types';
 
 const PROD_FALLBACK_API_BASE_URL = 'https://resume-backend.onrender.com';
 const DEFAULT_API_BASE_URL = import.meta.env.DEV ? 'http://localhost:8000' : PROD_FALLBACK_API_BASE_URL;
 const RAW_API_BASE_URL = (import.meta.env.VITE_API_URL || DEFAULT_API_BASE_URL).trim();
-const API_BASE_URL = RAW_API_BASE_URL ? RAW_API_BASE_URL.replace(/\/api\/v1\/?$/, '') : '';
+export const API_BASE_URL = RAW_API_BASE_URL ? RAW_API_BASE_URL.replace(/\/api\/v1\/?$/, '') : '';
 
 export const api = axios.create({
     baseURL: API_BASE_URL,
@@ -472,6 +480,128 @@ export const rewriteWithBrutalFeedback = async (
         signal,
     });
     return response.data;
+};
+
+export const rewriteWithMatchFix = async (
+    file: File,
+    jobDescription: string,
+    targetRole: string,
+    companyName?: string,
+    userId: string = 'anonymous',
+    signal?: AbortSignal
+): Promise<MatchFixResult> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('job_description', jobDescription);
+    if (targetRole) formData.append('target_role', targetRole);
+    if (companyName) formData.append('company_name', companyName);
+    formData.append('user_id', userId);
+
+    const response = await api.post<MatchFixResult>('/api/v1/rewrite/match-fix', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+        // Backend defaults target ~60–90s; keep client aligned so UI fails fast on hung requests.
+        timeout: 100000,
+        signal,
+    });
+    return response.data;
+};
+
+export type MatchFixStreamEvent =
+    | { type: 'start'; model?: string }
+    | { type: 'delta'; text: string }
+    | { type: 'report'; report: MatchFixReport }
+    | { type: 'result'; data: MatchFixResult }
+    | { type: 'error'; message: string };
+
+/** SSE stream: deltas as JSON arrives, then final `result` with full MatchFixResult (includes ATS / alignment). */
+export const rewriteWithMatchFixStream = async (
+    file: File,
+    jobDescription: string,
+    targetRole: string,
+    companyName: string | undefined,
+    userId: string,
+    signal: AbortSignal | undefined,
+    onEvent?: (ev: MatchFixStreamEvent) => void
+): Promise<MatchFixResult> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('job_description', jobDescription);
+    if (targetRole) formData.append('target_role', targetRole);
+    if (companyName) formData.append('company_name', companyName);
+    formData.append('user_id', userId);
+
+    const url = `${API_BASE_URL}/api/v1/rewrite/match-fix/stream`;
+    const res = await fetch(url, { method: 'POST', body: formData, signal });
+    if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(text || `Match & Fix stream failed (${res.status})`);
+    }
+    if (!res.body) {
+        throw new Error('No response body');
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let lastResult: MatchFixResult | null = null;
+
+    const parseSseDataLine = (raw: string): void => {
+        const line = raw.trim();
+        if (!line.startsWith('data:')) return;
+        const payload = line.slice(5).trim();
+        if (!payload) return;
+        let obj: Record<string, unknown>;
+        try {
+            obj = JSON.parse(payload) as Record<string, unknown>;
+        } catch {
+            return;
+        }
+        const t = obj.type as string;
+        if (t === 'start') {
+            onEvent?.({ type: 'start', model: typeof obj.model === 'string' ? obj.model : undefined });
+        } else if (t === 'delta' && typeof obj.text === 'string') {
+            onEvent?.({ type: 'delta', text: obj.text });
+        } else if (t === 'report' && obj.report && typeof obj.report === 'object') {
+            onEvent?.({ type: 'report', report: obj.report as MatchFixReport });
+        } else if (t === 'result' && obj.data && typeof obj.data === 'object') {
+            lastResult = obj.data as MatchFixResult;
+            onEvent?.({ type: 'result', data: lastResult });
+        } else if (t === 'error') {
+            const msg = String(obj.message || 'Unknown error');
+            onEvent?.({ type: 'error', message: msg });
+            throw new Error(msg);
+        }
+    };
+
+    for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        // SSE events separated by blank line
+        for (;;) {
+            const sep = buffer.indexOf('\n\n');
+            if (sep === -1) break;
+            const block = buffer.slice(0, sep);
+            buffer = buffer.slice(sep + 2);
+            const lines = block.split(/\r?\n/);
+            for (const ln of lines) {
+                parseSseDataLine(ln);
+            }
+        }
+    }
+
+    if (buffer.trim()) {
+        for (const ln of buffer.split(/\r?\n/)) {
+            parseSseDataLine(ln);
+        }
+    }
+
+    if (!lastResult) {
+        throw new Error('Stream ended without a result payload');
+    }
+    return lastResult;
 };
 
 // GitHub Analysis API

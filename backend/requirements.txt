@@ -11,6 +11,7 @@ rank_bm25
 python-levenshtein
 google-generativeai
 openai
+httpx
 supabase
 PyGithub
 fpdf2

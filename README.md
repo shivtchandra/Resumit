@@ -171,6 +171,7 @@ Frontend runs at → `http://localhost:5173`
 | `POST` | `/api/v1/rewrite/section` | AI rewrite single section |
 | `POST` | `/api/v1/rewrite/full` | Full resume rewrite |
 | `POST` | `/api/v1/rewrite/brutal` | Harsh-mode full rewrite |
+| `POST` | `/api/v1/rewrite/match-fix` | Structured JD vs resume Match & Fix report |
 | `GET` | `/api/v1/templates/recommend` | Template recommendations |
 | `POST` | `/api/v1/github/analyze` | Rank GitHub repos by role |
 | `POST` | `/api/v1/export/pdf` | Export resume as PDF |

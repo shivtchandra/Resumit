@@ -1,43 +1,62 @@
 import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Scan, CheckCircle2, Loader2, Clock3, Target, Zap, Sparkles, Search, RotateCcw } from 'lucide-react';
+import { Upload, Scan, CheckCircle2, Loader2, Clock3, Target, Sparkles, Search, RotateCcw, Link2, Circle } from 'lucide-react';
 import { MaterialIcon } from '../ui/MaterialIcon';
 import { getJDTemplatesByRole, getJDTemplateById } from '../../data/jdTemplates';
+
+function isSingleHttpUrl(value: string): boolean {
+    try {
+        const u = new URL(value.trim());
+        return (u.protocol === 'http:' || u.protocol === 'https:') && Boolean(u.host);
+    } catch {
+        return false;
+    }
+}
 
 interface OptimizationSetupConsoleProps {
     onStartFix: (file: File) => void;
     isFixing: boolean;
     onJdChange: (jd: string) => void;
+    onJdInputModeChange?: (mode: 'paste' | 'url') => void;
     onRoleChange: (role: string) => void;
     onCompanyChange: (company: string) => void;
     initialData: {
         targetRole: string;
         companyName: string;
         jobDescription: string;
+        jdInputMode?: 'paste' | 'url';
     };
 }
 
-const REWRITE_STAGES = [
-    { minProgress: 0, label: 'PARSE RESUME', hint: 'Reading structure and extracting ATS-visible text.' },
-    { minProgress: 18, label: 'MATCH JD', hint: 'Mapping your content against job requirements.' },
-    { minProgress: 38, label: 'ROAST DIAGNOSTIC', hint: 'Generating blunt strengths, gaps, and fixes.' },
-    { minProgress: 62, label: 'REWRITE PASS', hint: 'Refactoring bullets for impact and truthfulness.' },
-    { minProgress: 84, label: 'INTERVIEW PREP', hint: 'Building likely interview questions and prep plan.' },
-    { minProgress: 94, label: 'FINAL ASSEMBLY', hint: 'Compiling the final report and resume-fix output.' },
+const MATCH_FIX_STAGES = [
+    { minProgress: 0, label: 'READ INPUTS', hint: 'Sending resume + JD to the alignment engine.' },
+    { minProgress: 14, label: 'EXTRACT JD', hint: 'Pulling must-haves, tools, and seniority signals from the posting.' },
+    { minProgress: 32, label: 'READ RESUME', hint: 'Grounding bullets, skills, and proof in your actual text.' },
+    { minProgress: 52, label: 'MATCH & GAP', hint: 'Cross-checking requirements vs evidence line by line.' },
+    { minProgress: 72, label: 'BUILD REPORT', hint: 'Structuring fixes, projects, certs, and interview prep.' },
+    { minProgress: 90, label: 'FINALIZE', hint: 'Scoring ATS / JD fit and assembling the response.' },
 ] as const;
 
 const LIVE_SIGNALS = [
-    'PARSING_LAYOUT',
-    'SCANNING_KEYWORDS',
-    'CALIBRATING_TONE',
-    'SCORING_BULLETS',
-    'BUILDING_REPORT',
+    'ROUTING_MODEL',
+    'TOKENIZING_JD',
+    'CROSSWALKING_SKILLS',
+    'DRAFTING_FIXES',
+    'PACKAGING_REPORT',
 ] as const;
+
+function formatElapsedClock(totalSeconds: number): string {
+    const s = Math.max(0, Math.floor(totalSeconds));
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
+}
 
 export const OptimizationSetupConsole = ({
     onStartFix,
     isFixing,
     onJdChange,
+    onJdInputModeChange,
     onRoleChange,
     onCompanyChange,
     initialData
@@ -61,6 +80,7 @@ export const OptimizationSetupConsole = ({
         const replacement = roleTemplates.find((t) => t.company === current.company);
         if (replacement && replacement.id !== selectedTemplateId) {
             setSelectedTemplateId(replacement.id);
+            onJdInputModeChange?.('paste');
             onJdChange(replacement.jd);
             onCompanyChange(replacement.company);
         } else if (!replacement) {
@@ -69,6 +89,14 @@ export const OptimizationSetupConsole = ({
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialData.targetRole]);
+
+    const jdInputMode = initialData.jdInputMode === 'url' ? 'url' : 'paste';
+    const jdReady =
+        jdInputMode === 'paste'
+            ? initialData.jobDescription.trim().length > 0
+            : isSingleHttpUrl(initialData.jobDescription);
+
+    const canRunMatchFix = Boolean(selectedFile && jdReady && !isFixing);
 
     const handleFileSelect = useCallback((file: File) => {
         const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
@@ -97,7 +125,7 @@ export const OptimizationSetupConsole = ({
         }
     };
 
-    // Simulation logic (mirrored from FullRewrite)
+    // Estimated progress + wall-clock while Match & Fix request is in flight (bar is illustrative, not real JD %).
     useEffect(() => {
         if (!isFixing) {
             setProgress(0);
@@ -107,15 +135,18 @@ export const OptimizationSetupConsole = ({
             return;
         }
 
-        setProgress(4);
+        setProgress(3);
         const startTime = Date.now();
         const interval = setInterval(() => {
             const elapsedFloat = (Date.now() - startTime) / 1000;
             const elapsed = Math.floor(elapsedFloat);
             setElapsedSeconds(elapsed);
 
-            // Smoothly increases toward 99.6 over time without freezing at a fixed value.
-            const dynamicCap = Math.min(99.6, 90 + (9.7 * (1 - Math.exp(-elapsedFloat / 22))));
+            // Synthetic bar tuned for long OpenAI runs (~60–120s): eases toward 99% without sitting at 100% early.
+            const dynamicCap = Math.min(
+                99.2,
+                88 + 10.5 * (1 - Math.exp(-elapsedFloat / 42)) + 2.2 * (1 - Math.exp(-elapsedFloat / 95))
+            );
 
             setProgress((prev) => {
                 const headroom = Math.max(dynamicCap - prev, 0);
@@ -123,17 +154,18 @@ export const OptimizationSetupConsole = ({
                     return Number(dynamicCap.toFixed(1));
                 }
 
-                let step = 0.4;
-                if (prev < 22) step = 2.2 + Math.random() * 1.5;
-                else if (prev < 48) step = 1.3 + Math.random() * 0.9;
-                else if (prev < 76) step = 0.8 + Math.random() * 0.7;
-                else if (prev < 92) step = 0.35 + Math.random() * 0.45;
-                else step = 0.08 + Math.random() * 0.18;
+                let step = 0.35;
+                if (prev < 18) step = 1.8 + Math.random() * 1.2;
+                else if (prev < 40) step = 1.1 + Math.random() * 0.75;
+                else if (prev < 62) step = 0.75 + Math.random() * 0.55;
+                else if (prev < 82) step = 0.4 + Math.random() * 0.4;
+                else if (prev < 94) step = 0.2 + Math.random() * 0.25;
+                else step = 0.06 + Math.random() * 0.12;
 
                 const next = Math.min(dynamicCap, prev + step);
                 return Number(next.toFixed(1));
             });
-        }, 260);
+        }, 200);
 
         const signalInterval = setInterval(() => {
             setSignalCursor((prev) => (prev + 1) % LIVE_SIGNALS.length);
@@ -147,8 +179,8 @@ export const OptimizationSetupConsole = ({
 
     useEffect(() => {
         let stageIndex = 0;
-        for (let idx = 0; idx < REWRITE_STAGES.length; idx += 1) {
-            if (progress >= REWRITE_STAGES[idx].minProgress) {
+        for (let idx = 0; idx < MATCH_FIX_STAGES.length; idx += 1) {
+            if (progress >= MATCH_FIX_STAGES[idx].minProgress) {
                 stageIndex = idx;
             }
         }
@@ -219,11 +251,13 @@ export const OptimizationSetupConsole = ({
                             >
                                 <div className="space-y-4 max-w-lg mx-auto">
                                     <div className="flex justify-between items-center text-[10px] font-black tracking-[0.2em] text-brand-primary">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 tabular-nums">
                                             <Clock3 size={14} />
-                                            ANALYZING {String(elapsedSeconds).padStart(2, '0')}s
+                                            <span>ELAPSED {formatElapsedClock(elapsedSeconds)}</span>
                                         </div>
-                                        <div className="animate-pulse">{LIVE_SIGNALS[signalCursor]}...</div>
+                                        <div className="animate-pulse truncate max-w-[10rem] sm:max-w-none text-right">
+                                            {LIVE_SIGNALS[signalCursor]}…
+                                        </div>
                                     </div>
                                     <div className="h-2 rounded-full bg-slate-100 overflow-hidden relative shadow-inner">
                                         <motion.div
@@ -232,16 +266,23 @@ export const OptimizationSetupConsole = ({
                                             style={{ boxShadow: '0 0 10px var(--brand-primary)' }}
                                         />
                                     </div>
-                                    <div className="text-right text-xs font-black text-brand-secondary">{Math.round(progress)}% ALIGNED</div>
-                                    {elapsedSeconds >= 20 && (
-                                        <div className="text-[10px] text-amber-700 font-bold text-left">
-                                            Deep matching in progress. Comparing skills, tone, and experience gaps...
+                                    <div className="text-right text-xs font-black text-brand-secondary tabular-nums">
+                                        {Math.round(progress)}% EST. PROGRESS
+                                    </div>
+                                    {elapsedSeconds >= 45 && elapsedSeconds < 75 && (
+                                        <div className="text-[10px] text-amber-800/90 font-bold text-left">
+                                            Still working — large reports can take around a minute. Timer keeps counting.
+                                        </div>
+                                    )}
+                                    {elapsedSeconds >= 75 && (
+                                        <div className="text-[10px] text-amber-900 font-bold text-left">
+                                            Almost there. If this exceeds a few minutes, check your connection or try again.
                                         </div>
                                     )}
                                 </div>
 
                                 <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-                                    {REWRITE_STAGES.map((stage, idx) => {
+                                    {MATCH_FIX_STAGES.map((stage, idx) => {
                                         const isComplete = idx < activeStage;
                                         const isActive = idx === activeStage;
                                         return (
@@ -308,12 +349,31 @@ export const OptimizationSetupConsole = ({
 
                         <div className="space-y-6">
                             <div className="space-y-3">
-                                <div className="flex justify-between items-center">
+                                <div className="flex justify-between items-center gap-2 flex-wrap">
                                     <label className="text-[10px] font-black text-brand-primary uppercase tracking-[0.2em] flex items-center gap-2">
                                         <MaterialIcon icon="description" size={14} />
                                         Job Description (COMPULSORY) *
                                     </label>
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <div className="flex rounded-full border border-border-subtle overflow-hidden text-[10px] font-black uppercase">
+                                            <button
+                                                type="button"
+                                                onClick={() => onJdInputModeChange?.('paste')}
+                                                disabled={isFixing}
+                                                className={`px-3 py-1.5 transition-colors ${jdInputMode === 'paste' ? 'bg-brand-primary text-white' : 'bg-bg-surface text-text-muted hover:text-brand-secondary'}`}
+                                            >
+                                                Paste text
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => onJdInputModeChange?.('url')}
+                                                disabled={isFixing}
+                                                className={`px-3 py-1.5 transition-colors flex items-center gap-1 ${jdInputMode === 'url' ? 'bg-brand-primary text-white' : 'bg-bg-surface text-text-muted hover:text-brand-secondary'}`}
+                                            >
+                                                <Link2 size={12} />
+                                                Posting URL
+                                            </button>
+                                        </div>
                                         <select
                                             value={selectedTemplateId}
                                             onChange={(e) => {
@@ -321,6 +381,7 @@ export const OptimizationSetupConsole = ({
                                                 setSelectedTemplateId(id);
                                                 const template = getJDTemplateById(id);
                                                 if (template) {
+                                                    onJdInputModeChange?.('paste');
                                                     onJdChange(template.jd);
                                                     onCompanyChange(template.company);
                                                 } else {
@@ -328,7 +389,7 @@ export const OptimizationSetupConsole = ({
                                                 }
                                             }}
                                             className="text-[10px] font-bold border-none bg-bg-surface px-3 py-1 rounded-full outline-none"
-                                            disabled={isFixing}
+                                            disabled={isFixing || jdInputMode === 'url'}
                                         >
                                             <option value="">JD Template...</option>
                                             {roleTemplates.map(t => (
@@ -349,39 +410,125 @@ export const OptimizationSetupConsole = ({
                                         </button>
                                     </div>
                                 </div>
-                                <textarea
-                                    value={initialData.jobDescription}
-                                    onChange={(e) => onJdChange(e.target.value)}
-                                    placeholder="Paste target JD here for match-up..."
-                                    className="soft-input min-h-[160px] text-sm leading-relaxed p-5"
-                                    disabled={isFixing}
-                                />
+                                {jdInputMode === 'url' ? (
+                                    <div className="space-y-2">
+                                        <input
+                                            type="url"
+                                            inputMode="url"
+                                            value={initialData.jobDescription}
+                                            onChange={(e) => onJdChange(e.target.value)}
+                                            placeholder="https://careers.example.com/jobs/12345"
+                                            className="soft-input text-sm h-12 w-full"
+                                            disabled={isFixing}
+                                            autoComplete="off"
+                                        />
+                                        <p className="text-[10px] text-text-muted leading-relaxed">
+                                            Paste the public link to the posting. The server fetches the page (best with{' '}
+                                            <span className="font-bold text-brand-secondary">FIRECRAWL_API_KEY</span> set); login-only pages need the text pasted instead.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <textarea
+                                        value={initialData.jobDescription}
+                                        onChange={(e) => onJdChange(e.target.value)}
+                                        placeholder="Paste the full job description here, or use Posting URL…"
+                                        className="soft-input min-h-[160px] text-sm leading-relaxed p-5"
+                                        disabled={isFixing}
+                                    />
+                                )}
                             </div>
                         </div>
                     </div>
 
                     <div className="pt-8 border-t border-border-subtle/50">
-                        <div className="p-6 bg-brand-secondary rounded-2xl text-white space-y-4 shadow-lg shadow-brand-secondary/20">
-                            <div className="flex items-center gap-3">
-                                <Sparkles className="text-brand-primary" size={24} />
-                                <div>
-                                    <div className="text-[9px] font-black tracking-widest uppercase text-slate-400">Alignment Protocol Ready</div>
-                                    <div className="text-sm font-black italic">READY_FOR_MATCH_UP</div>
+                        <div className="relative overflow-hidden rounded-2xl border border-border-subtle bg-gradient-to-br from-white via-bg-surface/40 to-brand-primary/[0.04] p-8 shadow-sm">
+                            <div
+                                className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-brand-primary/[0.07] blur-2xl"
+                                aria-hidden
+                            />
+                            <div className="relative space-y-6">
+                                <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+                                    <div className="flex items-start gap-4">
+                                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary ring-1 ring-brand-primary/15">
+                                            <Sparkles size={22} strokeWidth={2} />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-heading text-lg font-bold tracking-tight text-brand-secondary">
+                                                {isFixing ? 'Running alignment…' : 'Run Match & Fix'}
+                                            </h4>
+                                            <p className="mt-1 max-w-xl text-sm leading-relaxed text-text-muted">
+                                                {isFixing
+                                                    ? 'Hold tight — we are scoring your resume against the job and building the report.'
+                                                    : 'Compare your resume to this job, surface gaps, and get concrete edits plus interview prep.'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {canRunMatchFix && (
+                                        <span className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
+                                            <CheckCircle2 size={14} className="text-emerald-600" aria-hidden />
+                                            Ready to go
+                                        </span>
+                                    )}
                                 </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => selectedFile && onStartFix(selectedFile)}
+                                    disabled={!selectedFile || !jdReady || isFixing}
+                                    className={`relative w-full rounded-xl px-5 py-4 text-sm font-semibold tracking-wide shadow-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 ${
+                                        !selectedFile || !jdReady || isFixing
+                                            ? 'cursor-not-allowed border border-slate-200/80 bg-slate-100/90 text-slate-400'
+                                            : 'border border-brand-primary/20 bg-brand-primary text-white shadow-md hover:bg-brand-primary/95 hover:shadow-lg active:scale-[0.99]'
+                                    }`}
+                                >
+                                    <span className="flex items-center justify-center gap-2.5">
+                                        {isFixing ? (
+                                            <Loader2 size={20} className="animate-spin shrink-0" aria-hidden />
+                                        ) : (
+                                            <Scan size={20} className="shrink-0 opacity-95" aria-hidden />
+                                        )}
+                                        {isFixing ? 'Analyzing…' : 'Run Match & Fix'}
+                                    </span>
+                                </button>
+
+                                {!isFixing && (!selectedFile || !jdReady) && (
+                                    <div className="rounded-xl border border-dashed border-border-subtle bg-white/60 px-4 py-4 sm:px-5">
+                                        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-subtle">
+                                            Still needed
+                                        </p>
+                                        <ul className="space-y-2.5 text-sm text-text-secondary">
+                                            <li className="flex items-start gap-3">
+                                                {selectedFile ? (
+                                                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" aria-hidden />
+                                                ) : (
+                                                    <Circle className="mt-0.5 h-5 w-5 shrink-0 text-slate-300" strokeWidth={1.75} aria-hidden />
+                                                )}
+                                                <span>
+                                                    <span className="font-medium text-brand-secondary">Resume</span>
+                                                    <span className="text-text-muted"> — PDF or DOCX from the upload area above.</span>
+                                                </span>
+                                            </li>
+                                            <li className="flex items-start gap-3">
+                                                {jdReady ? (
+                                                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" aria-hidden />
+                                                ) : (
+                                                    <Circle className="mt-0.5 h-5 w-5 shrink-0 text-slate-300" strokeWidth={1.75} aria-hidden />
+                                                )}
+                                                <span>
+                                                    <span className="font-medium text-brand-secondary">
+                                                        {jdInputMode === 'url' ? 'Posting link' : 'Job description'}
+                                                    </span>
+                                                    <span className="text-text-muted">
+                                                        {jdInputMode === 'url'
+                                                            ? ' — Paste a full https:// link to the public listing.'
+                                                            : ' — Paste the listing text (or switch to Posting URL).'}
+                                                    </span>
+                                                </span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                )}
                             </div>
-                            <button
-                                onClick={() => selectedFile && onStartFix(selectedFile)}
-                                disabled={!selectedFile || !initialData.jobDescription.trim() || isFixing}
-                                className={`w-full py-4 rounded-xl flex items-center justify-center gap-3 font-black tracking-widest uppercase transition-all ${(!selectedFile || !initialData.jobDescription.trim()) ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-brand-primary text-white hover:scale-[1.02] active:scale-95 shadow-lg shadow-brand-primary/20'}`}
-                            >
-                                <Scan size={20} />
-                                {isFixing ? 'Analyzing...' : 'Initiate Match & Fix'}
-                            </button>
-                            {(!selectedFile || !initialData.jobDescription.trim()) && (
-                                <div className="text-[10px] text-center text-slate-400 font-medium">
-                                    Please upload a resume and job description to unlock fix protocol.
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>

@@ -3,6 +3,7 @@ AI-powered rewrite endpoint for resume optimization with Gemini
 """
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import os
@@ -10,6 +11,7 @@ import asyncio
 import tempfile
 import logging
 import re
+import json
 from pathlib import Path
 
 # Import services
@@ -22,6 +24,8 @@ from app.services.export.pdf_exporter import PDFExporter
 from app.services.ml.friendliness_classifier import FriendlinessClassifier
 from app.services.ml.visibility_ranker import VisibilityRanker
 from app.services.analysis.comprehensive_analyzer import ComprehensiveAnalyzer
+from app.services.research.reddit_company_evidence import fetch_reddit_company_evidence
+from app.services.research.jd_url_fetch import resolve_job_description_if_url
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +78,12 @@ def get_comprehensive_analyzer():
     if 'comprehensive_analyzer' not in _rewrite_services:
         _rewrite_services['comprehensive_analyzer'] = ComprehensiveAnalyzer()
     return _rewrite_services['comprehensive_analyzer']
+
+def get_openai_client():
+    if 'openai_client' not in _rewrite_services:
+        from app.services.rewrite.openai_client import OpenAIClient
+        _rewrite_services['openai_client'] = OpenAIClient()
+    return _rewrite_services['openai_client']
 
 
 def _normalize_url(url: str) -> str:
@@ -250,6 +260,7 @@ async def rewrite_full(
         Complete rewrite results with before/after scores
     """
     try:
+        job_description = await _resolve_form_job_description(job_description)
         # Read file
         file_bytes = await file.read()
         filename = file.filename
@@ -385,6 +396,8 @@ async def rewrite_full(
         
         return response
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Full rewrite failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Rewrite failed: {str(e)}")
@@ -420,6 +433,7 @@ async def rewrite_with_brutal_feedback(
         Marked-up resume, changes, company expectations, and harsh review
     """
     try:
+        job_description = await _resolve_form_job_description(job_description)
         warnings: List[str] = []
         # Read file
         file_bytes = await file.read()
@@ -507,6 +521,267 @@ async def rewrite_with_brutal_feedback(
             "missing_keywords": missing_keywords,
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Brutal review failed: {e}")
         raise HTTPException(status_code=500, detail=f"Brutal review failed: {str(e)}")
+
+
+async def _resolve_form_job_description(job_description: str) -> str:
+    """
+    Normalize multipart `job_description`: plain text unchanged, or fetch when the field is a single URL.
+    """
+    raw = (job_description or "").strip()
+    if not raw:
+        raise HTTPException(status_code=400, detail="job_description is empty")
+    try:
+        resolved = await run_in_threadpool(resolve_job_description_if_url, raw)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    resolved = (resolved or "").strip()
+    if not resolved:
+        raise HTTPException(status_code=400, detail="job_description is empty after resolving URL")
+    return resolved
+
+
+async def _match_fix_reddit_evidence(
+    company_name: Optional[str], target_role: Optional[str]
+) -> str:
+    """Best-effort Reddit snippets for `company_insights` (empty if disabled or on failure)."""
+    name = (company_name or "").strip()
+    if len(name) < 2:
+        return ""
+    try:
+        return await run_in_threadpool(
+            fetch_reddit_company_evidence,
+            name,
+            (target_role or "").strip(),
+        )
+    except Exception as exc:
+        logger.warning("Match & Fix Reddit evidence skipped: %s", exc)
+        return ""
+
+
+def _match_fix_envelope(
+    *,
+    filename: str,
+    original_text: str,
+    job_description: str,
+    target_role: Optional[str],
+    company_name: Optional[str],
+    parsing_result: Dict[str, Any],
+    detected_profiles: Dict[str, Any],
+    report: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Shared response shape for Match & Fix (sync + stream)."""
+    alignment_score = None
+    ats_score = None
+    missing_keywords: List[str] = []
+    matched_keywords: List[str] = []
+    try:
+        visibility_ranker = get_visibility_ranker()
+        visibility_result = visibility_ranker.rank(original_text, job_description)
+        alignment_score = round(float(visibility_result.get("score", 0) or 0), 1)
+        missing_keywords = visibility_result.get("missing_keywords", [])[:20]
+        if isinstance(visibility_result.get("matched_phrases"), list):
+            matched_keywords = [str(k).strip() for k in visibility_result.get("matched_phrases", []) if str(k).strip()][:20]
+    except Exception as exc:
+        logger.warning("Match & Fix scoring snapshot skipped: %s", exc)
+
+    try:
+        from app.services.features.extractor import FeatureExtractor
+        feature_extractor = FeatureExtractor()
+        features = feature_extractor.extract_features(parsing_result)
+        friendliness_classifier = get_friendliness_classifier()
+        friendliness_result = friendliness_classifier.predict(features)
+        ats_score = round(float(friendliness_result.get("score", 0) or 0), 1)
+    except Exception as exc:
+        logger.warning("Match & Fix ATS snapshot skipped: %s", exc)
+
+    return {
+        "generation_mode": "openai",
+        "filename": filename,
+        "target_role": (target_role or "").strip(),
+        "company_name": (company_name or "").strip(),
+        "detected_linkedin_url": detected_profiles.get("linkedin_url"),
+        "detected_github_url": detected_profiles.get("github_url"),
+        "alignment_score": alignment_score,
+        "ats_score": ats_score,
+        "matched_keywords": matched_keywords,
+        "missing_keywords": missing_keywords,
+        "report": report,
+    }
+
+
+@router.post("/rewrite/match-fix")
+async def rewrite_match_fix(
+    file: UploadFile = File(...),
+    job_description: str = Form(...),
+    target_role: Optional[str] = Form(None),
+    company_name: Optional[str] = Form(None),
+    user_id: str = Form("anonymous"),
+):
+    """
+    Generate structured Match & Fix report using OpenAI.
+
+    Returns:
+      - JD requirements
+      - resume matches
+      - misses/gaps
+      - recommended resume edits
+      - suggested projects/certifications
+      - action plan
+    """
+    try:
+        job_description = await _resolve_form_job_description(job_description)
+        file_bytes = await file.read()
+        filename = file.filename or "resume"
+        lower_name = filename.lower()
+
+        if lower_name.endswith(".pdf"):
+            parser = get_pdf_parser()
+        elif lower_name.endswith(".docx"):
+            parser = get_docx_parser()
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported file type. Please upload PDF or DOCX.")
+
+        parsing_result = parser.parse(file_bytes)
+        original_text = parsing_result.get("raw_text", "")
+        if not original_text:
+            raise HTTPException(status_code=400, detail="Could not extract text from resume")
+
+        extracted_urls = [str(url).strip() for url in (parsing_result.get("extracted_urls") or []) if str(url).strip()]
+        detected_profiles = _extract_profile_urls(original_text, extracted_urls)
+
+        # Ensure this route uses OpenAI (not Gemini fallback).
+        try:
+            ai_client = get_openai_client()
+        except Exception as exc:
+            logger.error("OpenAI Match & Fix unavailable: %s", exc)
+            raise HTTPException(
+                status_code=503,
+                detail="OpenAI is not configured. Set OPENAI_API_KEY and retry.",
+            )
+
+        reddit_evidence = await _match_fix_reddit_evidence(company_name, target_role)
+        report = await run_in_threadpool(
+            ai_client.generate_match_fix_report,
+            original_text,
+            job_description,
+            target_role,
+            company_name,
+            reddit_evidence,
+        )
+
+        return _match_fix_envelope(
+            filename=filename,
+            original_text=original_text,
+            job_description=job_description,
+            target_role=target_role,
+            company_name=company_name,
+            parsing_result=parsing_result,
+            detected_profiles=detected_profiles,
+            report=report,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Match & Fix failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Match & Fix failed: {str(e)}")
+
+
+@router.post("/rewrite/match-fix/stream")
+async def rewrite_match_fix_stream(
+    file: UploadFile = File(...),
+    job_description: str = Form(...),
+    target_role: Optional[str] = Form(None),
+    company_name: Optional[str] = Form(None),
+    user_id: str = Form("anonymous"),
+):
+    """
+    Same inputs as /rewrite/match-fix; streams OpenAI output as SSE (delta tokens),
+    then sends a final `result` event with the full JSON body (report + ATS / alignment).
+    """
+    try:
+        job_description = await _resolve_form_job_description(job_description)
+        file_bytes = await file.read()
+        filename = file.filename or "resume"
+        lower_name = filename.lower()
+
+        if lower_name.endswith(".pdf"):
+            parser = get_pdf_parser()
+        elif lower_name.endswith(".docx"):
+            parser = get_docx_parser()
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported file type. Please upload PDF or DOCX.")
+
+        parsing_result = parser.parse(file_bytes)
+        original_text = parsing_result.get("raw_text", "")
+        if not original_text:
+            raise HTTPException(status_code=400, detail="Could not extract text from resume")
+
+        extracted_urls = [str(url).strip() for url in (parsing_result.get("extracted_urls") or []) if str(url).strip()]
+        detected_profiles = _extract_profile_urls(original_text, extracted_urls)
+
+        try:
+            ai_client = get_openai_client()
+        except Exception as exc:
+            logger.error("OpenAI Match & Fix stream unavailable: %s", exc)
+            raise HTTPException(
+                status_code=503,
+                detail="OpenAI is not configured. Set OPENAI_API_KEY and retry.",
+            )
+
+        reddit_evidence = await _match_fix_reddit_evidence(company_name, target_role)
+
+        def sse_gen():
+            final_report: Optional[Dict[str, Any]] = None
+            try:
+                for line in ai_client.iter_match_fix_sse(
+                    original_text,
+                    job_description,
+                    target_role,
+                    company_name,
+                    reddit_evidence,
+                ):
+                    yield line
+                    if line.startswith("data:"):
+                        try:
+                            obj = json.loads(line[5:].strip())
+                        except json.JSONDecodeError:
+                            continue
+                        if obj.get("type") == "report":
+                            final_report = obj.get("report")
+                if final_report is not None:
+                    envelope = _match_fix_envelope(
+                        filename=filename,
+                        original_text=original_text,
+                        job_description=job_description,
+                        target_role=target_role,
+                        company_name=company_name,
+                        parsing_result=parsing_result,
+                        detected_profiles=detected_profiles,
+                        report=final_report,
+                    )
+                    yield f"data: {json.dumps({'type': 'result', 'data': envelope}, ensure_ascii=False)}\n\n"
+            except Exception as exc:
+                logger.error("Match & Fix stream failed: %s", exc, exc_info=True)
+                yield f"data: {json.dumps({'type': 'error', 'message': str(exc)}, ensure_ascii=False)}\n\n"
+
+        return StreamingResponse(
+            sse_gen(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Match & Fix stream failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Match & Fix stream failed: {str(e)}")

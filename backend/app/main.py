@@ -3,6 +3,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env if present
+env_path = Path(__file__).resolve().parent.parent / '.env'
+load_dotenv(dotenv_path=env_path)
+
 from app.api.v1.endpoints import analyze, rewrite, templates, export, github, settings
 from app.core.supabase_client import get_analysis_count
 
