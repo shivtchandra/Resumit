@@ -275,10 +275,21 @@ export const TemplateEditor = () => {
                         <p className="text-sm text-text-muted">Edit each section below to customize your resume</p>
                     </div>
 
-                    <button onClick={handleDownloadPDF} className="flex items-center justify-center gap-2 w-full py-3.5 px-6 bg-brand-secondary text-white rounded-xl text-base font-bold uppercase tracking-widest mb-8 transition-all hover:bg-slate-800 shadow-lg">
-                        <MaterialIcon icon="download" size={18} />
-                        Download PDF
-                    </button>
+                    <div className="mb-8 space-y-2">
+                        <button
+                            type="button"
+                            onClick={handleDownloadPDF}
+                            className="flex items-center justify-center gap-2 w-full py-3.5 px-6 bg-brand-secondary text-white rounded-xl text-base font-bold uppercase tracking-widest transition-all hover:bg-slate-800 shadow-lg"
+                        >
+                            <MaterialIcon icon="download" size={18} />
+                            Download PDF
+                        </button>
+                        <p className="text-[11px] text-text-subtle leading-snug">
+                            Saves via your browser&apos;s print dialog. If the blue header or accents still look wrong, open{' '}
+                            <strong className="text-text-main">More settings</strong> and turn on{' '}
+                            <strong className="text-text-main">Background graphics</strong>.
+                        </p>
+                    </div>
 
                     {/* Personal Information */}
                     <div className="mb-8 pb-6 border-b border-border-subtle">
@@ -533,16 +544,35 @@ export const TemplateEditor = () => {
 
             <style>{`
                 @media print {
+                    @page {
+                        margin: 12mm;
+                        size: auto;
+                    }
+                    html, body {
+                        height: auto !important;
+                        background: #fff !important;
+                    }
+                    /* Only show the resume; sidebar/nav stay hidden */
                     body * {
                         visibility: hidden;
                     }
-                    #resume-preview, #resume-preview * {
+                    #resume-preview,
+                    #resume-preview * {
                         visibility: visible;
+                        /* Critical: browsers otherwise drop header fills + accent text on Save as PDF */
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                        color-adjust: exact !important;
                     }
                     #resume-preview {
                         position: absolute;
                         left: 0;
                         top: 0;
+                        width: 100%;
+                        max-width: 100% !important;
+                        box-shadow: none !important;
+                        border-radius: 0 !important;
+                        margin: 0 !important;
                     }
                 }
                 button:hover {

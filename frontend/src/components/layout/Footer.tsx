@@ -2,8 +2,6 @@ import { Link } from 'react-router-dom';
 import { Github, Linkedin, Mail } from 'lucide-react';
 import { MaterialIcon } from '../ui/MaterialIcon';
 
-import { TekDevBadge } from '../ui/Branding';
-
 export const Footer = () => {
     const year = new Date().getFullYear();
 
@@ -40,7 +38,7 @@ export const Footer = () => {
                                 <Linkedin size={16} />
                             </a>
                             <a
-                                href="mailto:shivachandra9490@gmail.com"
+                                href="mailto:tekkdevv@gmail.com"
                                 className="w-9 h-9 rounded-lg border border-border-subtle flex items-center justify-center text-text-subtle hover:bg-brand-primary hover:text-white hover:border-brand-primary transition-all"
                                 aria-label="Mail"
                             >
@@ -63,8 +61,14 @@ export const Footer = () => {
                         <h4 className="text-xs font-black tracking-widest text-brand-secondary uppercase mb-5">Support</h4>
                         <ul className="space-y-3">
                             <li><a href="https://resumit.onrender.com/docs" target="_blank" rel="noreferrer" className="text-sm text-text-muted hover:text-brand-primary no-underline font-medium transition-colors">Docs</a></li>
-                            <li><a href="mailto:shivachandra9490@gmail.com" className="text-sm text-text-muted hover:text-brand-primary no-underline font-medium transition-colors">Contact</a></li>
+                            <li><a href="mailto:tekkdevv@gmail.com" className="text-sm text-text-muted hover:text-brand-primary no-underline font-medium transition-colors">Contact</a></li>
                         </ul>
+                        <p className="mt-4 text-xs text-text-subtle leading-relaxed">
+                            Feedback &amp; ideas:{' '}
+                            <a href="mailto:tekkdevv@gmail.com" className="font-medium text-brand-primary no-underline hover:underline">
+                                tekkdevv@gmail.com
+                            </a>
+                        </p>
                     </div>
                 </div>
 

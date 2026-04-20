@@ -1,5 +1,5 @@
-// Complete Production Template System - All 20 Templates
-// Streamlined for performance while maintaining quality
+// Production template catalog — merged from realisticTemplates + role builders below.
+// Module load verifies unique `template_id` values (build fails on duplicates).
 
 import type { ResumeTemplate, ResumeContent } from './realisticTemplates';
 import { softwareEngineerTemplates, trendingTechTemplates } from './realisticTemplates';
@@ -685,8 +685,6 @@ const getMarketingTemplates = (): ResumeTemplate[] => [
 ];
 
 
-// Get all templates by role and level
-// Get all templates by role and level
 export const getProductionTemplates = (): ResumeTemplate[] => {
     const templates = [
         ...softwareEngineerTemplates,
@@ -705,6 +703,11 @@ export const getProductionTemplates = (): ResumeTemplate[] => {
         'full stack developer',
         'devops engineer',
         'machine learning engineer',
+        'site reliability engineer',
+        'security engineer',
+        'analytics engineer',
+        'mobile developer',
+        'data engineer',
     ]);
 
     return templates.map((template) => {
@@ -724,3 +727,20 @@ export const getProductionTemplates = (): ResumeTemplate[] => {
         };
     });
 };
+
+/** Fails fast at build/runtime if any catalog id is duplicated. */
+export function assertUniqueProductionTemplateIds(): void {
+    const list = getProductionTemplates();
+    const seen = new Map<string, number>();
+    for (let i = 0; i < list.length; i += 1) {
+        const id = list[i].metadata.template_id;
+        if (seen.has(id)) {
+            throw new Error(
+                `[templates] Duplicate template_id "${id}" at indices ${seen.get(id)} and ${i}`
+            );
+        }
+        seen.set(id, i);
+    }
+}
+
+assertUniqueProductionTemplateIds();

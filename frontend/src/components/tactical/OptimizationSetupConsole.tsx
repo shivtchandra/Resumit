@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Scan, CheckCircle2, Loader2, Clock3, Target, Sparkles, Search, RotateCcw, Link2, Circle } from 'lucide-react';
+import { FileText, Scan, CheckCircle2, Loader2, Clock3, Target, Search, RotateCcw, Link2, Circle } from 'lucide-react';
 import { MaterialIcon } from '../ui/MaterialIcon';
 import { getJDTemplatesByRole, getJDTemplateById } from '../../data/jdTemplates';
 
@@ -61,6 +61,7 @@ export const OptimizationSetupConsole = ({
     onCompanyChange,
     initialData
 }: OptimizationSetupConsoleProps) => {
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [progress, setProgress] = useState(0);
@@ -122,6 +123,19 @@ export const OptimizationSetupConsole = ({
         const files = e.dataTransfer.files;
         if (files && files[0]) {
             handleFileSelect(files[0]);
+        }
+    };
+
+    const openFilePicker = () => {
+        if (!isFixing) {
+            fileInputRef.current?.click();
+        }
+    };
+
+    const onDropZoneKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openFilePicker();
         }
     };
 
@@ -187,6 +201,17 @@ export const OptimizationSetupConsole = ({
         setActiveStage(stageIndex);
     }, [progress]);
 
+    const stepBadge = (n: number, done: boolean) => (
+        <span
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-lg font-black tabular-nums shadow-sm ${
+                done ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white'
+            }`}
+            aria-hidden
+        >
+            {done ? <CheckCircle2 size={22} strokeWidth={2.5} /> : n}
+        </span>
+    );
+
     return (
         <div className="max-w-4xl mx-auto space-y-6">
             <style>{`
@@ -195,51 +220,114 @@ export const OptimizationSetupConsole = ({
                 @keyframes loaderBlink { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
             `}</style>
 
-            <div className={`zen-card overflow-hidden transition-all duration-300 ${isDragging ? 'border-brand-primary scale-[1.01] shadow-xl' : 'border-border-subtle'}`}>
-                {/* Upload Section */}
+            <div
+                className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-300 ${
+                    isDragging ? 'border-brand-primary ring-2 ring-brand-primary/20 shadow-md' : 'border-border-subtle'
+                }`}
+            >
+                {/* Step 1 — Resume */}
                 <div
-                    className={`relative p-10 text-center border-b border-dashed border-border-subtle transition-colors ${isFixing ? 'bg-bg-surface/30' : 'bg-white hover:bg-bg-surface/10'}`}
+                    className={`relative border-b border-border-subtle transition-colors ${
+                        isFixing ? 'bg-slate-50/80' : isDragging ? 'bg-brand-primary/[0.04]' : 'bg-slate-50/40'
+                    }`}
                     onDragEnter={handleDrag}
                     onDragOver={handleDrag}
                     onDragLeave={handleDrag}
                     onDrop={handleDrop}
                 >
-                    <input
-                        type="file"
-                        id="optimization-file-upload"
-                        className="hidden"
-                        accept=".pdf,.docx"
-                        onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
-                        disabled={isFixing}
-                    />
-
-                    <label htmlFor="optimization-file-upload" className={`cursor-pointer flex flex-col items-center gap-6 ${isFixing ? 'pointer-events-none' : ''}`}>
-                        <div className={`w-20 h-20 rounded-3xl flex items-center justify-center transition-all ${isFixing ? 'bg-brand-primary/10 text-brand-primary' : 'bg-bg-page border border-border-subtle group-hover:scale-110'}`}>
-                            {isFixing ? (
-                                <Loader2 className="animate-spin" size={36} />
-                            ) : (
-                                <Upload size={36} className={selectedFile ? 'text-brand-primary' : 'text-text-subtle'} />
+                    <div className="p-6 md:p-8">
+                        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="flex gap-4">
+                                {stepBadge(1, Boolean(selectedFile))}
+                                <div>
+                                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-primary">Step 1</p>
+                                    <h3 className="mt-1 font-heading text-xl font-black tracking-tight text-brand-secondary md:text-2xl">
+                                        Upload your resume
+                                    </h3>
+                                    <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-text-muted">
+                                        Put your file here first. We use it only for this report — PDF or Word (.docx).
+                                    </p>
+                                </div>
+                            </div>
+                            {!isFixing && (
+                                <button
+                                    type="button"
+                                    onClick={openFilePicker}
+                                    className="btn-primary h-11 shrink-0 px-5 text-sm font-bold shadow-sm sm:self-start"
+                                >
+                                    Choose PDF or Word
+                                </button>
                             )}
                         </div>
 
-                        <div className="space-y-2">
-                            <h3 className="text-2xl font-heading font-black text-brand-secondary uppercase tracking-tight">
-                                {isFixing ? 'ALIGNMENT ENGINE ACTIVE' : selectedFile ? 'RESUME PREPARED' : 'Match & Fix Intelligence'}
-                            </h3>
-                            <p className="text-text-muted max-w-xl mx-auto font-medium">
-                                {selectedFile
-                                    ? `${selectedFile.name} ready for deep alignment analysis.`
-                                    : 'Upload your resume to calibrate it against a specific job description.'}
-                            </p>
-                            {!selectedFile && !isFixing && (
-                                <div className="flex flex-col items-center gap-2 mt-4">
-                                    <span className="inline-block px-4 py-1.5 rounded-lg border border-border-subtle bg-bg-page text-[10px] font-black tracking-widest text-text-subtle">
-                                        SUPPORTED: PDF, DOCX
-                                    </span>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            id="optimization-file-upload"
+                            className="sr-only"
+                            accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                            onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) handleFileSelect(f);
+                                e.target.value = '';
+                            }}
+                            disabled={isFixing}
+                            aria-label="Choose resume file"
+                        />
+
+                        <div
+                            role="button"
+                            tabIndex={isFixing ? -1 : 0}
+                            onClick={openFilePicker}
+                            onKeyDown={isFixing ? undefined : onDropZoneKeyDown}
+                            className={`flex min-h-[140px] cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors md:min-h-[160px] ${
+                                isFixing
+                                    ? 'cursor-not-allowed border-slate-200 bg-white/50 opacity-80'
+                                    : selectedFile
+                                      ? 'border-emerald-300 bg-emerald-50/40 hover:border-emerald-400'
+                                      : isDragging
+                                        ? 'border-brand-primary bg-brand-primary/5'
+                                        : 'border-slate-200 bg-white hover:border-brand-primary/40 hover:bg-slate-50/80'
+                            }`}
+                            aria-label="Drop resume file here or click to browse"
+                        >
+                            {isFixing ? (
+                                <Loader2 className="animate-spin text-brand-primary" size={40} aria-hidden />
+                            ) : (
+                                <div
+                                    className={`flex h-14 w-14 items-center justify-center rounded-2xl border ${
+                                        selectedFile ? 'border-emerald-200 bg-white text-emerald-600' : 'border-slate-200 bg-white text-brand-primary'
+                                    }`}
+                                >
+                                    <FileText size={28} strokeWidth={2} aria-hidden />
                                 </div>
                             )}
+                            <div>
+                                <p className="font-semibold text-brand-secondary">
+                                    {isFixing
+                                        ? 'Running analysis…'
+                                        : selectedFile
+                                          ? selectedFile.name
+                                          : 'Drop your file here, or tap the button above'}
+                                </p>
+                                {!isFixing && !selectedFile && (
+                                    <p className="mt-1 text-xs text-text-muted">You can also drag and drop from your computer.</p>
+                                )}
+                            </div>
+                            {!isFixing && selectedFile && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        openFilePicker();
+                                    }}
+                                    className="text-sm font-semibold text-brand-primary underline-offset-2 hover:underline"
+                                >
+                                    Replace file
+                                </button>
+                            )}
                         </div>
-                    </label>
+                    </div>
 
                     {/* Analyzing View */}
                     <AnimatePresence>
@@ -247,7 +335,7 @@ export const OptimizationSetupConsole = ({
                             <motion.div
                                 initial={{ opacity: 0, height: 0 }}
                                 animate={{ opacity: 1, height: 'auto' }}
-                                className="mt-10 space-y-8"
+                                className="space-y-8 border-t border-border-subtle bg-white px-6 pb-8 pt-6 md:px-8"
                             >
                                 <div className="space-y-4 max-w-lg mx-auto">
                                     <div className="flex justify-between items-center text-[10px] font-black tracking-[0.2em] text-brand-primary">
@@ -301,21 +389,27 @@ export const OptimizationSetupConsole = ({
                     </AnimatePresence>
                 </div>
 
-                {/* Configuration Panel */}
-                <div className="p-10 space-y-10">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-xl bg-brand-primary/10 text-brand-primary">
-                            <Target size={20} />
+                {/* Step 2 — Job context */}
+                <div className="space-y-8 border-b border-border-subtle bg-white p-6 md:p-8">
+                    <div className="flex gap-4">
+                        {stepBadge(2, jdReady)}
+                        <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-primary">Step 2</p>
+                            <h3 className="mt-1 font-heading text-xl font-black tracking-tight text-brand-secondary md:text-2xl">
+                                Add the job you&apos;re targeting
+                            </h3>
+                            <p className="mt-1.5 text-sm leading-relaxed text-text-muted">
+                                Pick a role label (for coaching tone), optionally name the company, then paste the full posting or a public URL.
+                            </p>
                         </div>
-                        <h3 className="text-sm font-black text-brand-secondary tracking-[0.2em] uppercase">Target Alignment Config</h3>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-10">
                         <div className="space-y-6">
                             <div className="space-y-3">
-                                <label className="text-[10px] font-black text-text-subtle uppercase tracking-[0.2em] flex items-center gap-2">
-                                    <Search size={14} className="text-brand-primary" />
-                                    Target Role
+                                <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-brand-secondary">
+                                    <Search size={15} className="text-brand-primary" aria-hidden />
+                                    Role label
                                 </label>
                                 <select
                                     value={initialData.targetRole}
@@ -333,9 +427,9 @@ export const OptimizationSetupConsole = ({
                             </div>
 
                             <div className="space-y-3">
-                                <label className="text-[10px] font-black text-text-subtle uppercase tracking-[0.2em] flex items-center gap-2">
-                                    <MaterialIcon icon="business" size={14} className="text-brand-primary" />
-                                    Company (Optional)
+                                <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-brand-secondary">
+                                    <MaterialIcon icon="business" size={15} className="text-brand-primary" />
+                                    Company <span className="font-normal normal-case text-text-muted">(optional)</span>
                                 </label>
                                 <input
                                     value={initialData.companyName}
@@ -350,9 +444,9 @@ export const OptimizationSetupConsole = ({
                         <div className="space-y-6">
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center gap-2 flex-wrap">
-                                    <label className="text-[10px] font-black text-brand-primary uppercase tracking-[0.2em] flex items-center gap-2">
-                                        <MaterialIcon icon="description" size={14} />
-                                        Job Description (COMPULSORY) *
+                                    <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-brand-secondary">
+                                        <MaterialIcon icon="description" size={15} className="text-brand-primary" />
+                                        Job description <span className="text-red-600">*</span>
                                     </label>
                                     <div className="flex flex-wrap items-center gap-2">
                                         <div className="flex rounded-full border border-border-subtle overflow-hidden text-[10px] font-black uppercase">
@@ -391,7 +485,7 @@ export const OptimizationSetupConsole = ({
                                             className="text-[10px] font-bold border-none bg-bg-surface px-3 py-1 rounded-full outline-none"
                                             disabled={isFixing || jdInputMode === 'url'}
                                         >
-                                            <option value="">JD Template...</option>
+                                            <option value="">Sample posting (optional)</option>
                                             {roleTemplates.map(t => (
                                                 <option key={t.id} value={t.id}>
                                                     {t.company} — {t.title}
@@ -439,37 +533,45 @@ export const OptimizationSetupConsole = ({
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <div className="pt-8 border-t border-border-subtle/50">
-                        <div className="relative overflow-hidden rounded-2xl border border-border-subtle bg-gradient-to-br from-white via-bg-surface/40 to-brand-primary/[0.04] p-8 shadow-sm">
-                            <div
-                                className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-brand-primary/[0.07] blur-2xl"
-                                aria-hidden
-                            />
-                            <div className="relative space-y-6">
-                                <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-                                    <div className="flex items-start gap-4">
-                                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary ring-1 ring-brand-primary/15">
-                                            <Sparkles size={22} strokeWidth={2} />
-                                        </div>
-                                        <div>
-                                            <h4 className="font-heading text-lg font-bold tracking-tight text-brand-secondary">
-                                                {isFixing ? 'Running alignment…' : 'Run Match & Fix'}
-                                            </h4>
-                                            <p className="mt-1 max-w-xl text-sm leading-relaxed text-text-muted">
-                                                {isFixing
-                                                    ? 'Hold tight — we are scoring your resume against the job and building the report.'
-                                                    : 'Compare your resume to this job, surface gaps, and get concrete edits plus interview prep.'}
-                                            </p>
-                                        </div>
+                {/* Step 3 — Run */}
+                <div className="bg-white p-6 md:p-8">
+                    <div className="relative overflow-hidden rounded-2xl border border-slate-200/90 bg-linear-to-br from-slate-50/90 via-white to-brand-primary/[0.06] p-6 shadow-sm md:p-8">
+                        <div
+                            className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-brand-primary/[0.08] blur-3xl"
+                            aria-hidden
+                        />
+                        <div className="relative space-y-5">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+                                <div className="flex gap-4">
+                                    {stepBadge(3, false)}
+                                    <div>
+                                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-primary">Step 3</p>
+                                        <h4 className="mt-1 font-heading text-lg font-black tracking-tight text-brand-secondary md:text-xl">
+                                            {isFixing ? 'Running Match & Fix…' : 'Run the analysis'}
+                                        </h4>
+                                        <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-text-muted">
+                                            {isFixing
+                                                ? 'Scoring your resume against the job and building your report. Keep this tab open.'
+                                                : 'When Step 1 and Step 2 are complete, press the button below.'}
+                                        </p>
+                                        <p className="mt-3 flex flex-wrap items-center gap-2 text-xs text-text-muted">
+                                            <Clock3 size={14} className="shrink-0 text-brand-primary" aria-hidden />
+                                            <span>
+                                                Usually <strong className="text-brand-secondary">~1 minute</strong>. Heavy jobs or slow networks can take{' '}
+                                                <strong className="text-brand-secondary">a few minutes</strong> — don&apos;t refresh.
+                                            </span>
+                                        </p>
                                     </div>
-                                    {canRunMatchFix && (
-                                        <span className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
-                                            <CheckCircle2 size={14} className="text-emerald-600" aria-hidden />
-                                            Ready to go
-                                        </span>
-                                    )}
                                 </div>
+                                {canRunMatchFix && (
+                                    <span className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800">
+                                        <CheckCircle2 size={14} className="text-emerald-600" aria-hidden />
+                                        Ready to run
+                                    </span>
+                                )}
+                            </div>
 
                                 <button
                                     type="button"
@@ -492,43 +594,40 @@ export const OptimizationSetupConsole = ({
                                 </button>
 
                                 {!isFixing && (!selectedFile || !jdReady) && (
-                                    <div className="rounded-xl border border-dashed border-border-subtle bg-white/60 px-4 py-4 sm:px-5">
-                                        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-subtle">
-                                            Still needed
-                                        </p>
+                                    <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 px-4 py-4 sm:px-5">
+                                        <p className="mb-3 text-xs font-bold uppercase tracking-wider text-amber-900/80">Complete the steps above</p>
                                         <ul className="space-y-2.5 text-sm text-text-secondary">
                                             <li className="flex items-start gap-3">
                                                 {selectedFile ? (
                                                     <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" aria-hidden />
                                                 ) : (
-                                                    <Circle className="mt-0.5 h-5 w-5 shrink-0 text-slate-300" strokeWidth={1.75} aria-hidden />
+                                                    <Circle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" strokeWidth={1.75} aria-hidden />
                                                 )}
                                                 <span>
-                                                    <span className="font-medium text-brand-secondary">Resume</span>
-                                                    <span className="text-text-muted"> — PDF or DOCX from the upload area above.</span>
+                                                    <span className="font-semibold text-brand-secondary">Step 1 — Resume</span>
+                                                    <span className="text-text-muted"> Upload a PDF or Word file in the dashed box.</span>
                                                 </span>
                                             </li>
                                             <li className="flex items-start gap-3">
                                                 {jdReady ? (
                                                     <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" aria-hidden />
                                                 ) : (
-                                                    <Circle className="mt-0.5 h-5 w-5 shrink-0 text-slate-300" strokeWidth={1.75} aria-hidden />
+                                                    <Circle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" strokeWidth={1.75} aria-hidden />
                                                 )}
                                                 <span>
-                                                    <span className="font-medium text-brand-secondary">
-                                                        {jdInputMode === 'url' ? 'Posting link' : 'Job description'}
+                                                    <span className="font-semibold text-brand-secondary">
+                                                        Step 2 — {jdInputMode === 'url' ? 'Posting URL' : 'Job description'}
                                                     </span>
                                                     <span className="text-text-muted">
                                                         {jdInputMode === 'url'
-                                                            ? ' — Paste a full https:// link to the public listing.'
-                                                            : ' — Paste the listing text (or switch to Posting URL).'}
+                                                            ? ' Paste a full https:// link to the public listing.'
+                                                            : ' Paste the full listing text, or switch to Posting URL.'}
                                                     </span>
                                                 </span>
                                             </li>
                                         </ul>
                                     </div>
                                 )}
-                            </div>
                         </div>
                     </div>
                 </div>

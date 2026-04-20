@@ -10,10 +10,10 @@ import {
     Zap,
     Search,
     MessageSquare,
-    Star,
     Circle,
     Check,
     FileSearch,
+    Mail,
 } from 'lucide-react';
 import { PageLayout } from '../components/layout/PageLayout';
 import { Navbar } from '../components/layout/Navbar';
@@ -40,7 +40,18 @@ const stagger = {
     },
 };
 
-const logoCloud = ['Google', 'Stripe', 'Meta', 'Netflix', 'Airbnb', 'Amazon'];
+/** Official brand SVGs from Simple Icons (jsDelivr) — illustrative only; not endorsement. */
+const SIMPLE_ICONS_VER = '11';
+const employerBrandMarks: { name: string; slug: string }[] = [
+    { name: 'Google', slug: 'google' },
+    { name: 'Stripe', slug: 'stripe' },
+    { name: 'Meta', slug: 'meta' },
+    { name: 'Netflix', slug: 'netflix' },
+    { name: 'Airbnb', slug: 'airbnb' },
+    { name: 'Amazon', slug: 'amazon' },
+];
+const brandMarkSrc = (slug: string) =>
+    `https://cdn.jsdelivr.net/npm/simple-icons@${SIMPLE_ICONS_VER}/icons/${slug}.svg`;
 
 const failureCards = [
     {
@@ -162,25 +173,25 @@ const phases = [
     },
 ];
 
-const testimonials = [
-    {
-        name: 'Alex Rivera',
-        role: 'Software Engineer @ Stripe',
-        text: 'The gap analysis was brutally clear. After rewriting with this flow, interview callbacks started within two weeks.',
-    },
-    {
-        name: 'Sarah Chen',
-        role: 'Product Manager @ Meta',
-        text: 'I stopped guessing what to fix. The tool gave me exact edits and a cleaner story for each application.',
-    },
-    {
-        name: 'David Miller',
-        role: 'Full Stack Developer',
-        text: 'Best part is the before/after clarity. Every iteration made the resume tighter and more credible.',
-    },
+const matchFixWhatYouGet = [
+    'Fit overview, score estimate, and biggest blockers',
+    'JD requirements with evidence — what you match vs. clear gaps',
+    'Copy-paste resume edits tied to specific JD signals',
+    'Project and certification ideas aligned to gaps',
+    'Keyword map: present vs. missing JD terms',
+    'Company read (inferred from JD and public context — not employer-official)',
+    'Action plan, student/pro coaching tracks, and interview prep (topics, resources, likely questions)',
 ];
 
 const faqs = [
+    {
+        q: 'How long does Match & Fix take?',
+        a: 'Most runs finish in about a minute on average. Large reports, slow networks, or a cold server can take longer — keep the tab open, do not refresh, and wait for the full report.',
+    },
+    {
+        q: 'What is included in the Match & Fix report?',
+        a: 'You get a structured report: overview and blockers, JD requirements with matches and misses, concrete resume change suggestions, project and certification ideas, a keyword map, inferred company insights (not verified by the employer), an action plan, two coaching tracks, and interview prep with resources and likely questions.',
+    },
     {
         q: 'Is my resume data private?',
         a: 'Yes. Files are processed for analysis and not retained permanently unless you explicitly save related artifacts.',
@@ -253,13 +264,19 @@ export const Landing = () => {
                                         Run Free Analysis
                                         <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                                     </Link>
-                                    {/* <Link to="/resume-fix-lab" className="btn-secondary py-4 px-9 text-base md:text-lg">
-                                         Open Match & Fix
-                                     </Link> */}
+                                    <Link to="/resume-fix-lab" className="btn-secondary py-4 px-9 text-base md:text-lg group">
+                                        Match &amp; Fix
+                                        <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                                    </Link>
                                 </motion.div>
 
+                                <motion.p variants={fadeUp} className="text-sm text-text-muted max-w-2xl">
+                                    <span className="font-semibold text-brand-secondary">Match &amp; Fix</span> usually takes{' '}
+                                    <span className="font-semibold">about a minute</span> — stay on the page until the report finishes.
+                                </motion.p>
+
                                 <motion.div variants={fadeUp} className="flex flex-wrap gap-2.5 pt-2">
-                                    {['ATS-aware checks', 'JD match scoring', 'Bullet rewrite lab'].map((chip) => (
+                                    {['ATS-aware checks', 'Full JD match report', 'Interview prep from gaps'].map((chip) => (
                                         <span
                                             key={chip}
                                             className="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-white px-4 py-1.5 text-xs font-bold text-text-muted"
@@ -347,24 +364,31 @@ export const Landing = () => {
                             whileInView={revealUp.whileInView}
                             viewport={revealUp.viewport}
                             transition={revealUp.transition}
-                            className="text-center text-[10px] font-black tracking-[0.4em] uppercase text-text-subtle mb-10"
+                            className="text-center text-[10px] font-black tracking-[0.4em] uppercase text-text-subtle mb-3"
                         >
-                            Trusted by Candidates from
+                            Calibrate for the kinds of teams you apply to
                         </motion.p>
+                        <p className="text-center text-xs text-text-muted max-w-xl mx-auto mb-10">
+                            Marks are official Simple Icons assets for recognition only. Trademarks belong to their owners; no affiliation implied.
+                        </p>
                         <motion.div
                             initial={revealUp.initial}
                             whileInView={revealUp.whileInView}
                             viewport={revealUp.viewport}
                             transition={{ ...revealUp.transition, delay: 0.08 }}
-                            className="flex flex-nowrap md:flex-wrap items-center justify-start md:justify-center gap-10 md:gap-20 opacity-40 grayscale overflow-x-auto pb-4 md:pb-0 scrollbar-hide no-scrollbar"
+                            className="flex flex-nowrap md:flex-wrap items-center justify-start md:justify-center gap-10 md:gap-16 opacity-70 grayscale hover:grayscale-0 transition-[filter] duration-300 overflow-x-auto pb-4 md:pb-0 scrollbar-hide no-scrollbar"
                         >
-                            {logoCloud.map((brand) => (
-                                <span
-                                    key={brand}
-                                    className="text-xl md:text-2xl font-black tracking-tighter text-brand-secondary select-none whitespace-nowrap shrink-0"
-                                >
-                                    {brand}
-                                </span>
+                            {employerBrandMarks.map(({ name, slug }) => (
+                                <img
+                                    key={slug}
+                                    src={brandMarkSrc(slug)}
+                                    alt={name}
+                                    width={96}
+                                    height={24}
+                                    loading="lazy"
+                                    decoding="async"
+                                    className="h-6 md:h-7 w-auto max-w-[5.5rem] object-contain object-center shrink-0 select-none"
+                                />
                             ))}
                         </motion.div>
                     </div>
@@ -480,19 +504,10 @@ export const Landing = () => {
                                 transition={{ ...revealUp.transition, delay: 0.2 }}
                                 className="pt-1"
                             >
-                                {currentDemo.id === 'rewrite' ? (
-                                    <button
-                                        type="button"
-                                        className="btn-secondary cursor-default opacity-70"
-                                    >
-                                        Coming soon
-                                    </button>
-                                ) : (
-                                    <Link to={currentDemo.to} className="btn-primary">
-                                        Open {currentDemo.title}
-                                        <ArrowRight size={17} />
-                                    </Link>
-                                )}
+                                <Link to={currentDemo.to} className="btn-primary">
+                                    Open {currentDemo.title}
+                                    <ArrowRight size={17} />
+                                </Link>
                             </motion.div>
                         </motion.div>
 
@@ -605,6 +620,61 @@ export const Landing = () => {
                     </div>
                 </section>
 
+                <section className="py-16 md:py-24 bg-linear-to-b from-white to-bg-muted border-y border-border-subtle">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <motion.div
+                            initial={revealUp.initial}
+                            whileInView={revealUp.whileInView}
+                            viewport={revealUp.viewport}
+                            transition={revealUp.transition}
+                            className="text-center space-y-4 mb-10"
+                        >
+                            <p className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 bg-brand-primary/10 text-brand-primary text-[11px] font-black tracking-[0.2em] uppercase">
+                                <Sparkles size={14} />
+                                Match &amp; Fix
+                            </p>
+                            <h2 className="section-heading text-3xl md:text-5xl">What you get in the report</h2>
+                            <p className="section-subheading max-w-2xl mx-auto">
+                                One upload + one target job description (paste or public URL). The analysis is AI-generated and grounded in your resume text and the JD you provide.
+                            </p>
+                        </motion.div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                            <motion.ul
+                                initial={revealUp.initial}
+                                whileInView={revealUp.whileInView}
+                                viewport={revealUp.viewport}
+                                transition={{ ...revealUp.transition, delay: 0.06 }}
+                                className="space-y-3 rounded-2xl border border-border-subtle bg-white p-8 shadow-sm"
+                            >
+                                {matchFixWhatYouGet.map((item) => (
+                                    <li key={item} className="flex gap-3 text-sm text-text-muted leading-relaxed">
+                                        <Check size={18} className="text-brand-primary shrink-0 mt-0.5" />
+                                        <span>{item}</span>
+                                    </li>
+                                ))}
+                            </motion.ul>
+                            <motion.div
+                                initial={revealUp.initial}
+                                whileInView={revealUp.whileInView}
+                                viewport={revealUp.viewport}
+                                transition={{ ...revealUp.transition, delay: 0.1 }}
+                                className="rounded-2xl border border-amber-200 bg-amber-50/80 p-8 space-y-4"
+                            >
+                                <h3 className="text-lg font-black text-brand-secondary">Timing</h3>
+                                <p className="text-sm text-text-muted leading-relaxed">
+                                    Most Match &amp; Fix runs finish in <strong className="text-brand-secondary">about one minute on average</strong>.
+                                    Cold starts, long JDs, or heavy reports can take longer. Keep this tab open, do not refresh, and wait until you see the full report and scores.
+                                </p>
+                                <Link to="/resume-fix-lab" className="btn-primary inline-flex w-full sm:w-auto justify-center">
+                                    Start Match &amp; Fix
+                                    <ArrowRight size={17} />
+                                </Link>
+                            </motion.div>
+                        </div>
+                    </div>
+                </section>
+
                 <section className="py-16 md:py-24 bg-bg-muted">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-14">
                         <motion.div
@@ -628,78 +698,50 @@ export const Landing = () => {
                                     viewport={{ once: true, amount: 0.2 }}
                                     transition={{ duration: 0.4, delay: i * 0.06 }}
                                 >
-                                    {phase.step === '02' ? (
-                                        <div className="relative z-10 group">
-                                            <div className="bg-white rounded-2xl border border-border-subtle p-7 h-full transition-all duration-300 group-hover:shadow-premium">
-                                                <div className="w-14 h-14 rounded-full border-2 border-dashed border-border-subtle text-text-subtle flex items-center justify-center mb-5">
-                                                    <phase.icon size={24} />
-                                                </div>
-                                                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-text-subtle mb-2">Phase {phase.step}</p>
-                                                <h3 className="text-2xl font-black text-brand-secondary mb-2.5">{phase.title}</h3>
-                                                <p className="text-sm text-text-muted leading-relaxed">{phase.text}</p>
-                                                <div className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-text-subtle">
-                                                    Coming soon
-                                                </div>
+                                    <Link to={phase.to} className="relative z-10 no-underline group">
+                                        <div className="bg-white rounded-2xl border border-border-subtle p-7 h-full transition-all duration-300 group-hover:shadow-premium group-hover:-translate-y-1">
+                                            <div className="w-14 h-14 rounded-full border-2 border-brand-primary text-brand-primary flex items-center justify-center mb-5">
+                                                <phase.icon size={24} />
+                                            </div>
+                                            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-brand-primary mb-2">Phase {phase.step}</p>
+                                            <h3 className="text-2xl font-black text-brand-secondary mb-2.5">{phase.title}</h3>
+                                            <p className="text-sm text-text-muted leading-relaxed">{phase.text}</p>
+                                            <div className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-brand-primary">
+                                                Open Module
+                                                <ArrowRight size={14} />
                                             </div>
                                         </div>
-                                    ) : (
-                                        <Link to={phase.to} className="relative z-10 no-underline group">
-                                            <div className="bg-white rounded-2xl border border-border-subtle p-7 h-full transition-all duration-300 group-hover:shadow-premium group-hover:-translate-y-1">
-                                                <div className="w-14 h-14 rounded-full border-2 border-brand-primary text-brand-primary flex items-center justify-center mb-5">
-                                                    <phase.icon size={24} />
-                                                </div>
-                                                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-brand-primary mb-2">Phase {phase.step}</p>
-                                                <h3 className="text-2xl font-black text-brand-secondary mb-2.5">{phase.title}</h3>
-                                                <p className="text-sm text-text-muted leading-relaxed">{phase.text}</p>
-                                                <div className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-brand-primary">
-                                                    Open Module
-                                                    <ArrowRight size={14} />
-                                                </div>
-                                            </div>
-                                        </Link>
-                                    )}
+                                    </Link>
                                 </motion.div>
                             ))}
                         </div>
                     </div>
                 </section>
 
-                <section className="py-16 md:py-24 bg-white">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+                <section className="py-16 md:py-24 bg-white border-t border-border-subtle">
+                    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
                         <motion.div
                             initial={revealUp.initial}
                             whileInView={revealUp.whileInView}
                             viewport={revealUp.viewport}
                             transition={revealUp.transition}
-                            className="text-center space-y-4"
+                            className="zen-card p-8 md:p-10 text-center space-y-5"
                         >
-                            <h2 className="section-heading">Proof from real job seekers.</h2>
-                            <p className="section-subheading">Clearer resumes, tighter positioning, better interview momentum.</p>
+                            <div className="w-12 h-12 rounded-2xl bg-brand-primary/10 text-brand-primary flex items-center justify-center mx-auto">
+                                <Mail size={22} />
+                            </div>
+                            <h2 className="section-heading text-2xl md:text-3xl">Suggest improvements</h2>
+                            <p className="text-text-muted leading-relaxed text-sm md:text-base">
+                                This product is evolving. If something is confusing, missing, or broken — or you have feature ideas — send a note. We read every message.
+                            </p>
+                            <a
+                                href="mailto:tekkdevv@gmail.com?subject=Resumit%20feedback"
+                                className="btn-primary inline-flex items-center gap-2 justify-center w-full sm:w-auto"
+                            >
+                                <Mail size={18} />
+                                tekkdevv@gmail.com
+                            </a>
                         </motion.div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                            {testimonials.map((t, i) => (
-                                <motion.div
-                                    key={t.name}
-                                    initial={{ opacity: 0, y: 18 }}
-                                    whileInView={{ opacity: 1, y: 0 }}
-                                    viewport={{ once: true, amount: 0.2 }}
-                                    transition={{ duration: 0.4, delay: i * 0.06 }}
-                                    className="zen-card p-7 space-y-5"
-                                >
-                                    <div className="flex gap-1 text-brand-accent">
-                                        {[1, 2, 3, 4, 5].map((s) => (
-                                            <Star key={s} size={15} className="fill-current" />
-                                        ))}
-                                    </div>
-                                    <p className="text-text-main leading-relaxed font-medium text-sm md:text-base">"{t.text}"</p>
-                                    <div className="pt-4 border-t border-border-subtle">
-                                        <p className="font-black text-brand-secondary text-sm">{t.name}</p>
-                                        <p className="text-[10px] tracking-[0.2em] uppercase text-text-subtle font-bold mt-1">{t.role}</p>
-                                    </div>
-                                </motion.div>
-                            ))}
-                        </div>
                     </div>
                 </section>
 
@@ -776,12 +818,19 @@ export const Landing = () => {
                             <p className="text-base md:text-lg text-slate-300 max-w-2xl mx-auto">
                                 Start with diagnostics, fix what matters, and apply with stronger positioning.
                             </p>
-                            <div className="pt-2">
+                            <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center items-center">
                                 <Link
                                     to="/analysis"
                                     className="inline-flex items-center gap-2 py-4 px-10 rounded-full text-lg font-black bg-brand-primary text-white hover:bg-teal-400 transition-all active:scale-95 shadow-lg"
                                 >
                                     Analyze Your Resume Now
+                                </Link>
+                                <Link
+                                    to="/resume-fix-lab"
+                                    className="inline-flex items-center gap-2 py-4 px-10 rounded-full text-lg font-black border-2 border-white/80 text-white hover:bg-white/10 transition-all active:scale-95"
+                                >
+                                    Match &amp; Fix
+                                    <ArrowRight size={18} />
                                 </Link>
                             </div>
                         </div>

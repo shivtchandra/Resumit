@@ -11,6 +11,8 @@ export interface TemplateMetadata {
     preview_pdf_url?: string;
     ats_compatibility: string[];
     description: string;
+    /** e.g. `['trending']` for marketplace filters */
+    tags?: string[];
 }
 
 export interface ResumeContent {
@@ -76,9 +78,9 @@ export const softwareEngineerTemplates: ResumeTemplate[] = [
             role: 'Software Engineer',
             experience_level: 'Entry',
             ats_success_rate: 0.98,
-            template_name: 'Entry-Level Software Engineer (ATS Optimized)',
+            template_name: 'Entry SWE — General (internship + projects)',
             ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
-            description: 'Benchmark ATS-optimized template for fresh graduates and entry-level engineers. Features quantified impact and clear hierarchy.'
+            description: 'Best for: CS grads with one internship and multiple shipped projects. Balanced sections and quantified bullets.'
         },
         content: {
             personalInfo: {
@@ -150,9 +152,9 @@ export const softwareEngineerTemplates: ResumeTemplate[] = [
             role: 'Software Engineer',
             experience_level: 'Entry',
             ats_success_rate: 1.0,
-            template_name: 'Entry-Level SE - Modern Left-Date (100% ATS)',
+            template_name: 'Entry SWE — Timeline dates (internship focus)',
             ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
-            description: 'Clean modern format with dates on left side. Inspired by Resume-Now\'s professional templates. Emphasizes career progression timeline.'
+            description: 'Best for: one strong internship shown as a clear timeline; readers skim dates first.'
         },
         content: {
             personalInfo: {
@@ -229,9 +231,9 @@ export const softwareEngineerTemplates: ResumeTemplate[] = [
             role: 'Software Engineer',
             experience_level: 'Entry',
             ats_success_rate: 0.99,
-            template_name: 'Entry-Level SE - Professional Skills Focus (99% ATS)',
+            template_name: 'Entry SWE — Deep skills + multi-project proof',
             ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
-            description: 'Skills-heavy format with detailed "Professional Skills" section showing specific achievements. Inspired by Resume-Now\'s project-focused templates.'
+            description: 'Best for: proving breadth via several project write-ups and skill statements with metrics.'
         },
         content: {
             personalInfo: {
@@ -311,9 +313,9 @@ export const softwareEngineerTemplates: ResumeTemplate[] = [
             role: 'Software Engineer',
             experience_level: 'Entry',
             ats_success_rate: 1.0,
-            template_name: 'Entry-Level SE - Contemporary Design (100% ATS)',
+            template_name: 'Entry SWE — Objective + soft skills balance',
             ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
-            description: 'Modern design with career objective and professional skills sections. Inspired by Resume-Now\'s contemporary templates. Perfect for showcasing both technical and soft skills.'
+            description: 'Best for: campus hiring and roles that value communication; pairs tech depth with teamwork and clarity.'
         },
         content: {
             personalInfo: {
@@ -396,9 +398,9 @@ export const softwareEngineerTemplates: ResumeTemplate[] = [
             role: 'Software Engineer',
             experience_level: 'Entry',
             ats_success_rate: 0.99,
-            template_name: 'Entry-Level SE - Skills-First (ATS Optimized)',
+            template_name: 'Entry SWE — Skills stack first',
             ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
-            description: 'Skills-first variation for entry-level engineers. Highlights technical stack upfront while maintaining perfect ATS compatibility.'
+            description: 'Best for: keyword-heavy screening; grouped skill categories before experience.'
         },
         content: {
             personalInfo: {
@@ -479,9 +481,9 @@ export const softwareEngineerTemplates: ResumeTemplate[] = [
             role: 'Software Engineer',
             experience_level: 'Entry',
             ats_success_rate: 1.0,
-            template_name: 'Entry-Level SE - Project-Focused (100% ATS)',
+            template_name: 'Entry SWE — Bootcamp / self-taught portfolio',
             ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
-            description: 'Project-focused variation showcasing technical breadth through multiple projects. Perfect for bootcamp grads or self-taught developers.'
+            description: 'Best for: fellowship or bootcamp as primary experience plus many shipped apps and OSS.'
         },
         content: {
             personalInfo: {
@@ -571,9 +573,9 @@ export const softwareEngineerTemplates: ResumeTemplate[] = [
             role: 'Software Engineer',
             experience_level: 'Entry',
             ats_success_rate: 0.99,
-            template_name: 'Entry-Level SE - Summary-Heavy (99% ATS)',
+            template_name: 'Entry SWE — Career pivot story',
             ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
-            description: 'Extended professional summary for career changers or unique value propositions. Perfect for explaining non-traditional backgrounds.'
+            description: 'Best for: second career; ties prior industry work to software delivery with a longer summary.'
         },
         content: {
             personalInfo: {
@@ -661,9 +663,9 @@ export const softwareEngineerTemplates: ResumeTemplate[] = [
             role: 'Software Engineer',
             experience_level: 'Entry',
             ats_success_rate: 1.0,
-            template_name: 'Entry-Level SE - Certifications-First (100% ATS)',
+            template_name: 'Entry SWE — Cloud certs & infra forward',
             ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
-            description: 'Highlights professional certifications upfront. Perfect for candidates with AWS, Google Cloud, or other industry certifications.'
+            description: 'Best for: AWS/GCP/Terraform certs and serverless/IaC projects; cloud keywords early.'
         },
         content: {
             personalInfo: {
@@ -745,9 +747,9 @@ export const softwareEngineerTemplates: ResumeTemplate[] = [
             role: 'Software Engineer',
             experience_level: 'Entry',
             ats_success_rate: 0.99,
-            template_name: 'Entry-Level SE - Education-First (99% ATS)',
+            template_name: 'Entry SWE — Research & elite academics',
             ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
-            description: 'Emphasizes strong academic credentials. Perfect for recent grads from top schools with high GPAs and relevant coursework.'
+            description: 'Best for: research labs, TAships, rigorous coursework, and competitive CS programs.'
         },
         content: {
             personalInfo: {
@@ -839,9 +841,9 @@ export const softwareEngineerTemplates: ResumeTemplate[] = [
             role: 'Software Engineer',
             experience_level: 'Entry',
             ats_success_rate: 1.0,
-            template_name: 'Entry-Level SE - Hybrid Skills (100% ATS)',
+            template_name: 'Entry SWE — Lead intern / org impact',
             ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
-            description: 'Balances technical and soft skills. Perfect for roles requiring both coding expertise and communication/leadership abilities.'
+            description: 'Best for: running standups, demos, and mentoring—not only individual contributor tasks.'
         },
         content: {
             personalInfo: {
@@ -1444,7 +1446,8 @@ export const trendingTechTemplates: ResumeTemplate[] = [
             ats_success_rate: 0.94,
             template_name: 'Full Stack — Next.js, TypeScript & Edge',
             ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
-            description: 'Trending stack: App Router/SSR, typed APIs, caching, and pragmatic AI-assist in the SDLC (Copilot/Cursor) without fluff.'
+            description: 'Trending stack: App Router/SSR, typed APIs, caching, and pragmatic AI-assist in the SDLC (Copilot/Cursor) without fluff.',
+            tags: ['trending'],
         },
         content: {
             personalInfo: {
@@ -1500,7 +1503,8 @@ export const trendingTechTemplates: ResumeTemplate[] = [
             ats_success_rate: 0.93,
             template_name: 'DevOps / Platform — Kubernetes, GitOps & FinOps',
             ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
-            description: 'Platform roles want GitOps, progressive delivery, and cost guardrails — not just “I used Jenkins once”.'
+            description: 'Platform roles want GitOps, progressive delivery, and cost guardrails — not just “I used Jenkins once”.',
+            tags: ['trending'],
         },
         content: {
             personalInfo: {
@@ -1556,7 +1560,8 @@ export const trendingTechTemplates: ResumeTemplate[] = [
             ats_success_rate: 0.95,
             template_name: 'Backend — Event-Driven & High-Throughput APIs',
             ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
-            description: 'Kafka/outbox patterns, idempotency, and backpressure — common asks for senior backend loops in 2025–2026.'
+            description: 'Kafka/outbox patterns, idempotency, and backpressure — common asks for senior backend loops in 2025–2026.',
+            tags: ['trending'],
         },
         content: {
             personalInfo: {
@@ -1612,7 +1617,8 @@ export const trendingTechTemplates: ResumeTemplate[] = [
             ats_success_rate: 0.93,
             template_name: 'Frontend — Performance, a11y & Design Systems',
             ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
-            description: 'Hiring loops still reward measurable UX: INP/LCP, bundle budgets, and accessible component libraries.'
+            description: 'Hiring loops still reward measurable UX: INP/LCP, bundle budgets, and accessible component libraries.',
+            tags: ['trending'],
         },
         content: {
             personalInfo: {
@@ -1668,7 +1674,8 @@ export const trendingTechTemplates: ResumeTemplate[] = [
             ats_success_rate: 0.92,
             template_name: 'MLE — Training Pipelines, Evals & Model Serving',
             ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
-            description: 'Distinct from pure DS: shipping training jobs, registries, and low-latency inference with observability.'
+            description: 'Distinct from pure DS: shipping training jobs, registries, and low-latency inference with observability.',
+            tags: ['trending'],
         },
         content: {
             personalInfo: {
@@ -1715,7 +1722,463 @@ export const trendingTechTemplates: ResumeTemplate[] = [
             }],
             certifications: []
         }
-    }
+    },
+    {
+        metadata: {
+            template_id: 'staff-swe-001',
+            role: 'Software Engineer',
+            experience_level: 'Senior',
+            ats_success_rate: 0.95,
+            template_name: 'Staff SWE — Multi-team scope & technical strategy',
+            ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
+            description: 'Staff-level IC narrative: cross-team initiatives, RFCs, alignment with product, and org-wide platform bets.',
+            tags: ['trending'],
+        },
+        content: {
+            personalInfo: {
+                name: 'Samira Okonkwo',
+                email: 'samira.okonkwo@email.com',
+                phone: '+1-415-555-0701',
+                location: 'San Francisco, CA',
+                linkedin: 'linkedin.com/in/samiraokonkwo',
+                github: 'github.com/sokonkwo',
+            },
+            summary: 'Staff Software Engineer driving platform direction for 6 squads: led service boundary redesign, cut p99 checkout latency 22%, and standardized event contracts across billing + inventory. Authored 8 RFCs adopted org-wide; mentored 12 engineers through tech leads group.',
+            guidanceNotes: {
+                summary: 'Name blast radius: how many teams/services consumed your decisions.',
+                experience: 'Separate “owned” vs “influenced” scope; cite exec/product partners.',
+                skills: 'Depth in one domain (payments, data plane) beats a shallow laundry list.',
+            },
+            skills: [
+                { category: 'Architecture', items: ['Domain modeling', 'Event-driven design', 'API governance', 'SLO programs'] },
+                { category: 'Stack', items: ['Java', 'Kotlin', 'Kafka', 'PostgreSQL', 'Kubernetes', 'gRPC'] },
+                { category: 'Leadership', items: ['RFC process', 'Incident review', 'Tech talks', 'Hiring loop design'] },
+            ],
+            experience: [{
+                title: 'Staff Software Engineer',
+                company: 'LedgerNorth',
+                location: 'San Francisco, CA',
+                startDate: 'April 2020',
+                endDate: 'Present',
+                bullets: [
+                    'Chaired architecture council for order-to-cash; deprecated 3 duplicate services saving $400K/year infra',
+                    'Introduced canary + automated rollback tied to business KPIs; cut revenue-impacting deploys from 4/year to 0',
+                    'Partnered with PM/Design on pricing experiments; shipped feature flags + guardrailed 18 A/B tests safely',
+                ],
+            }],
+            projects: [{
+                name: 'Org-wide tracing rollout',
+                description: 'OpenTelemetry SDK + collector fleet; adoption from 40% to 98% of services in 2 quarters.',
+                technologies: ['OpenTelemetry', 'Kubernetes', 'Grafana Tempo'],
+            }],
+            education: [{
+                degree: 'M.S. Computer Science',
+                school: 'UC Berkeley',
+                location: 'Berkeley, CA',
+                graduationDate: '2015',
+            }],
+            certifications: [],
+        },
+    },
+    {
+        metadata: {
+            template_id: 'sre-mid-001',
+            role: 'Site Reliability Engineer',
+            experience_level: 'Mid',
+            ats_success_rate: 0.93,
+            template_name: 'SRE — Error budgets, incidents & production culture',
+            ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
+            description: 'SRE story distinct from DevOps: toil reduction, blameless postmortems, and SLO/error-budget policy.',
+            tags: ['trending'],
+        },
+        content: {
+            personalInfo: {
+                name: 'Dana Frost',
+                email: 'dana.frost@email.com',
+                phone: '+1-303-555-0442',
+                location: 'Denver, CO',
+                linkedin: 'linkedin.com/in/danafrost-sre',
+                github: 'github.com/dfrost',
+            },
+            summary: 'SRE with 4 years running production for a payments adjacency stack. Owned error budgets for 12 services, cut MTTR 35% via runbook automation, and drove game days that fixed 9 latent failover gaps. Strong in Prometheus, Kubernetes, and Go tooling.',
+            guidanceNotes: {
+                summary: 'Lead with reliability metrics users feel: latency, availability, incident count.',
+                experience: 'Show one major incident you turned into durable guardrails.',
+                skills: 'Pair observability tools with process (postmortems, SLO reviews).',
+            },
+            skills: [
+                { category: 'Reliability', items: ['SLO/SLI design', 'Error budgets', 'Incident command', 'Toil budgets'] },
+                { category: 'Platform', items: ['Kubernetes', 'Terraform', 'Go', 'Python', 'Service mesh basics'] },
+                { category: 'Observability', items: ['Prometheus', 'Grafana', 'Loki', 'PagerDuty', 'Chaos engineering'] },
+            ],
+            experience: [{
+                title: 'Site Reliability Engineer',
+                company: 'Payline',
+                location: 'Denver, CO',
+                startDate: 'March 2021',
+                endDate: 'Present',
+                bullets: [
+                    'Defined SLOs + multi-window burn alerts; stopped 6 noisy pages/week while catching real regressions faster',
+                    'Built self-service deploy freeze dashboard tied to budget burn; reduced risky Friday deploys 80%',
+                    'Automated failover drills for regional Postgres; validated RTO under exec-approved targets',
+                ],
+            }],
+            projects: [{
+                name: 'Incident analytics',
+                description: 'Warehouse of incident timelines + MTTR drivers; monthly review with engineering directors.',
+                technologies: ['BigQuery', 'dbt', 'Python', 'Looker'],
+            }],
+            education: [{
+                degree: 'B.S. Computer Engineering',
+                school: 'Colorado School of Mines',
+                location: 'Golden, CO',
+                graduationDate: '2019',
+            }],
+            certifications: ['CKA'],
+        },
+    },
+    {
+        metadata: {
+            template_id: 'ml-platform-mid-001',
+            role: 'Machine Learning Engineer',
+            experience_level: 'Mid',
+            ats_success_rate: 0.92,
+            template_name: 'ML Platform — Features, registries & batch/online parity',
+            ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
+            description: 'Platform MLE: feature pipelines, store contracts, and safe promotion—not only model training.',
+            tags: ['trending'],
+        },
+        content: {
+            personalInfo: {
+                name: 'Hiro Tanaka',
+                email: 'hiro.tanaka@email.com',
+                phone: '+1-425-555-0881',
+                location: 'Bellevue, WA',
+                linkedin: 'linkedin.com/in/hirotanaka-ml',
+                github: 'github.com/htanaka',
+            },
+            summary: 'ML platform engineer enabling 20+ DS/MLE users: built Feast-backed online store, unified batch/stream feature DAGs in Airflow, and CI gates for schema drift. Cut feature delivery time from 3 weeks to 4 days for standard entities.',
+            guidanceNotes: {
+                summary: 'Quantify platform adoption: teams, features served, incidents prevented.',
+                experience: 'Separate training from serving and data quality contracts.',
+                skills: 'Name the feature store / orchestration you actually operated.',
+            },
+            skills: [
+                { category: 'Platform', items: ['Feast', 'Airflow', 'Spark', 'Kafka', 'Great Expectations'] },
+                { category: 'Serving', items: ['Triton', 'gRPC', 'Kubernetes', 'Redis', 'Model registry'] },
+                { category: 'Languages', items: ['Python', 'SQL', 'Go'] },
+            ],
+            experience: [{
+                title: 'Machine Learning Platform Engineer',
+                company: 'Nimbus Retail',
+                location: 'Bellevue, WA',
+                startDate: 'January 2022',
+                endDate: 'Present',
+                bullets: [
+                    'Shipped feature CI: breaking schema changes blocked before merge; cut prod feature outages 70%',
+                    'Built shadow scoring path for new models; required sign-off from platform + risk before traffic flip',
+                    'Migrated 40 batch features to streaming where SLA demanded; documented fallback to batch for DR',
+                ],
+            }],
+            projects: [{
+                name: 'Entity lineage UI',
+                description: 'Trace from warehouse column → feature → model endpoint for auditors.',
+                technologies: ['React', 'OpenLineage', 'PostgreSQL'],
+            }],
+            education: [{
+                degree: 'M.S. Computer Science',
+                school: 'University of Washington',
+                location: 'Seattle, WA',
+                graduationDate: '2020',
+            }],
+            certifications: [],
+        },
+    },
+    {
+        metadata: {
+            template_id: 'product-eng-mid-001',
+            role: 'Software Engineer',
+            experience_level: 'Mid',
+            ats_success_rate: 0.93,
+            template_name: 'Product engineer — Experiments, metrics & full-stack delivery',
+            ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
+            description: 'Product-minded SWE: A/B tests, funnel metrics, and shipping with PM/design in tight loops.',
+            tags: ['trending'],
+        },
+        content: {
+            personalInfo: {
+                name: 'Alexis Morales',
+                email: 'alexis.morales@email.com',
+                phone: '+1-646-555-0320',
+                location: 'New York, NY',
+                linkedin: 'linkedin.com/in/alexismorales-pe',
+                github: 'github.com/amorales',
+            },
+            summary: 'Product engineer shipping growth surfaces: instrumented activation funnel, ran 22 experiments in 12 months (+14% signup→paid), and partnered with analytics on causal readouts. Stack: React, Node, PostgreSQL, Statsig.',
+            guidanceNotes: {
+                summary: 'Tie code to experiment IDs or metric deltas PMs recognize.',
+                experience: 'Show tradeoffs when experiments conflict with tech debt.',
+                skills: 'List experimentation + analytics tools you used in prod.',
+            },
+            skills: [
+                { category: 'Product', items: ['A/B testing', 'Funnel analysis', 'Feature flags', 'Cohort reporting'] },
+                { category: 'Engineering', items: ['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'GraphQL'] },
+                { category: 'Analytics', items: ['Amplitude', 'dbt', 'SQL', 'Looker'] },
+            ],
+            experience: [{
+                title: 'Software Engineer (Product)',
+                company: 'Brightlift',
+                location: 'New York, NY',
+                startDate: 'June 2021',
+                endDate: 'Present',
+                bullets: [
+                    'Owned onboarding redesign; 4 iterations with PM via weekly experiment readouts; +9% activation',
+                    'Built guardrailed flag system preventing mutually exclusive tests on same surface',
+                    'Reduced client bundle 18% after Core Web Vitals regression caught in CI',
+                ],
+            }],
+            projects: [{
+                name: 'Experiment health dashboard',
+                description: 'Auto-detect underpowered tests and conflicting exposures.',
+                technologies: ['React', 'Python', 'PostgreSQL'],
+            }],
+            education: [{
+                degree: 'B.S. Computer Science',
+                school: 'Columbia University',
+                location: 'New York, NY',
+                graduationDate: '2019',
+            }],
+            certifications: [],
+        },
+    },
+    {
+        metadata: {
+            template_id: 'security-appsec-mid-001',
+            role: 'Security Engineer',
+            experience_level: 'Mid',
+            ats_success_rate: 0.92,
+            template_name: 'AppSec engineer — SDL, reviews & cloud controls',
+            ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
+            description: 'Dedicated AppSec track: threat modeling, secure SDLC gates, and cloud control validation.',
+            tags: ['trending'],
+        },
+        content: {
+            personalInfo: {
+                name: 'Jordan Blake',
+                email: 'jordan.blake@email.com',
+                phone: '+1-703-555-0199',
+                location: 'Arlington, VA',
+                linkedin: 'linkedin.com/in/jordanblake-appsec',
+                github: 'github.com/jblake',
+            },
+            summary: 'Application security engineer partnering with 15 product teams: STRIDE threat models for major releases, SAST/DAST in CI with risk-ranked triage, and AWS org guardrails (SCPs, IAM boundaries). Reduced critical findings pre-prod by 40% YoY.',
+            guidanceNotes: {
+                summary: 'Show how you scaled security without blocking shipping.',
+                experience: 'Cite one vuln class you eliminated systematically.',
+                skills: 'Balance offensive basics with policy-as-code.',
+            },
+            skills: [
+                { category: 'AppSec', items: ['Threat modeling', 'SAST/DAST', 'OWASP ASVS', 'Secure code review'] },
+                { category: 'Cloud', items: ['AWS Organizations', 'SCPs', 'KMS', 'WAF', 'Secrets management'] },
+                { category: 'Automation', items: ['Python', 'Okta/OIDC', 'GitHub Advanced Security', 'Defectdojo'] },
+            ],
+            experience: [{
+                title: 'Application Security Engineer',
+                company: 'GovCloud SaaS',
+                location: 'Arlington, VA',
+                startDate: 'August 2021',
+                endDate: 'Present',
+                bullets: [
+                    'Rolled out mandatory security checklist in PR templates; cut repeated XSS patterns 60%',
+                    'Built IaC policy pack (Checkov + custom rules); blocked 200+ risky changes pre-merge',
+                    'Ran quarterly pen-test remediation program with SLA dashboard for exec sponsors',
+                ],
+            }],
+            projects: [{
+                name: 'Dependency risk scoring',
+                description: 'Composite score from EPSS + reachability analysis; fed into sprint planning.',
+                technologies: ['Python', 'OSV', 'GitHub API'],
+            }],
+            education: [{
+                degree: 'B.S. Cybersecurity',
+                school: 'George Mason University',
+                location: 'Fairfax, VA',
+                graduationDate: '2019',
+            }],
+            certifications: ['OSCP'],
+        },
+    },
+    {
+        metadata: {
+            template_id: 'analytics-eng-mid-001',
+            role: 'Analytics Engineer',
+            experience_level: 'Mid',
+            ats_success_rate: 0.94,
+            template_name: 'Analytics engineer — dbt, warehouse & trusted metrics',
+            ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
+            description: 'Modern analytics stack: dbt marts, data contracts, and self-serve metrics layers.',
+            tags: ['trending'],
+        },
+        content: {
+            personalInfo: {
+                name: 'Casey Nguyen',
+                email: 'casey.nguyen@email.com',
+                phone: '+1-312-555-0277',
+                location: 'Chicago, IL',
+                linkedin: 'linkedin.com/in/caseynguyen-ae',
+                github: 'github.com/cnguyen',
+            },
+            summary: 'Analytics engineer owning the metrics layer for revenue teams: 120+ dbt models with tests, semantic layer in Looker, and SLA monitors on freshness. Cut “single source of truth” disputes by publishing certified metric definitions.',
+            guidanceNotes: {
+                summary: 'Highlight governance: tests, docs, owners per metric.',
+                experience: 'Show a dashboard that changed a decision.',
+                skills: 'Warehouse + transform + BI, not only SQL.',
+            },
+            skills: [
+                { category: 'Transform', items: ['dbt', 'SQL', 'Data contracts', 'Unit tests on models'] },
+                { category: 'Warehouse', items: ['Snowflake', 'BigQuery', 'Airflow', 'Fivetran'] },
+                { category: 'BI', items: ['Looker', 'Metric flow', 'Git for analytics'] },
+            ],
+            experience: [{
+                title: 'Analytics Engineer',
+                company: 'UrbanCart',
+                location: 'Chicago, IL',
+                startDate: 'May 2022',
+                endDate: 'Present',
+                bullets: [
+                    'Built revenue mart adopted by FP&A; replaced 6 spreadsheet workflows',
+                    'Added anomaly detection on daily GMV; caught pricing bug in <24h',
+                    'Mentored 3 analysts on dbt + CI; review time dropped 30%',
+                ],
+            }],
+            projects: [{
+                name: 'Metric catalog',
+                description: 'dbt docs + ownership tags + approval workflow for breaking changes.',
+                technologies: ['dbt', 'Snowflake', 'Python'],
+            }],
+            education: [{
+                degree: 'B.S. Information Systems',
+                school: 'UIUC',
+                location: 'Urbana, IL',
+                graduationDate: '2020',
+            }],
+            certifications: [],
+        },
+    },
+    {
+        metadata: {
+            template_id: 'mobile-rn-mid-001',
+            role: 'Mobile Developer',
+            experience_level: 'Mid',
+            ats_success_rate: 0.92,
+            template_name: 'Mobile — React Native, native bridges & release trains',
+            ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
+            description: 'Cross-platform mobile: performance, OTA updates, and disciplined store releases.',
+            tags: ['trending'],
+        },
+        content: {
+            personalInfo: {
+                name: 'Taylor Brooks',
+                email: 'taylor.brooks@email.com',
+                phone: '+1-404-555-0610',
+                location: 'Atlanta, GA',
+                linkedin: 'linkedin.com/in/taylorbrooks-rn',
+                github: 'github.com/tbrooks',
+            },
+            summary: 'React Native engineer for consumer fintech app (4M+ installs): cut cold start 28%, shipped native payment module bridge, and stabilized weekly release train with phased rollouts + crash budget gates.',
+            guidanceNotes: {
+                summary: 'Mobile hiring wants startup time, crash rate, and store review anecdotes.',
+                experience: 'Mention CodePush/OTA only if you operated it safely.',
+                skills: 'List one native module you integrated.',
+            },
+            skills: [
+                { category: 'Mobile', items: ['React Native', 'TypeScript', 'Reanimated', 'Flipper', 'Fastlane'] },
+                { category: 'Native', items: ['Swift (modules)', 'Kotlin basics', 'Push notifications', 'Keychain'] },
+                { category: 'Quality', items: ['Detox', 'Jest', 'Sentry', 'Firebase Crashlytics'] },
+            ],
+            experience: [{
+                title: 'Mobile Engineer',
+                company: 'PocketLedger',
+                location: 'Atlanta, GA',
+                startDate: 'February 2021',
+                endDate: 'Present',
+                bullets: [
+                    'Refactored navigation to native-stack; dropped ANR rate 0.7% → 0.2%',
+                    'Built feature flag client with offline-safe defaults; supported 3 country-specific rollouts',
+                    'Partnered with iOS/Android reviewers; average review turnaround 1.2 days',
+                ],
+            }],
+            projects: [{
+                name: 'Performance budget CI',
+                description: 'Bundle size + TTI budgets on PR with trace artifacts.',
+                technologies: ['React Native', 'GitHub Actions', 'Flashlight'],
+            }],
+            education: [{
+                degree: 'B.S. Computer Science',
+                school: 'Georgia Tech',
+                location: 'Atlanta, GA',
+                graduationDate: '2018',
+            }],
+            certifications: [],
+        },
+    },
+    {
+        metadata: {
+            template_id: 'data-platform-senior-001',
+            role: 'Data Engineer',
+            experience_level: 'Senior',
+            ats_success_rate: 0.94,
+            template_name: 'Data platform — Lakehouse, streaming & cost-aware compute',
+            ats_compatibility: ['taleo', 'workday', 'greenhouse', 'icims'],
+            description: 'Senior data platform: Iceberg/Delta patterns, streaming joins, and FinOps for big batches.',
+            tags: ['trending'],
+        },
+        content: {
+            personalInfo: {
+                name: 'Rebecca Osei',
+                email: 'rebecca.osei@email.com',
+                phone: '+1-214-555-0505',
+                location: 'Dallas, TX',
+                linkedin: 'linkedin.com/in/rebeccaosei-data',
+                github: 'github.com/rosei',
+            },
+            summary: 'Senior data engineer on lakehouse platform serving analytics + ML: unified Iceberg tables, Flink streaming dedupe, and autoscaling Spark with spot + shuffle tuning. Reduced monthly warehouse bill 21% without SLA misses.',
+            guidanceNotes: {
+                summary: 'Lead with scale: TB/day, partitions, and cost moves.',
+                experience: 'Separate batch vs streaming paths honestly.',
+                skills: 'Modern table formats + orchestration beat vague “big data”.',
+            },
+            skills: [
+                { category: 'Lakehouse', items: ['Apache Iceberg', 'Spark', 'Flink', 'Kafka', 'Delta (read)'] },
+                { category: 'Orchestration', items: ['Airflow', 'Dagster', 'dbt for curated marts'] },
+                { category: 'Cloud', items: ['AWS EMR', 'S3', 'Glue', 'Athena', 'IAM data perimeters'] },
+            ],
+            experience: [{
+                title: 'Senior Data Engineer',
+                company: 'StreamMart',
+                location: 'Dallas, TX',
+                startDate: 'March 2019',
+                endDate: 'Present',
+                bullets: [
+                    'Designed compaction + snapshot retention policy; query costs down 30% on historical scans',
+                    'Built exactly-once Flink job for clickstream → ODS; late data window tuned with legal hold reqs',
+                    'Created chargeback dashboards per domain; drove 15% drop in ad-hoc mega queries',
+                ],
+            }],
+            projects: [{
+                name: 'Data mesh lite',
+                description: 'Domain-owned datasets with global discovery + SLA registry.',
+                technologies: ['DataHub', 'Iceberg', 'Python'],
+            }],
+            education: [{
+                degree: 'M.S. Data Science',
+                school: 'SMU',
+                location: 'Dallas, TX',
+                graduationDate: '2018',
+            }],
+            certifications: ['AWS Data Analytics – Specialty'],
+        },
+    },
 ];
 
 // ============================================================================

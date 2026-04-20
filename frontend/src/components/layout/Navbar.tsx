@@ -6,8 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 const navLinks = [
     { path: '/', label: 'Home', icon: 'home' },
     { path: '/analysis', label: 'Analyze', icon: 'auto_awesome' },
-    { path: '/templates', label: 'Templates', icon: 'grid_view' },
     { path: '/resume-fix-lab', label: 'Match & Fix', icon: 'edit_note' },
+    { path: '/templates', label: 'Templates', icon: 'grid_view' },
     // { path: '/github', label: 'GitHub', icon: 'code' },
     // { path: '/pricing', label: 'Pricing', icon: 'payments' },
 ];
@@ -62,21 +62,19 @@ export const Navbar = () => {
                         </div>
                     )}
 
-                    {/* Right actions */}
-                    <div className="flex items-center gap-3">
-                        <Link to="/analysis" className="btn-primary py-2 px-5 text-sm">
-                            Run Analysis
-                        </Link>
-                        {!isDesktop && (
+                    {/* Mobile menu toggle — desktop uses pill nav only (no duplicate Analyze / Match & Fix CTAs) */}
+                    {!isDesktop && (
+                        <div className="flex items-center justify-end">
                             <button
+                                type="button"
                                 className="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-border-subtle bg-white text-text-main cursor-pointer hover:bg-bg-muted transition-colors"
                                 onClick={() => setOpen((v) => !v)}
                                 aria-label="Toggle menu"
                             >
                                 <MaterialIcon icon={open ? 'close' : 'menu'} size={24} />
                             </button>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
             </div>
 

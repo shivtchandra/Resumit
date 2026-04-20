@@ -25,6 +25,7 @@ export const Templates = () => {
     const [selectedATS, setSelectedATS] = useState<string[]>([]);
     const [sortBy, setSortBy] = useState<SortMode>('recommended');
     const [preset, setPreset] = useState<'none' | 'entry' | 'mid' | 'senior'>('none');
+    const [trendingOnly, setTrendingOnly] = useState(false);
 
     const [previewTemplate, setPreviewTemplate] = useState<ResumeTemplate | null>(null);
 
@@ -66,8 +67,10 @@ export const Templates = () => {
             const matchesATS =
                 selectedATS.length === 0 ||
                 selectedATS.some((vendor) => template.metadata.ats_compatibility.includes(vendor));
+            const matchesTrending =
+                !trendingOnly || (template.metadata.tags?.includes('trending') ?? false);
 
-            return matchesSearch && matchesRole && matchesLevel && matchesATS;
+            return matchesSearch && matchesRole && matchesLevel && matchesATS && matchesTrending;
         });
 
         if (sortBy === 'name_asc') {
@@ -82,10 +85,11 @@ export const Templates = () => {
             }
             return a.metadata.template_name.localeCompare(b.metadata.template_name);
         });
-    }, [templates, searchQuery, selectedRole, selectedLevel, selectedATS, sortBy]);
+    }, [templates, searchQuery, selectedRole, selectedLevel, selectedATS, sortBy, trendingOnly]);
 
     const applyPreset = (value: 'entry' | 'mid' | 'senior') => {
         setPreset(value);
+        setTrendingOnly(false);
         if (value === 'entry') {
             setSelectedLevel('Entry');
             setSortBy('recommended');
@@ -107,10 +111,12 @@ export const Templates = () => {
         setSelectedATS([]);
         setSortBy('recommended');
         setPreset('none');
+        setTrendingOnly(false);
     };
 
     const toggleATS = (vendor: string) => {
         setPreset('none');
+        setTrendingOnly(false);
         setSelectedATS((prev) =>
             prev.includes(vendor) ? prev.filter((item) => item !== vendor) : [...prev, vendor]
         );
@@ -255,10 +261,24 @@ export const Templates = () => {
                             {/* Role Chips */}
                             <div className="flex flex-wrap gap-2 pb-2 border-b border-dashed border-border-subtle">
                                 <span className="text-[10px] font-bold text-text-subtle uppercase tracking-widest w-full mb-1">Target Cluster</span>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setPreset('none');
+                                        setTrendingOnly((v) => !v);
+                                    }}
+                                    className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all flex items-center gap-1.5 ${trendingOnly
+                                        ? 'bg-amber-500 text-white border-amber-500 shadow-md'
+                                        : 'bg-white text-text-muted border-border-subtle hover:border-amber-400/60'
+                                        }`}
+                                >
+                                    <TrendingUp size={14} aria-hidden />
+                                    Trending stacks
+                                </button>
                                 {roleOptions.map((role) => (
                                     <button
                                         key={role}
-                                        onClick={() => { setPreset('none'); setSelectedRole(role); }}
+                                        onClick={() => { setPreset('none'); setTrendingOnly(false); setSelectedRole(role); }}
                                         className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all ${selectedRole === role
                                             ? 'bg-brand-primary text-white border-brand-primary shadow-glow-cyan'
                                             : 'bg-white text-text-muted border-border-subtle hover:border-brand-primary/50'
@@ -277,7 +297,7 @@ export const Templates = () => {
                                     </span>
                                     <div className="flex flex-wrap gap-2">
                                         <button
-                                            onClick={() => { setPreset('none'); setSelectedLevel('all'); }}
+                                            onClick={() => { setPreset('none'); setTrendingOnly(false); setSelectedLevel('all'); }}
                                             className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all ${selectedLevel === 'all'
                                                 ? 'bg-brand-secondary text-white border-brand-secondary'
                                                 : 'bg-white text-text-muted border-border-subtle hover:border-brand-primary/50'
@@ -288,7 +308,7 @@ export const Templates = () => {
                                         {LEVEL_OPTIONS.map((level) => (
                                             <button
                                                 key={level}
-                                                onClick={() => { setPreset('none'); setSelectedLevel(level); }}
+                                                onClick={() => { setPreset('none'); setTrendingOnly(false); setSelectedLevel(level); }}
                                                 className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all ${selectedLevel === level
                                                     ? 'bg-brand-secondary text-white border-brand-secondary'
                                                     : 'bg-white text-text-muted border-border-subtle hover:border-brand-primary/50'
@@ -385,6 +405,7 @@ export const Templates = () => {
                                             ats_compatibility: template.metadata.ats_compatibility,
                                             ats_success_rate: template.metadata.ats_success_rate,
                                             description: template.metadata.description,
+                                            tags: template.metadata.tags,
                                         }}
                                         onPreview={(id) => {
                                             const chosen = templates.find((item) => item.metadata.template_id === id);

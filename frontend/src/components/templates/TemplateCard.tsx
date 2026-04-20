@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ExternalLink, PenSquare, Check, Sparkles, ShieldCheck } from 'lucide-react';
+import { ExternalLink, PenSquare, Check, ShieldCheck, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
@@ -13,6 +13,7 @@ interface TemplateCardProps {
         ats_success_rate: number;
         description?: string;
         preview_image_url?: string;
+        tags?: string[];
     };
     onSelect?: (templateId: string) => void;
     onPreview?: (templateId: string) => void;
@@ -55,7 +56,13 @@ export const TemplateCard = ({ template, onSelect, onPreview }: TemplateCardProp
                 )}
 
                 {/* Float Badges */}
-                <div className="absolute top-3 right-3">
+                <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5">
+                    {template.tags?.includes('trending') && (
+                        <div className="px-2.5 py-1 rounded-full bg-amber-500 text-white text-[10px] font-black items-center gap-1 shadow-lg flex">
+                            <TrendingUp size={10} className="text-white" aria-hidden />
+                            Trending
+                        </div>
+                    )}
                     <div className="px-2.5 py-1 rounded-full bg-brand-secondary text-white text-[10px] font-black items-center gap-1 shadow-lg flex">
                         <ShieldCheck size={10} className="text-brand-primary" />
                         {Math.round(template.ats_success_rate * 100)}% ATS

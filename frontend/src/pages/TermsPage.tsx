@@ -173,7 +173,7 @@ export const TermsPage = () => {
 
                 <Section title="16. Contact">
                     <p>
-                        For legal questions, contact: <a className="text-brand-primary font-semibold no-underline hover:underline" href="mailto:shivachandra9490@gmail.com">shivachandra9490@gmail.com</a>
+                        For legal questions, contact: <a className="text-brand-primary font-semibold no-underline hover:underline" href="mailto:tekkdevv@gmail.com">tekkdevv@gmail.com</a>
                     </p>
                 </Section>
 
