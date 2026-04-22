@@ -3995,6 +3995,50 @@ def _offline_templates(role: Optional[str], target_ats: str) -> list[dict]:
     return filtered
 
 
+def _extract_http_urls_from_plain_text(text: str, limit: int = 40) -> list:
+    """Harvest http(s) URLs from plain-text resumes (legacy / extension .txt uploads)."""
+    urls = []
+    seen = set()
+    for m in re.finditer(r"https?://[^\s<>\)\"']+", text or ""):
+        u = m.group(0).rstrip(".,);")
+        if u and u not in seen:
+            seen.add(u)
+            urls.append(u)
+        if len(urls) >= limit:
+            break
+    return urls
+
+
+def _parsing_result_from_txt(content: bytes) -> dict:
+    """
+    Build the same parsing_result shape as PDFParser for .txt uploads.
+    Used by older clients that POST resume.txt instead of a PDF.
+    """
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError:
+        text = content.decode("latin-1", errors="replace")
+    text = text.replace("\r\n", "\n").strip()
+    if len(text) < 20:
+        raise ValueError("Resume text is too short or empty.")
+    urls = _extract_http_urls_from_plain_text(text)
+    pipe_lines = [ln for ln in text.split("\n") if ln.count("|") > 1]
+    return {
+        "raw_text": text,
+        "visual_text": text,
+        "is_image_based": False,
+        "z_order_diff_score": 0.0,
+        "floating_object_count": 0,
+        "page_count": 1,
+        "file_size_bytes": len(content),
+        "has_tables": len(pipe_lines) > 3,
+        "table_count": 0,
+        "has_multi_column": False,
+        "extracted_urls": urls,
+        "images": [],
+    }
+
+
 async def _run_full_analysis_logic(
     job_id: str,
     content: bytes,
@@ -4020,8 +4064,10 @@ async def _run_full_analysis_logic(
             parsing_result = await run_in_threadpool(pdf_parser.parse, content)
         elif fn_lower.endswith(".docx"):
             parsing_result = await run_in_threadpool(docx_parser.parse, content)
+        elif fn_lower.endswith(".txt"):
+            parsing_result = _parsing_result_from_txt(content)
         else:
-            raise ValueError("Unsupported file format. Please upload PDF or DOCX.")
+            raise ValueError("Unsupported file format. Please upload PDF, DOCX, or TXT.")
 
         if "error" in parsing_result:
             raise ValueError(parsing_result["error"])
@@ -4535,8 +4581,13 @@ async def full_analysis(
     original_filename = file.filename or "resume"
 
     fn_lower = original_filename.lower()
-    if not (fn_lower.endswith(".pdf") or fn_lower.endswith(".docx")):
-        raise HTTPException(status_code=400, detail="Unsupported file format. Please upload PDF or DOCX.")
+    if not (fn_lower.endswith(".pdf") or fn_lower.endswith(".docx") or fn_lower.endswith(".txt")):
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file format. Please upload PDF, DOCX, or plain-text (.txt).",
+        )
+    if fn_lower.endswith(".txt") and len(content.strip()) < 20:
+        raise HTTPException(status_code=400, detail="Resume text is too short.")
 
     job_id = str(uuid.uuid4())
     _jobs[job_id] = {"status": "pending", "result": None, "error": None, "created_at": time.monotonic()}
