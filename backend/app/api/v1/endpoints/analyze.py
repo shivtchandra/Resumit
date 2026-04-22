@@ -4509,6 +4509,7 @@ async def _run_full_analysis_logic(
             _jobs[job_id]["error"] = str(e)
 
 
+@router.post("/analyze", include_in_schema=False)
 @router.post("/analyze/full")
 async def full_analysis(
     background_tasks: BackgroundTasks,

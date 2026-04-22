@@ -157,25 +157,77 @@ function extractJDFromPage() {
   return candidates[0]?.innerText?.trim() ?? null;
 }
 
-// ── Analysis ────────────────────────────────────────────────────────────────
+// ── Analysis (must match backend: POST /analyze/full + poll /analyze/status) ─
+function resumeTextToMinimalPdfBlob(resumeText) {
+  const escaped = String(resumeText || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)');
+  const snippet = escaped.substring(0, 2000);
+  const pdfContent = `%PDF-1.4
+1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
+2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
+3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj
+4 0 obj<</Length ${snippet.length + 50}>>
+stream
+BT /F1 11 Tf 50 750 Td
+(${snippet}) Tj
+ET
+endstream
+endobj
+5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj
+xref
+0 6
+trailer<</Size 6/Root 1 0 R>>
+startxref
+%%EOF`;
+  return new Blob([pdfContent], { type: 'application/pdf' });
+}
+
 async function handleAnalyze({ resumeText, jobDescription, token }, sendResponse) {
   try {
+    const api = getApiBase();
+    const pdfBlob = resumeTextToMinimalPdfBlob(resumeText);
     const formData = new FormData();
-    // Pass resume as text blob
-    const blob = new Blob([resumeText], { type: 'text/plain' });
-    formData.append('file', blob, 'resume.txt');
-    formData.append('job_description', jobDescription);
-    formData.append('source', 'extension');
+    formData.append('file', pdfBlob, 'resume.pdf');
+    formData.append('job_description', jobDescription || '');
+    formData.append('analysis_mode', 'jd_or_general');
+    formData.append('feedback_tone', 'brutal');
 
-    const res = await fetch(`${getApiBase()}/api/v1/analyze`, {
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const submitRes = await fetch(`${api}/api/v1/analyze/full`, {
       method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers,
       body: formData,
     });
+    if (!submitRes.ok) {
+      const errBody = await submitRes.text();
+      throw new Error(`Submit failed: ${submitRes.status} ${errBody.slice(0, 180)}`);
+    }
+    const { job_id: jobId } = await submitRes.json();
+    if (!jobId) throw new Error('No job ID returned');
 
-    if (!res.ok) throw new Error(`API error ${res.status}`);
-    const data = await res.json();
-    sendResponse({ ok: true, data });
+    const pollHeaders = { ...headers, 'Content-Type': 'application/json' };
+    const start = Date.now();
+    const MAX_WAIT_MS = 120000;
+    const POLL_MS = 3000;
+
+    while (Date.now() - start < MAX_WAIT_MS) {
+      await new Promise((r) => setTimeout(r, POLL_MS));
+      const statusRes = await fetch(`${api}/api/v1/analyze/status/${jobId}`, {
+        headers: pollHeaders,
+      });
+      if (!statusRes.ok) throw new Error(`Status check failed: ${statusRes.status}`);
+      const statusData = await statusRes.json();
+      if (statusData.status === 'done') {
+        sendResponse({ ok: true, data: statusData.result });
+        return;
+      }
+      if (statusData.status === 'error') {
+        throw new Error(statusData.error || 'Analysis failed');
+      }
+    }
+    throw new Error('Analysis timed out after 2 minutes');
   } catch (e) {
     sendResponse({ ok: false, error: e.message });
   }
