@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 env_path = Path(__file__).resolve().parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
-from app.api.v1.endpoints import analyze, rewrite, templates, export, github, settings
+from app.api.v1.endpoints import analyze, rewrite, templates, export, github, settings, users, questions
 from app.core.supabase_client import get_analysis_count
 
 app = FastAPI(title="ATS Emulator V2 API")
@@ -72,6 +72,8 @@ app.include_router(templates.router, prefix="/api/v1", tags=["templates"])
 app.include_router(export.router, prefix="/api/v1", tags=["export"])
 app.include_router(github.router, prefix="/api/v1", tags=["github"])
 app.include_router(settings.router, prefix="/api/v1", tags=["settings"])
+app.include_router(users.router, prefix="/api/v1", tags=["users"])
+app.include_router(questions.router, prefix="/api/v1", tags=["questions"])
 
 @app.get("/")
 @app.head("/")

@@ -1,0 +1,76 @@
+{
+  "manifest_version": 3,
+  "name": "Resumit — AI Resume Copilot",
+  "short_name": "Resumit",
+  "version": "1.0.0",
+  "description": "Analyze any job posting against your stored resume in seconds. Auto-fill job applications with one click.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "activeTab",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://*.linkedin.com/*",
+    "https://*.indeed.com/*",
+    "https://*.greenhouse.io/*",
+    "https://*.lever.co/*",
+    "https://*.workday.com/*",
+    "https://*.myworkdayjobs.com/*",
+    "https://*.wellfound.com/*",
+    "https://*.angel.co/*",
+    "https://*.ashbyhq.com/*",
+    "https://*.workable.com/*",
+    "https://*.careers-page.com/*",
+    "https://resumit.onrender.com/*",
+    "http://localhost:8000/*",
+    "https://oywyyboztsshmojqzcsf.supabase.co/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.linkedin.com/jobs/*",
+        "https://*.indeed.com/viewjob*",
+        "https://*.indeed.com/job/*",
+        "https://*.greenhouse.io/jobs/*",
+        "https://*.boards.greenhouse.io/*",
+        "https://*.lever.co/*",
+        "https://*.workday.com/*",
+        "https://*.myworkdayjobs.com/*",
+        "https://*.wellfound.com/jobs*",
+        "https://*.angel.co/jobs*",
+        "https://*.jobs.ashbyhq.com/*",
+        "https://*.apply.workable.com/*",
+        "https://*/*"
+      ],
+      "js": ["content-scripts/jd-scraper.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*/*", "http://*/*"],
+      "js": ["content-scripts/autofill/universal.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "side_panel": {
+    "default_path": "sidepanel/index.html"
+  },
+  "action": {
+    "default_title": "Open Resumit",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png"
+    }
+  }
+}
