@@ -16,3 +16,6 @@ backend/outputs/
 *.resolved.0
 
 .DS_Store
+
+.env
+**/.env
