@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { Landing } from './pages/Landing';
 import { Templates } from './pages/Templates';
@@ -33,6 +34,7 @@ function App() {
                 </Routes>
                 <TekDevBadge fixed />
             </BrowserRouter>
+            <Analytics />
         </ErrorBoundary>
     );
 }
